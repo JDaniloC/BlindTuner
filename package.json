@@ -1,0 +1,8 @@
+{
+  "name": "blind-tuner",
+  "version": "1.0.0",
+  "description": "You're blinding and you need to learn to guide yourself with musical notes",
+  "main": "index.js",
+  "repository": "https://github.com/JDaniloC/BlindTuner",
+  "license": "MIT"
+}
