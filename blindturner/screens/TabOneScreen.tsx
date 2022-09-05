@@ -1,15 +1,30 @@
-import { StyleSheet } from 'react-native';
+import { Button, StyleSheet, TouchableOpacity } from 'react-native';
 
-import EditScreenInfo from '../components/EditScreenInfo';
 import { Text, View } from '../components/Themed';
 import { RootTabScreenProps } from '../types';
 
+import * as Tone from 'tone'
+import React from 'react';
+import { useEffect } from 'react';
+
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
+  const [value, setValue] = React.useState(110);
+  const synth = new Tone.Synth().toDestination();
+
+  useEffect(() => {
+    const now = Tone.now()
+    synth.triggerAttackRelease(value, '8n', now);
+  }, [value]);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
+      <Text style={styles.title}>
+        ToneJS testing
+      </Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="/screens/TabOneScreen.tsx" />
+      <Text>{value}</Text>
+      <input type="range" value={value} min={110} max={1661.21} step={1}
+          onChange={(evt) => {setValue(parseInt(evt.target.value))}}/>
     </View>
   );
 }
