@@ -1,12 +1,14 @@
 import { StyleSheet } from 'react-native';
 
+import React, { useEffect, useState, useMemo } from 'react';
 import { Text, View } from '../components/Themed';
 import { RootTabScreenProps } from '../types';
+import debounce from "lodash.debounce";
+import throttle from 'lodash.throttle';
 
-import * as Tone from 'tone'
-import React, { useEffect, useState } from 'react';
+import * as Tone from 'tone';
 
-const baseURL = "https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/cello/"
+const baseURL = "https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/cello"
 const notes = {
   60: new Tone.Buffer(`${baseURL}/C4.mp3`),
   61: new Tone.Buffer(`${baseURL}/Cs4.mp3`),
@@ -20,6 +22,7 @@ const notes = {
   69: new Tone.Buffer(`${baseURL}/A4.mp3`),
   71: new Tone.Buffer(`${baseURL}/B4.mp3`),
 }
+
 const frequencies = {
  "C4":  262, 
  "Cs4": 277,
@@ -33,18 +36,39 @@ const frequencies = {
  "A4":  440,
  "B4":  494 
 }
-let interval: NodeJS.Timeout;
+
+const sampler = new Tone.Sampler({
+  urls: notes, release: 1
+}).toDestination();
+
+let playingInterval: NodeJS.Timeout;
+let goalNoteInterval: NodeJS.Timeout;
+let globalFreq = 0;
 
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
   const [frequency, setFrequency] = useState(262);
   const [goalNote, setGoalNote] = useState("A4");
   const [goalFreq, setGoalFreq] = useState(440);
   const [score, setScore] = useState(0);
-  
-  const sampler = new Tone.Sampler({
-    urls: notes,
-    release: 2,
-  }).toDestination();
+
+  const playDebouncedNote = useMemo(() => {
+    return debounce(() =>  
+      playingInterval = setInterval(() => {
+        console.log("Playing", globalFreq)
+        sampler.triggerAttackRelease(globalFreq, "1n");
+      }, 1000),
+    700);
+  }, []);
+
+  const playNoteThrottled = useMemo(() => {
+    return throttle((freq: number) => {
+      sampler.triggerAttackRelease(freq, "2n");
+    }, 1000);
+  }, []);  
+
+  function clearPlayingInterval() {
+    clearInterval(playingInterval);
+  } 
 
   function startChangeNoteInterval() {
     function changeNote() {
@@ -56,8 +80,8 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
     }
     changeNote();
 
-    clearInterval(interval);
-    interval = setInterval(() => {
+    clearInterval(goalNoteInterval);
+    goalNoteInterval = setInterval(() => {
       changeNote();
     }, 1000 * 10);
   }
@@ -65,10 +89,12 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
   function handleFrequencyChange(evt: any) {
     const newFreq = evt.target.value;
     setFrequency(parseInt(newFreq))
-    sampler.triggerAttackRelease(newFreq, '8n');
-    sampler.triggerRelease()
+    globalFreq = parseInt(newFreq);
+    playNoteThrottled(parseInt(newFreq));
+    clearPlayingInterval();
+    playDebouncedNote();
   }
-  
+
   useEffect(() => {
     if (frequency === goalFreq) {
       setScore(prevScore => prevScore + 1);
@@ -86,10 +112,11 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
         Find {goalNote}! You're with {score} points!
       </Text>
       <View style={styles.separator} lightColor="#eee"
-            darkColor="rgba(255,255,255,0.1)" />
+            darkColor="rgba(255,255,255,0.4)" />
       <Text>{frequency}</Text>
-      <input type="range" value={frequency} min={262} max={494} step={1}
-          onChange={handleFrequencyChange}/>
+      <input type="range" value={frequency} min={262} max={494}
+             step={1} onChange={handleFrequencyChange}
+             onMouseUp={clearPlayingInterval}/>
     </View>
   );
 }
