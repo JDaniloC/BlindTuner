@@ -4,7 +4,7 @@ import { Text, View } from '../components/Themed';
 import { RootTabScreenProps } from '../types';
 
 import * as Tone from 'tone'
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const baseURL = "https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/cello/"
 const notes = {
@@ -21,40 +21,75 @@ const notes = {
   71: new Tone.Buffer(`${baseURL}/B4.mp3`),
 }
 const frequencies = {
-  262: "C4.mp3",
-  277: "Cs4.mp3",
-  294: "D4.mp3",
-  311: "Ds4.mp3",
-  330: "E4.mp3",
-  349: "F4.mp3",
-  370: "Fs4.mp3",
-  392: "G4.mp3",
-  415: "Gs4.mp3",
-  440: "A4.mp3",
-  494: "B4.mp3",
+ "C4":  262, 
+ "Cs4": 277,
+ "D4":  294,
+ "Ds4": 311,
+ "E4":  330,
+ "F4":  349,
+ "Fs4": 370,
+ "G4":  392,
+ "Gs4": 415,
+ "A4":  440,
+ "B4":  494 
 }
+let interval: NodeJS.Timeout;
 
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
-  const [value, setValue] = React.useState(262);
+  const [frequency, setFrequency] = useState(262);
+  const [goalNote, setGoalNote] = useState("A4");
+  const [goalFreq, setGoalFreq] = useState(440);
+  const [score, setScore] = useState(0);
   
   const sampler = new Tone.Sampler({
-          urls: notes,
-          release: 2,
-      }).toDestination();
+    urls: notes,
+    release: 2,
+  }).toDestination();
+
+  function startChangeNoteInterval() {
+    function changeNote() {
+      const freqArray = Object.entries(frequencies);
+      const length = freqArray.length;
+      const choice = Math.floor(Math.random() * length);
+      setGoalFreq(freqArray[choice][1]);
+      setGoalNote(freqArray[choice][0]);
+    }
+    changeNote();
+
+    clearInterval(interval);
+    interval = setInterval(() => {
+      changeNote();
+    }, 1000 * 10);
+  }
+
+  function handleFrequencyChange(evt: any) {
+    const newFreq = evt.target.value;
+    setFrequency(parseInt(newFreq))
+    sampler.triggerAttackRelease(newFreq, '8n');
+    sampler.triggerRelease()
+  }
+  
+  useEffect(() => {
+    if (frequency === goalFreq) {
+      setScore(prevScore => prevScore + 1);
+      startChangeNoteInterval();
+    }
+  }, [frequency, goalFreq]);
+
+  useEffect(() => {
+   startChangeNoteInterval();
+  }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        ToneJS testing
+        Find {goalNote}! You're with {score} points!
       </Text>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.1)" />
-      <Text>{value}</Text>
-      <input type="range" value={value} min={262} max={494} step={1}
-          onChange={(evt) => {
-            setValue(parseInt(evt.target.value))
-            sampler.triggerAttackRelease(evt.target.value, '8n');
-          }}/>
+      <Text>{frequency}</Text>
+      <input type="range" value={frequency} min={262} max={494} step={1}
+          onChange={handleFrequencyChange}/>
     </View>
   );
 }
