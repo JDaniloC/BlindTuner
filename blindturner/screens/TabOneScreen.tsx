@@ -3,10 +3,13 @@ import { StyleSheet } from 'react-native';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Text, View } from '../components/Themed';
 import { RootTabScreenProps } from '../types';
+import Frequencies from '../constants/Frequencies';
+
 import debounce from "lodash.debounce";
 import throttle from 'lodash.throttle';
 
 import * as Tone from 'tone';
+import getEstimatedScore from '../utils/score_function';
 
 const baseURL = "https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/cello"
 const notes = {
@@ -23,41 +26,33 @@ const notes = {
   71: new Tone.Buffer(`${baseURL}/B4.mp3`),
 }
 
-const frequencies = {
- "C4":  262, 
- "Cs4": 277,
- "D4":  294,
- "Ds4": 311,
- "E4":  330,
- "F4":  349,
- "Fs4": 370,
- "G4":  392,
- "Gs4": 415,
- "A4":  440,
- "B4":  494 
-}
-
 const sampler = new Tone.Sampler({
   urls: notes, release: 1
 }).toDestination();
 
-let playingInterval: NodeJS.Timeout;
+// To be accessed by interval functions
 let goalNoteInterval: NodeJS.Timeout;
-let globalFreq = 0;
+let playingInterval: NodeJS.Timeout;
+let isPressing: boolean = false;
 
-export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
-  const [frequency, setFrequency] = useState(262);
+let frequency = 0;
+let goalFreq = 0;
+
+export default function TabOneScreen(
+  { navigation }: RootTabScreenProps<'TabOne'>
+) {
   const [goalNote, setGoalNote] = useState("A4");
-  const [goalFreq, setGoalFreq] = useState(440);
+  const [freqState, setFreqState] = useState(0);
   const [score, setScore] = useState(0);
 
   const playDebouncedNote = useMemo(() => {
-    return debounce(() =>  
+    return debounce(() =>  {
+      clearInterval(playingInterval);
+      if (!isPressing) return;
       playingInterval = setInterval(() => {
-        console.log("Playing", globalFreq)
-        sampler.triggerAttackRelease(globalFreq, "1n");
-      }, 1000),
-    700);
+        sampler.triggerAttackRelease(frequency, "1n");
+      }, 1000);
+    }, 700);
   }, []);
 
   const playNoteThrottled = useMemo(() => {
@@ -66,41 +61,51 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
     }, 1000);
   }, []);  
 
-  function clearPlayingInterval() {
+  function startPlaying() {
+    isPressing = true;
+  }
+  function releasePlaying() {
+    isPressing = false;
     clearInterval(playingInterval);
   } 
 
   function startChangeNoteInterval() {
     function changeNote() {
-      const freqArray = Object.entries(frequencies);
+      const freqArray = Object.entries(Frequencies);
       const length = freqArray.length;
       const choice = Math.floor(Math.random() * length);
-      setGoalFreq(freqArray[choice][1]);
       setGoalNote(freqArray[choice][0]);
+      goalFreq = freqArray[choice][1];
     }
     changeNote();
 
     clearInterval(goalNoteInterval);
     goalNoteInterval = setInterval(() => {
+      const estimatedScore = getEstimatedScore(
+        frequency, goalFreq, Object.values(Frequencies));
+      setScore(prevScore => prevScore + estimatedScore);
       changeNote();
     }, 1000 * 10);
   }
 
+  function setFrequency(newValue: number) {
+    frequency = newValue;
+    setFreqState(newValue);
+  }
+
   function handleFrequencyChange(evt: any) {
     const newFreq = evt.target.value;
-    setFrequency(parseInt(newFreq))
-    globalFreq = parseInt(newFreq);
     playNoteThrottled(parseInt(newFreq));
-    clearPlayingInterval();
+    setFrequency(parseInt(newFreq));
     playDebouncedNote();
   }
 
   useEffect(() => {
-    if (frequency === goalFreq) {
-      setScore(prevScore => prevScore + 1);
+    if (freqState === goalFreq) {
+      setScore(prevScore => prevScore + 100);
       startChangeNoteInterval();
     }
-  }, [frequency, goalFreq]);
+  }, [freqState, goalFreq]);
 
   useEffect(() => {
    startChangeNoteInterval();
@@ -113,10 +118,12 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
       </Text>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
-      <Text>{frequency}</Text>
-      <input type="range" value={frequency} min={262} max={494}
-             step={1} onChange={handleFrequencyChange}
-             onMouseUp={clearPlayingInterval}/>
+      <Text>{freqState}</Text>
+      <input type="range" value={freqState} 
+             onChange={handleFrequencyChange}
+             min={262} max={494} step={1}
+             onMouseDown={startPlaying}
+             onMouseUp={releasePlaying}/>
     </View>
   );
 }
