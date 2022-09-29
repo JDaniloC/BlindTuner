@@ -1,14 +1,14 @@
-import { StyleSheet } from 'react-native';
-
-import React, { useEffect, useState, useMemo } from 'react';
-import { Text, View } from '../components/Themed';
-import { RootTabScreenProps } from '../types';
-import Frequencies from '../constants/Frequencies';
+import React, { useEffect, useMemo } from 'react';
+import useState from 'react-usestateref'
 
 import debounce from "lodash.debounce";
 import throttle from 'lodash.throttle';
-
 import * as Tone from 'tone';
+
+import { StyleSheet } from 'react-native';
+import { RootTabScreenProps } from '../types';
+import { Text, View } from '../components/Themed';
+import Frequencies from '../constants/Frequencies';
 import getEstimatedScore from '../utils/score_function';
 
 const baseURL = "https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/cello"
@@ -30,27 +30,27 @@ const sampler = new Tone.Sampler({
   urls: notes, release: 1
 }).toDestination();
 
-// To be accessed by interval functions
+// To be rendered only once
 let goalNoteInterval: NodeJS.Timeout;
 let playingInterval: NodeJS.Timeout;
-let isPressing: boolean = false;
-
-let frequency = 0;
-let goalFreq = 0;
 
 export default function TabOneScreen(
   { navigation }: RootTabScreenProps<'TabOne'>
 ) {
+  const [frequency, setFrequency, frequencyRef] = useState(0);
+  const [goalFreq, setGoalFreq, goalFreqRef] = useState(440);
+  const [_, setIsPressing, pressingRef] = useState(false);
   const [goalNote, setGoalNote] = useState("A4");
-  const [freqState, setFreqState] = useState(0);
   const [score, setScore] = useState(0);
 
   const playDebouncedNote = useMemo(() => {
     return debounce(() =>  {
       clearInterval(playingInterval);
-      if (!isPressing) return;
+      if (!pressingRef.current) return;
+
       playingInterval = setInterval(() => {
-        sampler.triggerAttackRelease(frequency, "1n");
+        const currentFreq = frequencyRef.current;
+        sampler.triggerAttackRelease(currentFreq, "1n");
       }, 1000);
     }, 700);
   }, []);
@@ -62,11 +62,10 @@ export default function TabOneScreen(
   }, []);  
 
   function startPlaying() {
-    isPressing = true;
+    setIsPressing(true);
   }
   function releasePlaying() {
-    isPressing = false;
-    clearInterval(playingInterval);
+    setIsPressing(false);
   } 
 
   function startChangeNoteInterval() {
@@ -75,22 +74,20 @@ export default function TabOneScreen(
       const length = freqArray.length;
       const choice = Math.floor(Math.random() * length);
       setGoalNote(freqArray[choice][0]);
-      goalFreq = freqArray[choice][1];
+      setGoalFreq(freqArray[choice][1]);
     }
     changeNote();
 
     clearInterval(goalNoteInterval);
     goalNoteInterval = setInterval(() => {
+      const currentFreq = frequencyRef.current;
+      const currentGoal = goalFreqRef.current;
+      const frequencyList = Object.values(Frequencies);
       const estimatedScore = getEstimatedScore(
-        frequency, goalFreq, Object.values(Frequencies));
+        currentFreq, currentGoal, frequencyList);
       setScore(prevScore => prevScore + estimatedScore);
       changeNote();
     }, 1000 * 10);
-  }
-
-  function setFrequency(newValue: number) {
-    frequency = newValue;
-    setFreqState(newValue);
   }
 
   function handleFrequencyChange(evt: any) {
@@ -101,11 +98,11 @@ export default function TabOneScreen(
   }
 
   useEffect(() => {
-    if (freqState === goalFreq) {
+    if (frequency === goalFreq) {
       setScore(prevScore => prevScore + 100);
       startChangeNoteInterval();
     }
-  }, [freqState, goalFreq]);
+  }, [frequency, goalFreq]);
 
   useEffect(() => {
    startChangeNoteInterval();
@@ -118,8 +115,8 @@ export default function TabOneScreen(
       </Text>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
-      <Text>{freqState}</Text>
-      <input type="range" value={freqState} 
+      <Text>{frequency}</Text>
+      <input type="range" value={frequency} 
              onChange={handleFrequencyChange}
              min={262} max={494} step={1}
              onMouseDown={startPlaying}
