@@ -34,6 +34,7 @@
     "react-native-screens": "~3.15.0",
     "react-native-svg": "12.3.0",
     "react-native-web": "~0.18.7",
+    "react-usestateref": "^1.0.8",
     "tone": "^14.7.77"
   },
   "devDependencies": {
