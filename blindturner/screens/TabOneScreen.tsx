@@ -4,13 +4,14 @@ import useState from 'react-usestateref'
 import debounce from "lodash.debounce";
 import throttle from 'lodash.throttle';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Image } from 'react-native';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
 import sampler from '../utils/tonejsSampler';
 import Frequencies from '../constants/Frequencies';
 import getEstimatedScore from '../utils/scoreFunction';
+import { up } from '../assets/images/character';
 
 // To be rendered only once
 let goalNoteInterval: NodeJS.Timeout;
@@ -95,6 +96,8 @@ export default function TabOneScreen(
       <Text style={styles.title}>
         Find {goalNote}! You're with {score} points!
       </Text>
+      <Image source={up} style ={{ width: '240px', height: '285px'}}/>
+
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
       <Text>{frequency}</Text>
