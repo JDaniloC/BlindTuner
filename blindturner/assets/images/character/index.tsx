@@ -5,7 +5,7 @@ import left from './left.png';
 import rightBack from './right_back.png';
 import rightFront from './right_front.png';
 import right from './right.png';
-import up from './up.png';
+import front from './front.png';
 
 export {
   back,
@@ -14,6 +14,6 @@ export {
   leftFront,
   right,
   rightBack,
-  up,
+  front,
   rightFront
 }
