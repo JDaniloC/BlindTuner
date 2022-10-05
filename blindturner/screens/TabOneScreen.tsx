@@ -4,13 +4,15 @@ import useState from 'react-usestateref'
 import debounce from "lodash.debounce";
 import throttle from 'lodash.throttle';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Image } from 'react-native';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
 import sampler from '../utils/tonejsSampler';
-import Frequencies from '../constants/Frequencies';
+import { back } from '../assets/images/character';
 import getEstimatedScore from '../utils/scoreFunction';
+import { frequencyNames, frequencyValues } from '../constants/Frequencies';
+import ImageFunction from '../utils/ImageFunction';
 
 // To be rendered only once
 let goalNoteInterval: NodeJS.Timeout;
@@ -24,6 +26,7 @@ export default function TabOneScreen(
   const [_, setIsPressing, pressingRef] = useState(false);
   const [goalNote, setGoalNote] = useState("A4");
   const [score, setScore] = useState(0);
+  const [imagePath, setImagePath] = useState(back);
 
   const playDebouncedNote = useMemo(() => {
     return debounce(() =>  {
@@ -52,7 +55,7 @@ export default function TabOneScreen(
 
   function startChangeNoteInterval() {
     function changeNote() {
-      const freqArray = Object.entries(Frequencies);
+      const freqArray = Object.entries(frequencyNames);
       const length = freqArray.length;
       const choice = Math.floor(Math.random() * length);
       setGoalNote(freqArray[choice][0]);
@@ -64,9 +67,8 @@ export default function TabOneScreen(
     goalNoteInterval = setInterval(() => {
       const currentFreq = frequencyRef.current;
       const currentGoal = goalFreqRef.current;
-      const frequencyList = Object.values(Frequencies);
       const estimatedScore = getEstimatedScore(
-        currentFreq, currentGoal, frequencyList);
+        currentFreq, currentGoal, frequencyValues);
       setScore(prevScore => prevScore + estimatedScore);
       changeNote();
     }, 1000 * 10);
@@ -74,6 +76,7 @@ export default function TabOneScreen(
 
   function handleFrequencyChange(evt: any) {
     const newFreq = evt.target.value;
+    setImagePath(ImageFunction(newFreq));
     playNoteThrottled(parseInt(newFreq));
     setFrequency(parseInt(newFreq));
     playDebouncedNote();
@@ -95,14 +98,18 @@ export default function TabOneScreen(
       <Text style={styles.title}>
         Find {goalNote}! You're with {score} points!
       </Text>
+      <Image source={imagePath} style ={{ width: '110px', height: '130px'}}/>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
       <Text>{frequency}</Text>
-      <input type="range" value={frequency} 
-             onChange={handleFrequencyChange}
-             min={262} max={494} step={1}
-             onMouseDown={startPlaying}
-             onMouseUp={releasePlaying}/>
+      <input
+        type="range"
+        value={frequency} 
+        onChange={handleFrequencyChange}
+        min={262} max={494} step={1}
+        onMouseDown={startPlaying}
+        onMouseUp={releasePlaying}
+      />
     </View>
   );
 }
