@@ -11,7 +11,7 @@ import { Text, View } from '../components/Themed';
 import sampler from '../utils/tonejsSampler';
 import Frequencies from '../constants/Frequencies';
 import getEstimatedScore from '../utils/scoreFunction';
-import { up } from '../assets/images/character';
+import { leftFront, left, leftBack, back, rightBack, right, rightFront, up } from '../assets/images/character';
 
 // To be rendered only once
 let goalNoteInterval: NodeJS.Timeout;
@@ -25,6 +25,7 @@ export default function TabOneScreen(
   const [_, setIsPressing, pressingRef] = useState(false);
   const [goalNote, setGoalNote] = useState("A4");
   const [score, setScore] = useState(0);
+  const [imagePath, setImagePath] = useState(leftFront);
 
   const playDebouncedNote = useMemo(() => {
     return debounce(() =>  {
@@ -77,6 +78,7 @@ export default function TabOneScreen(
     const newFreq = evt.target.value;
     playNoteThrottled(parseInt(newFreq));
     setFrequency(parseInt(newFreq));
+    getImage(newFreq - 262);
     playDebouncedNote();
   }
 
@@ -91,21 +93,31 @@ export default function TabOneScreen(
    startChangeNoteInterval();
   }, []);
 
+  const getImage = (coord: number) => {
+    const IMAGE_INTERVAL = 29;
+    const imagesArray = [leftFront, left, leftBack, back, rightBack, right, rightFront, up];
+    const getIndex = Math.floor(coord / IMAGE_INTERVAL) % imagesArray.length;
+
+    setImagePath(imagesArray[getIndex]);
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
         Find {goalNote}! You're with {score} points!
       </Text>
-      <Image source={up} style ={{ width: '240px', height: '285px'}}/>
-
+      <Image source={imagePath} style ={{ width: '110px', height: '130px'}}/>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
       <Text>{frequency}</Text>
-      <input type="range" value={frequency} 
-             onChange={handleFrequencyChange}
-             min={262} max={494} step={1}
-             onMouseDown={startPlaying}
-             onMouseUp={releasePlaying}/>
+      <input
+        type="range"
+        value={frequency} 
+        onChange={handleFrequencyChange}
+        min={262} max={494} step={1}
+        onMouseDown={startPlaying}
+        onMouseUp={releasePlaying}
+      />
     </View>
   );
 }
