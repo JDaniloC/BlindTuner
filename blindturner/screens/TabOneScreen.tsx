@@ -1,18 +1,26 @@
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  NativeScrollEvent
+} from 'react-native';
+import { NativeSyntheticEvent } from 'react-native';
 import React, { useEffect, useMemo } from 'react';
 import useState from 'react-usestateref'
 
-import debounce from "lodash.debounce";
 import throttle from 'lodash.throttle';
 
-import { StyleSheet, Image } from 'react-native';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
-import sampler from '../utils/tonejsSampler';
-import { back } from '../assets/images/character';
-import getEstimatedScore from '../utils/scoreFunction';
 import { frequencyNames, frequencyValues } from '../constants/Frequencies';
+import getEstimatedScore from '../utils/scoreFunction';
 import ImageFunction from '../utils/ImageFunction';
+import sampler from '../utils/tonejsSampler';
+
+import { back } from '../assets/images/character';
+import Direction from '../components/Direction';
 
 // To be rendered only once
 let goalNoteInterval: NodeJS.Timeout;
@@ -21,24 +29,12 @@ let playingInterval: NodeJS.Timeout;
 export default function TabOneScreen(
   { navigation }: RootTabScreenProps<'TabOne'>
 ) {
-  const [frequency, setFrequency, frequencyRef] = useState(0);
+  const [frequency, setFrequency, frequencyRef] = useState(262);
   const [goalFreq, setGoalFreq, goalFreqRef] = useState(440);
-  const [_, setIsPressing, pressingRef] = useState(false);
   const [goalNote, setGoalNote] = useState("A4");
   const [score, setScore] = useState(0);
   const [imagePath, setImagePath] = useState(back);
-
-  const playDebouncedNote = useMemo(() => {
-    return debounce(() =>  {
-      clearInterval(playingInterval);
-      if (!pressingRef.current) return;
-
-      playingInterval = setInterval(() => {
-        const currentFreq = frequencyRef.current;
-        sampler.triggerAttackRelease(currentFreq, "1n");
-      }, 1000);
-    }, 700);
-  }, []);
+  const [direction, setDirection] = useState("up");
 
   const playNoteThrottled = useMemo(() => {
     return throttle((freq: number) => {
@@ -46,11 +42,17 @@ export default function TabOneScreen(
     }, 1000);
   }, []);  
 
-  function startPlaying() {
-    setIsPressing(true);
+  function handleOnPress() {
+    playNoteThrottled(frequency);
   }
-  function releasePlaying() {
-    setIsPressing(false);
+  function handleLongPress() {
+    playNoteThrottled(frequency);
+    playingInterval = setInterval(() => {
+      sampler.triggerAttackRelease(frequency, "1n");
+    }, 900);
+  }
+  function handleOnRelease() {
+    clearInterval(playingInterval);
   } 
 
   function startChangeNoteInterval() {
@@ -74,13 +76,27 @@ export default function TabOneScreen(
     }, 1000 * 10);
   }
 
-  function handleFrequencyChange(evt: any) {
-    const newFreq = evt.target.value;
-    setImagePath(ImageFunction(newFreq));
-    playNoteThrottled(parseInt(newFreq));
-    setFrequency(parseInt(newFreq));
-    playDebouncedNote();
+  function handleFrequencyChange(newFrequency: number) {
+    if (newFrequency > frequency
+        && direction !== "up") {
+      setDirection("up");
+    } else if (newFrequency < frequency
+               && direction !== "down") {
+      setDirection("down");
+    }
+    setImagePath(ImageFunction(newFrequency));
+    playNoteThrottled(newFrequency);
+    setFrequency(newFrequency);
   }
+
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { y } = event.nativeEvent.contentOffset;
+    const maxRange = 494 - 262;
+    const percentage = y / 1000;
+    const normalized = percentage * maxRange;
+    const newFreq = Math.floor(normalized) + 262;
+    handleFrequencyChange(newFreq);
+  };
 
   useEffect(() => {
     if (frequency === goalFreq) {
@@ -98,18 +114,36 @@ export default function TabOneScreen(
       <Text style={styles.title}>
         Find {goalNote}! You're with {score} points!
       </Text>
-      <Image source={imagePath} style ={{ width: '110px', height: '130px'}}/>
+      <Image source={imagePath} style={styles.image}/>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
       <Text>{frequency}</Text>
-      <input
-        type="range"
-        value={frequency} 
-        onChange={handleFrequencyChange}
-        min={262} max={494} step={1}
-        onMouseDown={startPlaying}
-        onMouseUp={releasePlaying}
-      />
+      <View style={{flex: 1, width: "100%"}}>
+        <Direction 
+          color={"white"}
+          style={styles.overlayImage}
+          down={direction}
+        />
+        <ScrollView
+          onScroll={handleScroll}
+          scrollEventThrottle={1} 
+          style={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollViewContainer}
+        >
+          <Pressable
+            style={styles.scrollItem}
+            delayLongPress={900}
+            onPressIn={handleOnPress}
+            onPressOut={handleOnRelease}
+            onLongPress={handleLongPress}
+          >
+            <Text style={styles.scrollItem}>
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -129,4 +163,29 @@ const styles = StyleSheet.create({
     height: 1,
     width: '80%',
   },
+  scrollContainer: {
+    cursor: "grab",
+    width: "100%",
+    maxHeight: "100%",
+  },
+  scrollViewContainer: {
+    width: "100%",
+    height: "calc(100% + 1000px)",
+  },
+  scrollItem: {
+    width: "100%",
+    height: "100%",
+  },
+  image: {
+    width: '110px',
+    height: '130px',
+    stroke: 'white'
+  },
+  overlayImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  }
 });
