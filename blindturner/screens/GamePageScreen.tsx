@@ -27,8 +27,8 @@ const timeToScore = 30;
 let playingInterval: NodeJS.Timeout;
 let countdownTimeout: NodeJS.Timeout;
 
-export default function TabOneScreen(
-  { navigation }: RootTabScreenProps<'TabOne'>
+export default function GamePage(
+  { navigation }: RootTabScreenProps<'GamePage'>
 ) {
   const [animation, _] = useState(new Animated.Value(0))
   const [frequency, setFrequency, freqRef] = useState(262);
