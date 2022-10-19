@@ -43,6 +43,7 @@ function Direction({ color, down, style }: DirectionProps) {
 
 const styles = StyleSheet.create({
     rowContainer: {
+        overflow: "hidden",
         width: "100%",
         display: 'flex',
         flexDirection: 'column',

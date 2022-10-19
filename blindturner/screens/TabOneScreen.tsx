@@ -3,7 +3,8 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  NativeScrollEvent
+  NativeScrollEvent,
+  Animated
 } from 'react-native';
 import { NativeSyntheticEvent } from 'react-native';
 import React, { useEffect, useMemo } from 'react';
@@ -14,33 +15,79 @@ import throttle from 'lodash.throttle';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
-import { frequencyNames, frequencyValues } from '../constants/Frequencies';
-import getEstimatedScore from '../utils/scoreFunction';
 import ImageFunction from '../utils/ImageFunction';
 import sampler from '../utils/tonejsSampler';
 
 import { back } from '../assets/images/character';
 import Direction from '../components/Direction';
+import { InfoHeader } from '../components/InfoHeader';
 
 // To be rendered only once
-let goalNoteInterval: NodeJS.Timeout;
+const timeToScore = 30;
 let playingInterval: NodeJS.Timeout;
+let countdownTimeout: NodeJS.Timeout;
 
 export default function TabOneScreen(
   { navigation }: RootTabScreenProps<'TabOne'>
 ) {
-  const [frequency, setFrequency, frequencyRef] = useState(262);
-  const [goalFreq, setGoalFreq, goalFreqRef] = useState(440);
-  const [goalNote, setGoalNote] = useState("A4");
-  const [score, setScore] = useState(0);
+  const [animation, _] = useState(new Animated.Value(0))
+  const [frequency, setFrequency, freqRef] = useState(262);
   const [imagePath, setImagePath] = useState(back);
   const [direction, setDirection] = useState("up");
+  const [time, setTime, timeRef] = useState(0);
+
+  function startAnimation() {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animation, {
+          toValue: 100,
+          duration: 50,
+          useNativeDriver: true
+        }),
+        Animated.spring(animation, {
+          toValue: 0,
+          speed: 50,
+          useNativeDriver: true
+        })
+      ])
+    ).start();
+  }
+
+  useEffect(() => {
+    if (time > 0) {
+      if (time === 10) {
+        startAnimation();
+      }
+      clearTimeout(countdownTimeout);
+      countdownTimeout = setTimeout(() => {
+        setTime(time - 1);
+      }, 1000)
+    }
+  }, [time])
+
+  const animatedStyles = {
+    jumpCharacter: {
+      transform: [
+        {
+          translateY: animation.interpolate({
+            inputRange: [0, 100],
+            outputRange: [0, -10]
+          })
+        }
+      ]
+    }
+  }
 
   const playNoteThrottled = useMemo(() => {
     return throttle((freq: number) => {
       sampler.triggerAttackRelease(freq, "2n");
     }, 1000);
   }, []);  
+
+  function resetTime() {
+    setTime(timeToScore);
+    animation.stopAnimation();
+  }
 
   function handleOnPress() {
     playNoteThrottled(frequency);
@@ -54,27 +101,6 @@ export default function TabOneScreen(
   function handleOnRelease() {
     clearInterval(playingInterval);
   } 
-
-  function startChangeNoteInterval() {
-    function changeNote() {
-      const freqArray = Object.entries(frequencyNames);
-      const length = freqArray.length;
-      const choice = Math.floor(Math.random() * length);
-      setGoalNote(freqArray[choice][0]);
-      setGoalFreq(freqArray[choice][1]);
-    }
-    changeNote();
-
-    clearInterval(goalNoteInterval);
-    goalNoteInterval = setInterval(() => {
-      const currentFreq = frequencyRef.current;
-      const currentGoal = goalFreqRef.current;
-      const estimatedScore = getEstimatedScore(
-        currentFreq, currentGoal, frequencyValues);
-      setScore(prevScore => prevScore + estimatedScore);
-      changeNote();
-    }, 1000 * 10);
-  }
 
   function handleFrequencyChange(newFrequency: number) {
     if (newFrequency > frequency
@@ -98,26 +124,18 @@ export default function TabOneScreen(
     handleFrequencyChange(newFreq);
   };
 
-  useEffect(() => {
-    if (frequency === goalFreq) {
-      setScore(prevScore => prevScore + 100);
-      startChangeNoteInterval();
-    }
-  }, [frequency, goalFreq]);
-
-  useEffect(() => {
-   startChangeNoteInterval();
-  }, []);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Find {goalNote}! You're with {score} points!
-      </Text>
-      <Image source={imagePath} style={styles.image}/>
+      <InfoHeader
+        limitTime={timeToScore}
+        frequencyRef={freqRef}
+        resetTime={resetTime}
+        timeRef={timeRef}
+      />
+      <Animated.Image source={imagePath} style={[
+        styles.image, animatedStyles.jumpCharacter]}/>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
-      <Text>{frequency}</Text>
       <View style={{flex: 1, width: "100%"}}>
         <Direction 
           color={"white"}
@@ -154,18 +172,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
   separator: {
     marginVertical: 30,
     height: 1,
     width: '80%',
   },
   scrollContainer: {
-    cursor: "grab",
     width: "100%",
+    cursor: "grab",
     maxHeight: "100%",
   },
   scrollViewContainer: {
