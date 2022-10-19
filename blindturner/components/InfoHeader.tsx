@@ -6,18 +6,27 @@ import { frequencyNames, frequencyValues } from '../constants/Frequencies';
 import getEstimatedScore from '../utils/scoreFunction';
 
 import { Text, View } from './Themed';
+import { preset5 } from '../constants/NoteColors';
 
 interface InfoHeaderProps {
   frequencyRef: React.MutableRefObject<number>;
+  timeRef: React.MutableRefObject<number>;
+  resetTime: () => void;
+  limitTime: number;
 }
 
 let goalNoteInterval: NodeJS.Timeout;
 
-export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
+export function InfoHeader({
+  frequencyRef, timeRef, limitTime, resetTime
+}: InfoHeaderProps) {
   const [animation, _] = useState(new Animated.Value(0))
   const [scoreEarned, setScoreEarned] = useState(0);
   const [score, setScore] = useState(0);
+
   const [noteName, setNoteName] = useState("A4");
+  const [goalColor, setGoalColor] = useState("black");
+  const [freqColor, setFreqColor] = useState("black");
   const [goalFreq, setGoalFreq, goalFreqRef] = useState(440); 
 
   const animatedStyles = {
@@ -56,9 +65,15 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
     function changeNote() {
       const freqArray = Object.entries(frequencyNames);
       const length = freqArray.length;
-      const choice = Math.floor(Math.random() * length);
+      let choice = Math.floor(Math.random() * length);
+      while (freqArray[choice][1] === goalFreq) {
+        choice = Math.floor(Math.random() * length);
+      }
+      const color = Object.values(preset5)[choice];
       setNoteName(freqArray[choice][0]);
       setGoalFreq(freqArray[choice][1]);
+      setGoalColor(color);
+      resetTime();
     }
     changeNote();
 
@@ -73,8 +88,22 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
         startScoreAnimation(estimatedScore);
       }
       changeNote();
-    }, 1000 * 10);
+    }, 1000 * limitTime);
   }
+  
+  function handleFrequencyColor() {
+    const length = frequencyValues.length;
+    for (let index = 0; index < length; index++) {
+      const frequency = frequencyValues[index];
+      if (frequencyRef.current <= frequency) {
+        const colors = Object.values(preset5);
+        setFreqColor(colors[index]);
+        break
+      }
+    }
+  }
+
+  
 
   useEffect(() => {
    startChangeNoteInterval();
@@ -86,11 +115,14 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
       startChangeNoteInterval();
       startScoreAnimation(100);
     }
+    handleFrequencyColor();
   }, [frequencyRef.current, goalFreq]);
 
   return (
     <View style={styles.container}>
-      <View style={styles.textBox}>
+      <View style={[styles.textBox, {
+        backgroundColor: freqColor
+      }]}>
         <Text style={styles.font}>
           {frequencyRef.current} Hz
         </Text>
@@ -98,7 +130,9 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
           Frequência atual
         </Text>
       </View>
-      <View style={styles.textBox}>
+      <View style={[styles.textBox, {
+        backgroundColor: goalColor,
+      }]}>
         <Text style={styles.font}>
           {noteName} {goalFreq} Hz
         </Text>
@@ -120,6 +154,14 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
           +{scoreEarned}
         </Animated.Text>
       </View>
+      <View style={styles.textBox}>
+        <Text style={styles.font}>
+          {timeRef.current} sec
+        </Text>
+        <Text style={styles.subTitle}>
+          Tempo
+        </Text>
+      </View>
     </View>
   );
 }
@@ -127,6 +169,8 @@ export function InfoHeader({ frequencyRef }: InfoHeaderProps) {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    marginTop: "1em",
+    marginBottom: "1em",
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -138,7 +182,9 @@ const styles = StyleSheet.create({
     fontSize: 30,
   },
   textBox: {
+    padding: "1em",
     display: 'flex',
+    borderRadius: 4,
     alignItems: 'center',
     flexDirection: 'column',
   },
