@@ -6,7 +6,7 @@ import {
   NativeScrollEvent
 } from 'react-native';
 import { NativeSyntheticEvent } from 'react-native';
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import useState from 'react-usestateref'
 
 import throttle from 'lodash.throttle';
@@ -14,25 +14,20 @@ import throttle from 'lodash.throttle';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
-import { frequencyNames, frequencyValues } from '../constants/Frequencies';
-import getEstimatedScore from '../utils/scoreFunction';
 import ImageFunction from '../utils/ImageFunction';
 import sampler from '../utils/tonejsSampler';
 
 import { back } from '../assets/images/character';
 import Direction from '../components/Direction';
+import { InfoHeader } from '../components/InfoHeader';
 
 // To be rendered only once
-let goalNoteInterval: NodeJS.Timeout;
 let playingInterval: NodeJS.Timeout;
 
 export default function TabOneScreen(
   { navigation }: RootTabScreenProps<'TabOne'>
 ) {
-  const [frequency, setFrequency, frequencyRef] = useState(262);
-  const [goalFreq, setGoalFreq, goalFreqRef] = useState(440);
-  const [goalNote, setGoalNote] = useState("A4");
-  const [score, setScore] = useState(0);
+  const [frequency, setFrequency, freqRef] = useState(262);
   const [imagePath, setImagePath] = useState(back);
   const [direction, setDirection] = useState("up");
 
@@ -54,27 +49,6 @@ export default function TabOneScreen(
   function handleOnRelease() {
     clearInterval(playingInterval);
   } 
-
-  function startChangeNoteInterval() {
-    function changeNote() {
-      const freqArray = Object.entries(frequencyNames);
-      const length = freqArray.length;
-      const choice = Math.floor(Math.random() * length);
-      setGoalNote(freqArray[choice][0]);
-      setGoalFreq(freqArray[choice][1]);
-    }
-    changeNote();
-
-    clearInterval(goalNoteInterval);
-    goalNoteInterval = setInterval(() => {
-      const currentFreq = frequencyRef.current;
-      const currentGoal = goalFreqRef.current;
-      const estimatedScore = getEstimatedScore(
-        currentFreq, currentGoal, frequencyValues);
-      setScore(prevScore => prevScore + estimatedScore);
-      changeNote();
-    }, 1000 * 10);
-  }
 
   function handleFrequencyChange(newFrequency: number) {
     if (newFrequency > frequency
@@ -98,26 +72,12 @@ export default function TabOneScreen(
     handleFrequencyChange(newFreq);
   };
 
-  useEffect(() => {
-    if (frequency === goalFreq) {
-      setScore(prevScore => prevScore + 100);
-      startChangeNoteInterval();
-    }
-  }, [frequency, goalFreq]);
-
-  useEffect(() => {
-   startChangeNoteInterval();
-  }, []);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Find {goalNote}! You're with {score} points!
-      </Text>
+      <InfoHeader frequencyRef={freqRef}/>
       <Image source={imagePath} style={styles.image}/>
       <View style={styles.separator} lightColor="#eee"
             darkColor="rgba(255,255,255,0.4)" />
-      <Text>{frequency}</Text>
       <View style={{flex: 1, width: "100%"}}>
         <Direction 
           color={"white"}
@@ -153,10 +113,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
   },
   separator: {
     marginVertical: 30,
