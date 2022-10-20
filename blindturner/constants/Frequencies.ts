@@ -9,6 +9,7 @@ const frequencyNames = {
     "G4":  392,
     "Gs4": 415,
     "A4":  440,
+    "As4": 466,
     "B4":  494 
 };
 
@@ -16,7 +17,7 @@ const frequencyValues = Object.values(frequencyNames);
 
 const frequencyTones = [ 262, 294, 330, 349, 392, 440, 494 ];
 
-const avgedFrequencies = frequencyTones.map((frequency, index, array) => {
+const avgedFrequencies = frequencyTones.map((frequency, index) => {
     if (index === 0) return frequency;
     const prevFrequency = frequencyTones[index - 1];
     return (frequency + prevFrequency) / 2;
