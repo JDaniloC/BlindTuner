@@ -1,5 +1,4 @@
 import {
-  Image,
   Pressable,
   StyleSheet,
   ScrollView,
