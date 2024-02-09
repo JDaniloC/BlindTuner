@@ -35,6 +35,8 @@
     "react-native-svg": "13.9.0",
     "react-native-web": "~0.19.6",
     "react-usestateref": "^1.0.8",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4",
     "tone": "^14.7.77"
   },
   "devDependencies": {
@@ -43,8 +45,11 @@
     "@types/lodash.throttle": "^4.1.7",
     "@types/react": "~18.2.14",
     "@types/react-native": "~0.69.1",
+    "@types/react-native-dotenv": "^0.2.2",
+    "fs": "^0.0.1-security",
     "jest": "^29.2.1",
     "jest-expo": "~49.0.0",
+    "react-native-dotenv": "^3.4.9",
     "react-test-renderer": "18.0.0",
     "typescript": "^5.1.3"
   },

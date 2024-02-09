@@ -1,4 +1,5 @@
 import { View, Text } from '../components/Themed';
+import { randomNumber } from '../services/socket';
 import { StyleSheet } from 'react-native';
 import React from 'react';
 
@@ -29,6 +30,14 @@ export default function Tutorial() {
                 </Text>
                 <Text style={styles.text}>
                     Você pode "rolar" a tela a partir da parte central do jogo, dessa forma, é possível emitir frequências mais agudas e graves. Lembrando que você tem um tempo para acertar a frequência correta, e quanto mais próximo da frequência correta, mais pontos você irá ganhar.
+                </Text>
+            </View>
+            <View style={styles.section}>
+                <Text style={styles.title}>
+                    Como conectar ao controle
+                </Text>
+                <Text style={styles.text}>
+                    Execute o script de conexão ao controle utilizando o código: {randomNumber}
                 </Text>
             </View>
         </View>

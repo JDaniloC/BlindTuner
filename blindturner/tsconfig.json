@@ -4,5 +4,8 @@
     "jsx": "react",
     "strict": true,
     "esModuleInterop": true
-  }
+  },
+  "include": [
+    "./env.d.ts"
+  ]
 }
