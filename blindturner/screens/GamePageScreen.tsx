@@ -14,7 +14,7 @@ import throttle from 'lodash.throttle';
 import { RootTabScreenProps } from '../types';
 import { Text, View } from '../components/Themed';
 
-import ImageFunction from '../utils/ImageFunction';
+import ImageFunction from '../utils/imageFunction';
 import sampler from '../utils/tonejsSampler';
 
 import { back } from '../assets/images/character';
@@ -137,7 +137,6 @@ export default function GamePage(
             darkColor="rgba(255,255,255,0.4)" />
       <View style={{flex: 1, width: "100%"}}>
         <Direction 
-          color={"white"}
           style={styles.overlayImage}
           down={direction}
         />

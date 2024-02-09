@@ -8,7 +8,7 @@ import { Text, View } from '../components/Themed';
 import { frequencyNames } from "../constants/Frequencies";
 import { back } from '../assets/images/character';
 import sampler from '../utils/tonejsSampler';
-import ImageFunction from '../utils/ImageFunction';
+import ImageFunction from '../utils/imageFunction';
 
 let playingInterval: NodeJS.Timeout;
 const deviceWidth = Dimensions.get('window').width;
@@ -74,7 +74,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   title: {
     fontSize: 30,
@@ -88,7 +87,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '110px',
-    height: '130px',
+    height: '150px',
     stroke: 'white'
   },
   notesContainer: {
