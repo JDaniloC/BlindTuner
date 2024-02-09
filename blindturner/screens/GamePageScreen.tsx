@@ -138,7 +138,6 @@ export default function GamePage(
             darkColor="rgba(255,255,255,0.4)" />
       <View style={{flex: 1, width: "100%"}}>
         <Direction 
-          color={"white"}
           style={styles.overlayImage}
           down={direction}
         />

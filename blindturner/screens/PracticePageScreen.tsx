@@ -74,7 +74,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   title: {
     fontSize: 30,
@@ -88,8 +87,8 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '110px' as DimensionValue,
-    height: '130px' as DimensionValue,
-    stroke: 'white' 
+    height: '150px' as DimensionValue,
+    stroke: 'white'
   },
   notesContainer: {
     height: 100,
