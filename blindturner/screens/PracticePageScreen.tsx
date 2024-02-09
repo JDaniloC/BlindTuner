@@ -1,4 +1,4 @@
-import { Dimensions, Pressable, StyleSheet, Image } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Image, DimensionValue } from 'react-native';
 import React, { useMemo, useState } from 'react';
 import throttle from 'lodash.throttle';
 
@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
     width: '80%',
   },
   image: {
-    width: '110px',
-    height: '150px',
+    width: '110px' as DimensionValue,
+    height: '150px' as DimensionValue,
     stroke: 'white'
   },
   notesContainer: {
@@ -105,8 +105,8 @@ const styles = StyleSheet.create({
   textBox: {
     flex: 1,
     flexBasis: 0.2 * deviceWidth,
-    padding: "1em",
-    margin: ".2em",
+    padding: "1em" as DimensionValue,
+    margin: ".2em" as DimensionValue,
     display: 'flex',
     borderRadius: 4,
     alignItems: 'center',

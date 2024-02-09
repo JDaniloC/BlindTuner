@@ -3,7 +3,8 @@ import {
   StyleSheet,
   ScrollView,
   NativeScrollEvent,
-  Animated
+  Animated,
+  DimensionValue
 } from 'react-native';
 import { NativeSyntheticEvent } from 'react-native';
 import React, { useEffect, useMemo } from 'react';
@@ -177,20 +178,20 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     width: "100%",
-    cursor: "grab",
+    cursor: "grab" as DimensionValue,
     maxHeight: "100%",
   },
   scrollViewContainer: {
     width: "100%",
-    height: "calc(100% + 1000px)",
+    height: "calc(100% + 1000px)" as DimensionValue,
   },
   scrollItem: {
     width: "100%",
     height: "100%",
   },
   image: {
-    width: '110px',
-    height: '130px',
+    width: '110px' as DimensionValue,
+    height: '130px' as DimensionValue,
     stroke: 'white'
   },
   overlayImage: {
