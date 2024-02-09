@@ -1,4 +1,4 @@
-import { Dimensions, Pressable, StyleSheet, Image } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Image, DimensionValue } from 'react-native';
 import React, { useMemo, useState } from 'react';
 import throttle from 'lodash.throttle';
 
@@ -8,7 +8,7 @@ import { Text, View } from '../components/Themed';
 import { frequencyNames } from "../constants/Frequencies";
 import { back } from '../assets/images/character';
 import sampler from '../utils/tonejsSampler';
-import ImageFunction from '../utils/ImageFunction';
+import ImageFunction from '../utils/imageFunction';
 
 let playingInterval: NodeJS.Timeout;
 const deviceWidth = Dimensions.get('window').width;
@@ -87,9 +87,9 @@ const styles = StyleSheet.create({
     width: '80%',
   },
   image: {
-    width: '110px',
-    height: '130px',
-    stroke: 'white'
+    width: '110px' as DimensionValue,
+    height: '130px' as DimensionValue,
+    stroke: 'white' 
   },
   notesContainer: {
     height: 100,
@@ -106,8 +106,8 @@ const styles = StyleSheet.create({
   textBox: {
     flex: 1,
     flexBasis: 0.2 * deviceWidth,
-    padding: "1em",
-    margin: ".2em",
+    padding: "1em" as DimensionValue,
+    margin: ".2em" as DimensionValue,
     display: 'flex',
     borderRadius: 4,
     alignItems: 'center',

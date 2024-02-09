@@ -1,4 +1,4 @@
-import { StyleSheet, Animated } from 'react-native';
+import { StyleSheet, Animated, DimensionValue } from 'react-native';
 import React, { memo, useEffect } from 'react';
 import useState from 'react-usestateref'
 
@@ -169,8 +169,8 @@ export function InfoHeader({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    marginTop: "1em",
-    marginBottom: "1em",
+    marginTop: "1em" as DimensionValue,
+    marginBottom: "1em" as DimensionValue,
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
   },
   textBox: {
-    padding: "1em",
+    padding: "1em" as DimensionValue,
     display: 'flex',
     borderRadius: 4,
     alignItems: 'center',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     fontFamily: 'dosis',
     color: '#4ed474',
     fontSize: 30,
-    right: "-2em"
+    right: "-2em" as DimensionValue
   }
 });
 
