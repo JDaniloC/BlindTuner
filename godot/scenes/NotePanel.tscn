@@ -1,0 +1,28 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/NotePanel.gd" id="1"]
+
+[node name="NotePanel" type="PanelContainer"]
+custom_minimum_size = Vector2(240, 60)
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="Margin"]
+theme_override_constants/separation = 12
+
+[node name="ColorChip" type="ColorRect" parent="Margin/HBox"]
+custom_minimum_size = Vector2(28, 28)
+color = Color(0.3, 0.3, 0.3, 1)
+
+[node name="Label" type="Label" parent="Margin/HBox"]
+text = "—"
+theme_override_font_sizes/font_size = 24
+
+[node name="Freq" type="Label" parent="Margin/HBox"]
+text = "—"
+theme_override_font_sizes/font_size = 18

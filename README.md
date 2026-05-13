@@ -9,30 +9,33 @@
 
 Usually we need to tune our instruments to play music, and we use a physical tuner or an app to do that. What if we reversed that order? What if we had to indicate what frequency for a particular note? It's with this premise and a simple story and gameplay that we created **BlindTuner**.
 
-## Technologies
+## Status
 
-- [React-Native](https://reactnative.dev/): A framework for building native apps using React.
-- [Expo](https://expo.io/): A framework and a platform to facilite run/build react-native applications.
-- [ToneJS](https://tonejs.github.io/): A Web Audio framework for creating interactive music in the browser.
+O BlindTuner está sendo reimaginado como um jogo isométrico em pixel art (Godot 4). O projeto ativo é `godot/` — o React Native antigo em `blindturner/` permanece congelado como referência histórica.
+
+## Stack atual
+
+- [Godot 4](https://godotengine.org/) — engine 2D, editor visual, export web e mobile.
+- GDScript — linguagem de scripting do Godot.
+- [GUT](https://github.com/bitwes/Gut) — framework de testes unitários.
 
 ## Getting Started
 
-> Optional command: Install [Yarn](https://yarnpkg.com/), you can use npm instead replacing `yarn` with `npm install`.
+Instale o Godot 4.3 ou superior. Abra o projeto:
 
 ```bash
-npm install -g yarn
+godot --path godot
 ```
 
-Installing the dependencies:
+Rodar os testes:
+
 ```bash
-cd blindturner
-yarn
+godot --headless --path godot -s "res://addons/gut/gut_cmdln.gd" -gdir="res://tests" -gexit
 ```
 
-Running the project in the web (you can run it in your phone or an emulator):
-```bash
-yarn web
-```
+## Stack legada (`blindturner/`)
+
+O código React Native + Expo original está preservado em `blindturner/` para consulta. Instruções de execução originais ficam no commit anterior ao reimagining.
 
 <p align="center">
   <img src=".github/practice.png">

@@ -2,3 +2,26 @@
 venv/
 .env
 __pycache__/
+
+# Documentação local (lore, specs de brainstorming) — não commitar
+docs/**/*.md
+
+# Visual companion do superpowers
+.superpowers/
+
+# Godot 4 artefatos de build
+godot/.godot/
+godot/*.import
+godot/**/*.import
+godot/**/*.uid
+
+# Artefatos temporários de teste Godot/GUT
+gut_out*.txt
+gut_err*.txt
+import*.txt
+
+# Estado do Claude Code
+.claude/
+
+# Builds Godot
+build/
