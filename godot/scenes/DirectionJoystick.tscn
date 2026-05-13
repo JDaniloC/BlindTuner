@@ -6,14 +6,9 @@
 custom_minimum_size = Vector2(200, 200)
 script = ExtResource("1")
 
-[node name="Background" type="ColorRect" parent="."]
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-color = Color(0.15, 0.15, 0.18, 0.8)
+[node name="Slices" type="Node2D" parent="."]
+position = Vector2(100, 100)
 
-[node name="Thumb" type="ColorRect" parent="."]
-custom_minimum_size = Vector2(60, 60)
-size = Vector2(60, 60)
-mouse_filter = 2
-color = Color(0.91, 0.12, 0.39, 1)
+[node name="Thumb" type="Polygon2D" parent="."]
+position = Vector2(100, 100)
+color = Color(0.95, 0.95, 0.95, 0.95)

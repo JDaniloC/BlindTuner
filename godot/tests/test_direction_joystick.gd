@@ -1,9 +1,9 @@
 extends GutTest
 
-const JoystickScript := preload("res://scripts/DirectionJoystick.gd")
+const JoystickScene := preload("res://scenes/DirectionJoystick.tscn")
 
 func _make_joystick():
-	var j = JoystickScript.new()
+	var j = JoystickScene.instantiate()
 	add_child_autofree(j)
 	return j
 
@@ -26,3 +26,18 @@ func test_vector_to_note_snaps_to_west():
 
 func test_zero_vector_returns_empty():
 	assert_eq(_make_joystick().vector_to_note(Vector2.ZERO), "")
+
+func test_slice_index_for_angle_zero():
+	assert_eq(_make_joystick().slice_index_for_angle(0.0), 0)
+
+func test_slice_index_for_angle_30():
+	assert_eq(_make_joystick().slice_index_for_angle(30.0), 1)
+
+func test_slice_index_for_angle_180():
+	assert_eq(_make_joystick().slice_index_for_angle(180.0), 6)
+
+func test_slice_index_for_angle_wraps_360():
+	assert_eq(_make_joystick().slice_index_for_angle(360.0), 0)
+
+func test_slice_index_for_angle_negative_wraps():
+	assert_eq(_make_joystick().slice_index_for_angle(-30.0), 11)
