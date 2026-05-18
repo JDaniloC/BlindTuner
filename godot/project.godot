@@ -24,6 +24,7 @@ config/icon="res://icon.svg"
 
 NoteMapping="*res://scripts/NoteMapping.gd"
 AudioManager="*res://scripts/AudioManager.gd"
+SequencePresets="*res://scripts/SequencePresets.gd"
 
 [display]
 
