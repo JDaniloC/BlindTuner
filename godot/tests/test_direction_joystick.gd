@@ -41,3 +41,22 @@ func test_slice_index_for_angle_wraps_360():
 
 func test_slice_index_for_angle_negative_wraps():
 	assert_eq(_make_joystick().slice_index_for_angle(-30.0), 11)
+
+func test_slice_color_uses_note_color_when_cue_shows_color():
+	CueSettings.set_level(0)
+	var j = _make_joystick()
+	assert_eq(j.slice_display_color("C4"), NoteMapping.color_for("C4"))
+	CueSettings.set_level(0)
+
+func test_slice_color_neutral_at_level_three():
+	CueSettings.set_level(3)
+	var j = _make_joystick()
+	assert_eq(j.slice_display_color("C4"), j.NEUTRAL_SLICE)
+	CueSettings.set_level(0)
+
+func test_slices_recolor_on_cue_level_changed():
+	CueSettings.set_level(0)
+	var j = _make_joystick()
+	CueSettings.set_level(3)  # sinal dispara com joystick já vivo
+	assert_eq(Color(j._slice_polygons[0].color.r, j._slice_polygons[0].color.g, j._slice_polygons[0].color.b), j.NEUTRAL_SLICE)
+	CueSettings.set_level(0)

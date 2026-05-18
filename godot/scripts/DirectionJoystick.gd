@@ -10,6 +10,7 @@ const SLICE_COUNT := 12
 const SLICE_ANGLE_DEG := 30.0
 const THUMB_RADIUS := 28.0
 const SLICE_VERTICES := 12  # vértices ao longo do arco
+const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor some
 
 var _dragging := false
 var _thumb_offset := Vector2.ZERO
@@ -24,18 +25,31 @@ func _ready() -> void:
 	_build_slices()
 	_build_thumb()
 	_refresh_slice_alphas()
+	CueSettings.cue_level_changed.connect(_on_cue_changed)
 
 func _build_slices() -> void:
 	_slice_polygons.clear()
+	# NOTES.keys() preserva ordem de inserção; índice i == ângulo i*30° (C4=0 … B4=330)
 	var note_keys := NoteMapping.NOTES.keys()
-	# NOTES está ordenado por ângulo: C4=0, Cs4=30, ..., B4=330
 	for i in range(SLICE_COUNT):
 		var slice := Polygon2D.new()
 		slice.polygon = _build_slice_polygon(i)
 		var note_key: String = note_keys[i]
-		slice.color = NoteMapping.color_for(note_key)
+		slice.color = slice_display_color(note_key)
 		_slices_root.add_child(slice)
 		_slice_polygons.append(slice)
+
+func slice_display_color(note_key: String) -> Color:
+	if CueSettings.shows_color():
+		return NoteMapping.color_for(note_key)
+	return NEUTRAL_SLICE
+
+func _on_cue_changed(_level: int) -> void:
+	var note_keys := NoteMapping.NOTES.keys()
+	for i in range(_slice_polygons.size()):
+		var c := slice_display_color(note_keys[i])
+		c.a = _slice_polygons[i].color.a  # preserva alpha atual (gerido por _refresh_slice_alphas)
+		_slice_polygons[i].color = c
 
 func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 	var points: Array[Vector2] = [Vector2.ZERO]
