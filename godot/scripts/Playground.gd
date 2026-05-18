@@ -1,6 +1,5 @@
 extends Node2D
-## Cena raiz do MVP. Compõe Character + Joystick + NotePanel, gera paredes do cenário,
-## e conecta o fluxo de signals.
+## Cena raiz. Chão/paredes procedurais + loop de jogo (Conductor + GameHUD).
 
 const ROOM_SIZE := Vector2i(10, 10)
 
@@ -11,6 +10,8 @@ const ROOM_SIZE := Vector2i(10, 10)
 @onready var _walls_node: Node2D = $Walls
 @onready var _camera: Camera2D = $Camera2D
 @onready var _screen_flash: ColorRect = $UI/ScreenFlash
+@onready var _conductor: Node = $Conductor
+@onready var _hud: Control = $UI/GameHUD
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -35,16 +36,63 @@ func _ready() -> void:
 	_character.grid_position = Vector2i(5, 5)
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(_character.grid_position)
-	_character.moved.connect(_on_character_moved)
 	_character.blocked.connect(_on_character_blocked)
 	_joystick.note_triggered.connect(_on_note_triggered)
+	_conductor.preview_note.connect(_on_preview_note)
+	_conductor.beat.connect(_on_beat)
+	_conductor.note_resolved.connect(_on_note_resolved)
+	_conductor.sequence_complete.connect(_on_sequence_complete)
+	_hud.start_requested.connect(_on_start_requested)
+	_hud.restart_requested.connect(_on_restart_requested)
+
+func _on_start_requested(preset_id: String, cue_level: int) -> void:
+	_begin_preset(preset_id, cue_level)
+
+func _on_restart_requested() -> void:
+	if _conductor._preset != null:
+		_begin_preset(_conductor._preset.id, CueSettings.cue_level)
+
+func _begin_preset(preset_id: String, cue_level: int) -> void:
+	var preset = SequencePresets.by_id(preset_id)
+	if preset == null:
+		return
+	CueSettings.set_level(cue_level)
+	_hud.hide_stats()
+	_character.grid_position = preset.start_grid
+	_character.position = _character.grid_to_world(preset.start_grid)
+	_conductor.load_preset(preset)
+	_conductor.start()
+	_hud.set_progress(0, preset.notes.size())
+
+func _on_preview_note(note_key: String, _index: int) -> void:
+	AudioManager.play_note(note_key)
+	_note_panel.display_note(note_key)
+
+func _on_beat(_target_note: String, index: int) -> void:
+	_hud.set_progress(index, _conductor._preset.notes.size())
+
+func _on_note_triggered(note_key: String) -> void:
+	AudioManager.play_note(note_key)
+	_note_panel.display_note(note_key)
+	_conductor.submit_note(note_key)
+
+func _on_note_resolved(hit: bool, index: int) -> void:
+	var note_key: String = _conductor._preset.notes[index]
+	var dir: Vector2i = NoteMapping.direction_for(note_key)
+	if hit:
+		# Preset validado contra _wall_tiles; _try_walk não deveria tropeçar aqui.
+		# Se tropeçasse (preset inválido), o Conductor já avançou o índice — dessincronia.
+		_character._try_walk(dir)
+	else:
+		_character._enter_trip(dir)
+
+func _on_sequence_complete(stats: Dictionary) -> void:
+	_hud.show_stats(stats)
 
 func _build_room() -> void:
-	# Chão: todo o interior da sala
 	for x in range(ROOM_SIZE.x):
 		for y in range(ROOM_SIZE.y):
 			_spawn_floor_tile(Vector2i(x, y))
-	# Paredes: perímetro + obstáculos internos
 	var walls: Array[Vector2i] = []
 	for x in range(ROOM_SIZE.x):
 		walls.append(Vector2i(x, 0))
@@ -72,10 +120,8 @@ func _spawn_wall_visual(tile: Vector2i) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
 	var node := Node2D.new()
 	node.position = center
-	# face frontal (retângulo "vertical" simulando altura)
 	var front := Polygon2D.new()
 	var hw := TILE_WIDTH * 0.5
-	var hh := TILE_HEIGHT * 0.5
 	front.polygon = PackedVector2Array([
 		Vector2(-hw,  0),
 		Vector2( hw,  0),
@@ -84,13 +130,11 @@ func _spawn_wall_visual(tile: Vector2i) -> void:
 	])
 	front.color = WALL_FRONT_COLOR
 	node.add_child(front)
-	# topo (diamante deslocado para cima pela altura)
 	var top := Polygon2D.new()
 	top.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	top.color = WALL_TOP_COLOR
 	top.position = Vector2(0, -WALL_HEIGHT)
 	node.add_child(top)
-	# outline simples na borda do topo
 	var outline := Line2D.new()
 	var pts := _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	var pts_closed: Array[Vector2] = []
@@ -124,14 +168,6 @@ func _process(delta: float) -> void:
 		_camera.offset = offset
 	elif _camera.offset != Vector2.ZERO:
 		_camera.offset = Vector2.ZERO
-
-func _on_note_triggered(note_key: String) -> void:
-	AudioManager.play_note(note_key)
-	_note_panel.display_note(note_key)
-	_character.handle_note(note_key)
-
-func _on_character_moved(_pos: Vector2i) -> void:
-	pass  # animação futura
 
 func _on_character_blocked(_dir: Vector2i) -> void:
 	AudioManager.play_collision_sfx()
