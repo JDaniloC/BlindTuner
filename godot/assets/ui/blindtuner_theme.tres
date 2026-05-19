@@ -1,0 +1,66 @@
+[gd_resource type="Theme" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_Button01a_4.png" id="1_urist"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_Button01a_2.png" id="2_hkq03"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_Button01a_1.png" id="3_u0iup"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_Button01a_3.png" id="4_jut0x"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_IconArrow01a.png" id="5_pcrp7"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_InputField01a.png" id="6_d5j8d"]
+[ext_resource type="Texture2D" path="res://assets/ui/flat/UI_Flat_Frame01a.png" id="7_g6gek"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_vx6gt"]
+texture = ExtResource("1_urist")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_y1pw3"]
+texture = ExtResource("2_hkq03")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_as3fp"]
+texture = ExtResource("3_u0iup")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_gl763"]
+texture = ExtResource("4_jut0x")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_p4i54"]
+texture = ExtResource("6_d5j8d")
+texture_margin_left = 12.0
+texture_margin_top = 8.0
+texture_margin_right = 12.0
+texture_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_hocqg"]
+texture = ExtResource("7_g6gek")
+texture_margin_left = 16.0
+texture_margin_top = 16.0
+texture_margin_right = 16.0
+texture_margin_bottom = 16.0
+
+[resource]
+Button/colors/font_color = Color(0.96, 0.96, 0.96, 1)
+Button/styles/disabled = SubResource("StyleBoxTexture_vx6gt")
+Button/styles/hover = SubResource("StyleBoxTexture_y1pw3")
+Button/styles/normal = SubResource("StyleBoxTexture_as3fp")
+Button/styles/pressed = SubResource("StyleBoxTexture_gl763")
+OptionButton/colors/font_color = Color(0.96, 0.96, 0.96, 1)
+OptionButton/icons/arrow = ExtResource("5_pcrp7")
+OptionButton/styles/disabled = SubResource("StyleBoxTexture_p4i54")
+OptionButton/styles/focus = SubResource("StyleBoxTexture_p4i54")
+OptionButton/styles/hover = SubResource("StyleBoxTexture_p4i54")
+OptionButton/styles/normal = SubResource("StyleBoxTexture_p4i54")
+OptionButton/styles/pressed = SubResource("StyleBoxTexture_p4i54")
+PanelContainer/styles/panel = SubResource("StyleBoxTexture_hocqg")
