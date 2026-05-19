@@ -62,7 +62,7 @@ func set_progress(index: int, total: int) -> void:
 	_progress.text = "Nota %d / %d" % [index, total]
 
 func show_stats(stats: Dictionary) -> void:
-	_stats_label.text = "Acertos de 1ª: %d\nTropeços: %d\nTempo: %.1f s" % [
+	_stats_label.text = "Acertos de 1ª: %d\nErros: %d\nTempo: %.1f s" % [
 		stats.first_try_hits, stats.total_trips, stats.elapsed_sec]
 	_stats_panel.visible = true
 
