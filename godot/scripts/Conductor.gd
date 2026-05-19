@@ -1,16 +1,18 @@
 extends Node
 class_name Conductor
-## Dono da máquina de estados do loop e do metrônomo.
-## Híbrido: PREVIEW (toca a sequência 1×) → FOLLOW (jogador reproduz).
-## "Só avança se acertou": erro/sem input = tropeço, índice não avança.
+## Dono da máquina de estados do loop (jogo de conhecimento, sem pressão de tempo).
+## IDLE (livre) → PREVIEW (ouve a melodia 1×) → CALL (eco nota-a-nota, sem relógio)
+## → REPLAY (personagem "toca" e anda o caminho) → DONE (stats).
+## CALL avança SÓ por submit_note (resolução imediata); sem dano, sem fail.
 
 signal preview_note(note_key: String, index: int)
-signal beat(target_note: String, index: int)
+signal call_cue(note_key: String, index: int)
+signal replay_note(note_key: String, index: int)
 signal note_resolved(hit: bool, index: int)
 signal phase_changed(phase: int)
 signal sequence_complete(stats: Dictionary)
 
-enum Phase { IDLE, PREVIEW, FOLLOW, DONE }
+enum Phase { IDLE, PREVIEW, CALL, REPLAY, DONE }
 
 const DEFAULT_BPM := 90.0
 
@@ -20,8 +22,8 @@ var phase: int = Phase.IDLE
 var _preset: Resource = null
 var _index: int = 0
 var _preview_index: int = 0
-var _input_buffer: String = ""
-var _attempted_current: bool = false
+var _replay_index: int = 0
+var _attempted_current: bool = false  # true se o índice atual já teve ao menos um erro
 var _stats: Dictionary = {}
 var _start_ticks_ms: int = 0
 var _timer: Timer = null
@@ -36,15 +38,18 @@ func _ready() -> void:
 func beat_sec() -> float:
 	return 60.0 / bpm
 
+## Carrega o preset e volta a IDLE. Não re-emite phase_changed se já estava em IDLE.
 func load_preset(preset: Resource) -> void:
 	_preset = preset
+	if _timer:
+		_timer.stop()
 	_reset_state()
 	_set_phase(Phase.IDLE)
 
 func _reset_state() -> void:
 	_index = 0
 	_preview_index = 0
-	_input_buffer = ""
+	_replay_index = 0
 	_attempted_current = false
 	_stats = { "first_try_hits": 0, "total_trips": 0, "elapsed_sec": 0.0 }
 
@@ -54,14 +59,37 @@ func start() -> void:
 	if _timer:
 		_timer.stop()
 	_reset_state()
+	if _preset.notes.is_empty():
+		_finish()  # nada a tocar: IDLE -> DONE
+		return
 	_set_phase(Phase.PREVIEW)
 	if _timer:
 		_timer.start(beat_sec())
 
+## Entrada do jogador no CALL. Resolve imediatamente (sem esperar tick).
 func submit_note(note_key: String) -> void:
-	if phase != Phase.FOLLOW:
+	if phase != Phase.CALL:
 		return
-	_input_buffer = note_key
+	if _preset == null:
+		return
+	if _index >= _preset.notes.size():
+		return
+	var target: String = _preset.notes[_index]
+	if note_key == target:
+		if not _attempted_current:
+			_stats.first_try_hits += 1
+		note_resolved.emit(true, _index)
+		_index += 1
+		_attempted_current = false
+		if _index >= _preset.notes.size():
+			_begin_replay()
+		else:
+			call_cue.emit(_preset.notes[_index], _index)
+	else:
+		_stats.total_trips += 1
+		_attempted_current = true
+		note_resolved.emit(false, _index)
+		call_cue.emit(_preset.notes[_index], _index)  # re-toca o alvo, mesmo índice
 
 func _set_phase(p: int) -> void:
 	if phase == p:
@@ -70,60 +98,45 @@ func _set_phase(p: int) -> void:
 	phase_changed.emit(p)
 
 ## Dispatcher de tick. Timer chama isto; testes chamam direto (relógio injetável).
+## CALL NÃO é pautado por tick — ausente do match de propósito (sem pressão de tempo).
 func _advance() -> void:
 	match phase:
 		Phase.PREVIEW:
 			_preview_step()
-		Phase.FOLLOW:
-			_resolve_beat()
+		Phase.REPLAY:
+			_replay_step()
 
 func _preview_step() -> void:
 	if _preview_index >= _preset.notes.size():
-		_begin_follow()
+		_begin_call()
 		return
 	preview_note.emit(_preset.notes[_preview_index], _preview_index)
 	_preview_index += 1
 
-func _begin_follow() -> void:
-	if _preset.notes.is_empty():
-		_start_ticks_ms = Time.get_ticks_msec()
-		_finish()
-		return
+func _begin_call() -> void:
+	if _timer:
+		_timer.stop()  # CALL é orientado a input, sem relógio
 	_index = 0
-	_input_buffer = ""
 	_attempted_current = false
 	_start_ticks_ms = Time.get_ticks_msec()
-	_set_phase(Phase.FOLLOW)
-	_emit_beat()
+	_set_phase(Phase.CALL)
+	call_cue.emit(_preset.notes[_index], _index)
 
-func _emit_beat() -> void:
-	if _index < _preset.notes.size():
-		beat.emit(_preset.notes[_index], _index)
+func _begin_replay() -> void:
+	_stats.elapsed_sec = float(Time.get_ticks_msec() - _start_ticks_ms) / 1000.0
+	_replay_index = 0
+	_set_phase(Phase.REPLAY)
+	if _timer:
+		_timer.start(beat_sec())
 
-func _resolve_beat() -> void:
-	if _index >= _preset.notes.size():
+func _replay_step() -> void:
+	if _replay_index >= _preset.notes.size():
+		_finish()
 		return
-	var target: String = _preset.notes[_index]
-	if _input_buffer == target:
-		if not _attempted_current:
-			_stats.first_try_hits += 1
-		note_resolved.emit(true, _index)
-		_index += 1
-		_attempted_current = false
-		_input_buffer = ""
-		if _index >= _preset.notes.size():
-			_finish()
-			return
-		_emit_beat()
-	else:
-		_stats.total_trips += 1
-		_attempted_current = true
-		note_resolved.emit(false, _index)
-		_input_buffer = ""
-		_emit_beat()
+	replay_note.emit(_preset.notes[_replay_index], _replay_index)
+	_replay_index += 1
 
 func _finish() -> void:
-	_stats.elapsed_sec = float(Time.get_ticks_msec() - _start_ticks_ms) / 1000.0
 	if _timer:
 		_timer.stop()
 	_set_phase(Phase.DONE)
