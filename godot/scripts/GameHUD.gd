@@ -4,6 +4,9 @@ extends Control
 signal start_requested(preset_id: String, cue_level: int)
 signal restart_requested
 
+const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
+const PLAY_ICON := preload("res://assets/ui/flat/UI_Flat_ButtonPlay01a.png")
+
 var _preset_opt: OptionButton
 var _cue_opt: OptionButton
 var _start_btn: Button
@@ -12,6 +15,7 @@ var _stats_panel: PanelContainer
 var _stats_label: Label
 
 func _ready() -> void:
+	theme = UI_THEME
 	var top := HBoxContainer.new()
 	top.position = Vector2(16, 16)
 	add_child(top)
@@ -28,6 +32,7 @@ func _ready() -> void:
 
 	_start_btn = Button.new()
 	_start_btn.text = "Começar"
+	_start_btn.icon = PLAY_ICON
 	_start_btn.pressed.connect(_on_start_pressed)
 	top.add_child(_start_btn)
 
