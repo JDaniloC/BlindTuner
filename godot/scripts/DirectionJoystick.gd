@@ -5,6 +5,7 @@ extends Control
 signal note_triggered(note_key: String)
 
 const RADIUS := 80.0
+const BACKDROP_OVERHANG := 12.0  # px que o disco/anel ultrapassam o raio das fatias
 const DEAD_ZONE := 15.0
 const SLICE_COUNT := 12
 const SLICE_ANGLE_DEG := 30.0
@@ -17,15 +18,38 @@ var _thumb_offset := Vector2.ZERO
 var _slice_polygons: Array[Polygon2D] = []
 var _active_slice_index: int = -1
 var _flash_tween: Tween
+var _backdrop_disc: Polygon2D
+var _backdrop_ring: Line2D
 
 @onready var _slices_root: Node2D = $Slices
 @onready var _thumb: Polygon2D = $Thumb
 
 func _ready() -> void:
+	_build_backdrop()
 	_build_slices()
 	_build_thumb()
 	_refresh_slice_alphas()
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
+
+## Disco + anel circulares atrás das fatias (substitui o antigo NinePatchRect).
+## Adicionados primeiro em _slices_root, logo desenhados atrás das fatias.
+func _build_backdrop() -> void:
+	var r := RADIUS + BACKDROP_OVERHANG
+	var pts: Array[Vector2] = []
+	for v in range(32):
+		var a := TAU * float(v) / 32.0
+		pts.append(Vector2(cos(a), sin(a)) * r)
+	_backdrop_disc = Polygon2D.new()
+	_backdrop_disc.polygon = PackedVector2Array(pts)
+	_backdrop_disc.color = Color(0.12, 0.10, 0.09, 0.30)
+	_slices_root.add_child(_backdrop_disc)
+	var ring_pts: Array[Vector2] = pts.duplicate()
+	ring_pts.append(pts[0])
+	_backdrop_ring = Line2D.new()
+	_backdrop_ring.points = PackedVector2Array(ring_pts)
+	_backdrop_ring.width = 2.0
+	_backdrop_ring.default_color = Color(0.20, 0.17, 0.14, 0.6)
+	_slices_root.add_child(_backdrop_ring)
 
 func _build_slices() -> void:
 	_slice_polygons.clear()

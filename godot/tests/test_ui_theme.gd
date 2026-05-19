@@ -39,15 +39,19 @@ func test_notepanel_has_theme_applied():
 	add_child_autofree(p)
 	assert_eq(p.theme, load(THEME_PATH), "NotePanel.theme deve ser o blindtuner_theme")
 
-# Frame.mouse_filter = IGNORE: não intercepta _gui_input. Cobertura de
-# roteamento de input exigiria teste de integração com display (headless não cobre).
-func test_joystick_has_frame_ninepatch():
+# O fundo do joystick é procedural (disco + anel) em $Slices, atrás das fatias.
+func test_joystick_has_procedural_backdrop():
 	var j = preload("res://scenes/DirectionJoystick.tscn").instantiate()
 	add_child_autofree(j)
-	var f = j.get_node_or_null("Frame")
-	assert_not_null(f, "Joystick deve ter um nó Frame")
-	assert_true(f is NinePatchRect, "Frame deve ser NinePatchRect")
-	assert_eq(f.mouse_filter, Control.MOUSE_FILTER_IGNORE, "Frame não pode capturar input")
+	assert_null(j.get_node_or_null("Frame"), "Frame removido")
+	assert_not_null(j._backdrop_disc, "backdrop disc não-nulo")
+	assert_true(j._backdrop_disc is Polygon2D, "disc é Polygon2D")
+	assert_not_null(j._backdrop_ring, "backdrop ring não-nulo")
+	assert_true(j._backdrop_ring is Line2D, "ring é Line2D")
+	var slices = j.get_node("Slices")
+	assert_eq(slices.get_child(0), j._backdrop_disc, "disc desenha primeiro (índice 0)")
+	assert_eq(slices.get_child(1), j._backdrop_ring, "ring índice 1")
+	assert_eq(j._slice_polygons.size(), 12, "_slice_polygons só as 12 fatias (backdrop fora)")
 
 func test_theme_font_color_is_dark():
 	for ty in ["Button", "OptionButton", "Label"]:
