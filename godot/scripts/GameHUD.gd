@@ -16,35 +16,55 @@ var _stats_label: Label
 
 func _ready() -> void:
 	theme = UI_THEME
-	var top := HBoxContainer.new()
-	top.position = Vector2(16, 16)
-	add_child(top)
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	var top_panel := PanelContainer.new()
+	top_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	add_child(top_panel)
+
+	var top_margin := MarginContainer.new()
+	top_margin.add_theme_constant_override("margin_left", 16)
+	top_margin.add_theme_constant_override("margin_top", 16)
+	top_margin.add_theme_constant_override("margin_right", 16)
+	top_margin.add_theme_constant_override("margin_bottom", 16)
+	top_panel.add_child(top_margin)
+
+	var top_vbox := VBoxContainer.new()
+	top_vbox.add_theme_constant_override("separation", 8)
+	top_margin.add_child(top_vbox)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	top_vbox.add_child(row)
 
 	_preset_opt = OptionButton.new()
 	for p in SequencePresets.ALL:
 		_preset_opt.add_item(p.label)
-	top.add_child(_preset_opt)
+	row.add_child(_preset_opt)
 
 	_cue_opt = OptionButton.new()
 	for lvl in ["Pista 0 (tudo)", "Pista 1 (freq+cor)", "Pista 2 (só cor)", "Pista 3 (só som)"]:
 		_cue_opt.add_item(lvl)
-	top.add_child(_cue_opt)
+	row.add_child(_cue_opt)
 
 	_start_btn = Button.new()
 	_start_btn.text = "Começar"
 	_start_btn.icon = PLAY_ICON
 	_start_btn.pressed.connect(_on_start_pressed)
-	top.add_child(_start_btn)
+	row.add_child(_start_btn)
 
 	_progress = Label.new()
-	_progress.position = Vector2(16, 56)
 	_progress.text = "—"
-	add_child(_progress)
+	top_vbox.add_child(_progress)
+
+	var stats_center := CenterContainer.new()
+	stats_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stats_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stats_center)
 
 	_stats_panel = PanelContainer.new()
-	_stats_panel.position = Vector2(16, 88)
 	_stats_panel.visible = false
-	add_child(_stats_panel)
+	stats_center.add_child(_stats_panel)
 	var col := VBoxContainer.new()
 	_stats_panel.add_child(col)
 	_stats_label = Label.new()

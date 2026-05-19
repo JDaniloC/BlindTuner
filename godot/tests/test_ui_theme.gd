@@ -59,3 +59,22 @@ func test_theme_font_color_is_dark():
 		var c: Color = t.get_color("font_color", ty)
 		assert_true(c.get_luminance() < 0.5, "%s/font_color deve ser escuro" % ty)
 		assert_eq(c, Color(0.16, 0.13, 0.10), "%s/font_color valor exato" % ty)
+
+func test_gamehud_layout_uses_containers():
+	var h = preload("res://scenes/GameHUD.tscn").instantiate()
+	add_child_autofree(h)
+	assert_eq(h.anchor_right, 1.0, "GameHUD root anchor_right=1.0 (preenche viewport)")
+	assert_eq(h.anchor_bottom, 1.0, "GameHUD root anchor_bottom=1.0 (preenche viewport)")
+	assert_true(h._stats_panel.get_parent() is CenterContainer,
+		"_stats_panel deve estar sob CenterContainer")
+	assert_true(h._progress.get_parent() is VBoxContainer,
+		"_progress deve estar sob VBoxContainer")
+	assert_true(h._preset_opt.get_parent() is HBoxContainer,
+		"_preset_opt deve estar sob HBoxContainer")
+
+func test_gamehud_stats_overlay_does_not_block_input():
+	var h = preload("res://scenes/GameHUD.tscn").instantiate()
+	add_child_autofree(h)
+	var center = h._stats_panel.get_parent()
+	assert_eq(center.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"overlay full-rect dos stats não pode capturar input (bloqueava botões/joystick)")

@@ -31,10 +31,11 @@ mouse_filter = 2
 color = Color(1, 0.4, 0.4, 0)
 
 [node name="NotePanel" parent="UI" instance=ExtResource("4")]
+anchor_right = 1.0
 offset_left = 16.0
-offset_top = 16.0
-offset_right = 256.0
-offset_bottom = 76.0
+offset_top = 140.0
+offset_right = -16.0
+offset_bottom = 216.0
 
 [node name="DirectionJoystick" parent="UI" instance=ExtResource("3")]
 anchor_left = 1.0
@@ -42,8 +43,8 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -232.0
-offset_top = -232.0
+offset_top = -260.0
 offset_right = -32.0
-offset_bottom = -32.0
+offset_bottom = -60.0
 
 [node name="GameHUD" parent="UI" instance=ExtResource("91")]
