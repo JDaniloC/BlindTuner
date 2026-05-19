@@ -4,6 +4,7 @@ extends SceneTree
 
 func _init() -> void:
 	var base := "res://assets/ui/flat/"
+	var dark := Color(0.16, 0.13, 0.10)
 	var theme := Theme.new()
 
 	var btn := {
@@ -17,7 +18,7 @@ func _init() -> void:
 		sb.texture = load(base + btn[state])
 		sb.set_texture_margin_all(8.0)
 		theme.set_stylebox(state, "Button", sb)
-	theme.set_color("font_color", "Button", Color(0.96, 0.96, 0.96))
+	theme.set_color("font_color", "Button", dark)
 
 	var opt_sb := StyleBoxTexture.new()
 	opt_sb.texture = load(base + "UI_Flat_InputField01a.png")
@@ -28,12 +29,14 @@ func _init() -> void:
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		theme.set_stylebox(state, "OptionButton", opt_sb)
 	theme.set_icon("arrow", "OptionButton", load(base + "UI_Flat_IconArrow01a.png"))
-	theme.set_color("font_color", "OptionButton", Color(0.96, 0.96, 0.96))
+	theme.set_color("font_color", "OptionButton", dark)
 
 	var panel_sb := StyleBoxTexture.new()
 	panel_sb.texture = load(base + "UI_Flat_Frame01a.png")
 	panel_sb.set_texture_margin_all(16.0)
 	theme.set_stylebox("panel", "PanelContainer", panel_sb)
+
+	theme.set_color("font_color", "Label", dark)
 
 	var err := ResourceSaver.save(theme, "res://assets/ui/blindtuner_theme.tres")
 	if err != OK:

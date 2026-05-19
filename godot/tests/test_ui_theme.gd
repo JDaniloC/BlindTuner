@@ -48,3 +48,10 @@ func test_joystick_has_frame_ninepatch():
 	assert_not_null(f, "Joystick deve ter um nó Frame")
 	assert_true(f is NinePatchRect, "Frame deve ser NinePatchRect")
 	assert_eq(f.mouse_filter, Control.MOUSE_FILTER_IGNORE, "Frame não pode capturar input")
+
+func test_theme_font_color_is_dark():
+	for ty in ["Button", "OptionButton", "Label"]:
+		assert_true(t.has_color("font_color", ty), "%s/font_color definido" % ty)
+		var c: Color = t.get_color("font_color", ty)
+		assert_true(c.get_luminance() < 0.5, "%s/font_color deve ser escuro" % ty)
+		assert_eq(c, Color(0.16, 0.13, 0.10), "%s/font_color valor exato" % ty)
