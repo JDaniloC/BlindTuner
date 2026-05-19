@@ -39,8 +39,10 @@ func _ready() -> void:
 	_character.blocked.connect(_on_character_blocked)
 	_joystick.note_triggered.connect(_on_note_triggered)
 	_conductor.preview_note.connect(_on_preview_note)
-	_conductor.beat.connect(_on_beat)
+	_conductor.call_cue.connect(_on_call_cue)
+	_conductor.replay_note.connect(_on_replay_note)
 	_conductor.note_resolved.connect(_on_note_resolved)
+	_conductor.phase_changed.connect(_on_phase_changed)
 	_conductor.sequence_complete.connect(_on_sequence_complete)
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
@@ -65,25 +67,53 @@ func _begin_preset(preset_id: String, cue_level: int) -> void:
 	_hud.set_progress(0, preset.notes.size())
 
 func _on_preview_note(note_key: String, _index: int) -> void:
+	# PREVIEW: só ouvir, personagem não se move.
 	AudioManager.play_note(note_key)
 	_note_panel.display_note(note_key)
 
-func _on_beat(_target_note: String, index: int) -> void:
+func _on_call_cue(note_key: String, index: int) -> void:
+	# Toca o alvo + mostra a pista (conforme CueSettings, via NotePanel).
+	AudioManager.play_note(note_key)
+	_note_panel.display_note(note_key)
 	_hud.set_progress(index, _conductor._preset.notes.size())
 
-func _on_note_triggered(note_key: String) -> void:
+func _on_replay_note(note_key: String, index: int) -> void:
+	# REPLAY: o personagem "toca" e anda o caminho canônico do preset.
 	AudioManager.play_note(note_key)
-	_note_panel.display_note(note_key)
-	_conductor.submit_note(note_key)
+	_character._try_walk(NoteMapping.direction_for(note_key))
+	_hud.set_progress(index, _conductor._preset.notes.size())
+
+func _on_phase_changed(phase: int) -> void:
+	# Ao entrar no REPLAY, reposiciona o personagem no início do preset.
+	if phase == _conductor.Phase.REPLAY:
+		var sg: Vector2i = _conductor._preset.start_grid
+		_character.grid_position = sg
+		_character.position = _character.grid_to_world(sg)
+
+func _on_note_triggered(note_key: String) -> void:
+	match _conductor.phase:
+		_conductor.Phase.IDLE:
+			# Modo livre: anda de verdade (Character.handle_note trata
+			# nota de movimento, double-tap e colisão de parede) + toca a nota.
+			AudioManager.play_note(note_key)
+			_note_panel.display_note(note_key)
+			_character.handle_note(note_key)
+		_conductor.Phase.CALL:
+			AudioManager.play_note(note_key)
+			_note_panel.display_note(note_key)
+			_conductor.submit_note(note_key)
+		_:
+			pass  # PREVIEW/REPLAY: não conflita com playback; DONE: sem nota ativa para submeter
 
 func _on_note_resolved(hit: bool, index: int) -> void:
 	var note_key: String = _conductor._preset.notes[index]
 	var dir: Vector2i = NoteMapping.direction_for(note_key)
 	if hit:
-		# Preset validado contra _wall_tiles; _try_walk não deveria tropeçar aqui.
-		# Se tropeçasse (preset inválido), o Conductor já avançou o índice — dessincronia.
+		# Preset validado contra _wall_tiles; _try_walk não deveria tropeçar.
+		# Se tropeçar (preset com bug), Conductor já avançou _index — dessincronia visual.
 		_character._try_walk(dir)
 	else:
+		# Erro de conhecimento: tropeço no lugar (cosmético, sem dano).
 		_character._enter_trip(dir)
 
 func _on_sequence_complete(stats: Dictionary) -> void:
