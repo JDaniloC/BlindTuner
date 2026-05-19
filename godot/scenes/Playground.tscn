@@ -20,7 +20,7 @@ script = ExtResource("90")
 [node name="Character" parent="." instance=ExtResource("2")]
 
 [node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(2.2, 2.2)
+zoom = Vector2(1.6, 1.6)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
