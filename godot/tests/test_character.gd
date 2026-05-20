@@ -140,3 +140,79 @@ func test_last_direction_persists_after_idle():
 	await get_tree().create_timer(c.MOVE_DURATION + 0.1).timeout
 	assert_eq(c.state, c.State.IDLE)
 	assert_eq(c._last_direction, Vector2i(0, -1))
+
+func test_handle_action_pegar_emits_action_performed():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("Cs4")
+	assert_signal_emitted_with_parameters(c, "action_performed",
+		["pegar", c.grid_position, c._last_direction])
+
+func test_handle_action_abaixar_emits():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("E4")
+	assert_signal_emitted_with_parameters(c, "action_performed",
+		["abaixar", c.grid_position, c._last_direction])
+
+func test_handle_action_pular_emits():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("As4")
+	assert_signal_emitted_with_parameters(c, "action_performed",
+		["pular", c.grid_position, c._last_direction])
+
+func test_handle_action_correr_sets_run_next_flag():
+	var c = _make_character()
+	assert_false(c._run_next)
+	c.handle_action("G4")
+	assert_true(c._run_next)
+
+func test_handle_action_movement_note_is_noop():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("C4")  # nota de movimento — não é ação
+	assert_signal_emit_count(c, "action_performed", 0)
+
+func test_handle_action_ignored_during_trip():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_note("C4")  # trip
+	watch_signals(c)
+	c.handle_action("Cs4")
+	assert_signal_emit_count(c, "action_performed", 0)
+
+func test_handle_note_routes_action_notes_to_handle_action():
+	# handle_note(Cs4) deve disparar action_performed=pegar e não mover
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_note("Cs4")
+	assert_signal_emitted_with_parameters(c, "action_performed",
+		["pegar", c.grid_position, c._last_direction])
+	assert_eq(c.grid_position, Vector2i(5, 5))
+
+func test_run_next_makes_next_walk_become_run():
+	var c = _make_character()
+	c.handle_action("G4")  # arma o correr
+	c.handle_note("C4")    # próximo movimento
+	assert_eq(c.state, c.State.RUN)
+	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles diagonal
+	assert_false(c._run_next, "flag consumida")
+
+func test_run_next_consumed_only_on_movement():
+	# Armar correr e em seguida chamar outra ação NÃO deve consumir a flag
+	var c = _make_character()
+	c.handle_action("G4")
+	c.handle_action("Cs4")  # pegar não consome
+	assert_true(c._run_next, "ação não consome _run_next")
+
+func test_run_next_cleared_on_trip():
+	# Cenário: armar correr, depois tropeçar numa parede. Após o trip,
+	# _run_next deve estar limpo — tropeçar quebra a corrida armada.
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("G4")
+	assert_true(c._run_next, "armado antes do trip")
+	c.handle_note("C4")  # bate na parede -> TRIP, deve limpar _run_next
+	assert_eq(c.state, c.State.TRIP)
+	assert_false(c._run_next, "trip cancela a corrida armada")

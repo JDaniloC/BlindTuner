@@ -3,6 +3,7 @@ extends Node2D
 
 signal moved(new_grid_position: Vector2i)
 signal blocked(direction: Vector2i)
+signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -22,6 +23,7 @@ var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
 var _last_note_key: String = ""
 var _last_note_time_ms: int = 0
+var _run_next: bool = false  # armado por handle_action("G4"); consumido pelo próximo handle_note de movimento
 
 const SHEET_BASE := "res://assets/sprites/character/16x32/"
 const SHEETS := {
@@ -78,9 +80,12 @@ func _ready() -> void:
 	_animated_sprite.sprite_frames = _build_sprite_frames()
 	_play_animation("idle", Vector2i(0, 1))
 
-## Recebe a nota disparada pelo joystick. Trata movimento ou ignora se for reservada.
+## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
 func handle_note(note_key: String) -> void:
 	if state == State.TRIP:
+		return
+	if NoteMapping.is_action_note(note_key):
+		handle_action(note_key)
 		return
 	if not NoteMapping.is_movement_note(note_key):
 		return
@@ -88,7 +93,8 @@ func handle_note(note_key: String) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double_tap := (note_key == _last_note_key
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
-	if is_double_tap:
+	if _run_next or is_double_tap:
+		_run_next = false
 		_try_run(dir)
 	else:
 		_try_walk(dir)
@@ -147,6 +153,7 @@ func _on_tween_finished() -> void:
 	_play_animation("idle", _last_direction)
 
 func _enter_trip(dir: Vector2i) -> void:
+	_run_next = false  # tropeçar cancela qualquer corrida armada (semântica de "quebra")
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -166,3 +173,32 @@ func grid_to_world(g: Vector2i) -> Vector2:
 	var wx := float(g.x - g.y) * TILE_WIDTH * 0.5
 	var wy := float(g.x + g.y) * TILE_HEIGHT * 0.5
 	return Vector2(wx, wy)
+
+## Executa uma ação especial (não-movimento). No-op se state==TRIP ou se a nota não é ação.
+func handle_action(note_key: String) -> void:
+	if state == State.TRIP:
+		return
+	if not NoteMapping.is_action_note(note_key):
+		return
+	var aid := NoteMapping.action_id_for(note_key)
+	match aid:
+		"pegar":   _do_pegar()
+		"abaixar": _do_abaixar()
+		"correr":  _do_correr()
+		"pular":   _do_pular()
+		_:         push_warning("handle_action: action_id desconhecido '%s'" % aid)
+	action_performed.emit(aid, grid_position, _last_direction)
+
+func _do_pegar() -> void:
+	_play_animation("rotate", _last_direction)
+
+func _do_abaixar() -> void:
+	# Placeholder: sprite custom de crouch é Diferido. Reusa idle para feedback mínimo.
+	_play_animation("idle", _last_direction)
+
+func _do_correr() -> void:
+	# One-shot: o próximo handle_note de movimento vira _try_run.
+	_run_next = true
+
+func _do_pular() -> void:
+	_play_animation("jump", _last_direction)
