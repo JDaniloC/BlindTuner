@@ -83,22 +83,30 @@ func test_action_id_for_empty_for_movement():
 	for n in ["C4","D4","Ds4","F4","Fs4","Gs4","A4","B4"]:
 		assert_eq(NoteMapping.action_id_for(n), "", "%s sem action_id" % n)
 
-func test_snap_angle_movement_only_skips_action_at_30deg():
-	# 30° é exatamente Cs4 (ação). Com movement_only=true a mais próxima
-	# é C4 (0°) ou D4 (60°); o algoritmo escolhe a primeira de distância mínima
-	# segundo ordem de inserção do dicionário, e ambas estão a 30° de distância
-	# → C4 (vem antes de D4 em NOTES).
-	assert_eq(NoteMapping.snap_angle_to_note(30.0, true), "C4")
+func test_snap_angle_movement_only_at_30deg_snaps_to_d4():
+	# Layout direcional 8x45°: C4=0°, D4=45°. Em 30° a mais próxima é D4 (15° away)
+	# vs C4 (30° away).
+	assert_eq(NoteMapping.snap_angle_to_note(30.0, true), "D4")
 
-func test_snap_angle_movement_only_at_120deg_picks_nearest_movement():
-	# 120° é E4 (ação). Movement vizinhos: Ds4 (90°) e F4 (150°), ambos a 30°.
-	# Ds4 vem antes na ordem de inserção.
-	assert_eq(NoteMapping.snap_angle_to_note(120.0, true), "Ds4")
+func test_snap_angle_movement_only_at_120deg_snaps_to_f4():
+	# 120° no layout direcional: Ds4=90° (30° away), F4=135° (15° away). F4 vence.
+	assert_eq(NoteMapping.snap_angle_to_note(120.0, true), "F4")
 
 func test_snap_angle_default_keeps_old_behavior():
-	# Sem o filtro, 30° continua sendo Cs4 (compat com chamadas existentes).
+	# Sem o filtro, 30° continua sendo Cs4 (layout cromático preservado).
 	assert_eq(NoteMapping.snap_angle_to_note(30.0), "Cs4")
 
-func test_snap_angle_movement_only_resolves_clean_movement_angle():
-	# 90° é Ds4 (is_movement=true). O filtro não deve interferir num ângulo de movimento.
+func test_snap_angle_movement_only_at_90deg_is_ds4():
+	# Ds4 = 90° tanto no layout cromático quanto no direcional (cardinal leste).
 	assert_eq(NoteMapping.snap_angle_to_note(90.0, true), "Ds4")
+
+func test_snap_angle_movement_only_full_circle_8_cardinals():
+	# Layout direcional: 8 notas de movimento em ordem de inserção a 45° cada.
+	var expected = ["C4","D4","Ds4","F4","Fs4","Gs4","A4","B4"]
+	for i in range(8):
+		var note = NoteMapping.snap_angle_to_note(float(i * 45), true)
+		assert_eq(note, expected[i], "ângulo %d deveria mapear para %s" % [i*45, expected[i]])
+
+func test_snap_angle_movement_only_exact_midpoint_breaks_to_lower():
+	# 22.5° é equidistante entre C4 (0°) e D4 (45°). Ordem de inserção: C4 ganha.
+	assert_eq(NoteMapping.snap_angle_to_note(22.5, true), "C4")

@@ -1,24 +1,24 @@
 extends Control
-## Joystick virtual circular com 12 fatias coloridas (uma por nota cromática).
-## Trava em 12 ângulos, emite a nota correspondente ao soltar.
+## Joystick virtual circular com 8 fatias iguais (4 cardinais + 4 diagonais).
+## Cada fatia ocupa 45° e mapeia para uma nota de movimento. As 4 notas de
+## ação saíram do círculo (vão pro SpecialActionPanel).
 
 signal note_triggered(note_key: String)
 
 const RADIUS := 80.0
 const BACKDROP_OVERHANG := 12.0  # px que o disco/anel ultrapassam o raio das fatias
 const DEAD_ZONE := 15.0
-const SLICE_COUNT := 12
-const SLICE_ANGLE_DEG := 30.0
+const SLICE_COUNT := 8
+const SLICE_ANGLE_DEG := 45.0
 const THUMB_RADIUS := 28.0
-const SLICE_VERTICES := 12  # vértices ao longo do arco
+const SLICE_VERTICES := 16  # vértices ao longo do arco
 const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor some
 
 var _dragging := false
 var _thumb_offset := Vector2.ZERO
 var _slice_polygons: Array[Polygon2D] = []
-var _slice_note_keys: Array[String] = []      # paralelo a _slice_polygons (8 entradas)
-var _slice_original_indices: Array[int] = []  # paralelo: índice 0..11 da posição angular
-var _active_slice_index: int = -1             # 0..11 (posição angular mnemônica)
+var _slice_note_keys: Array[String] = []  # paralelo a _slice_polygons (8 entradas)
+var _active_slice_index: int = -1         # 0..7 (índice da fatia em _slice_polygons), ou -1
 var _flash_tween: Tween
 var _backdrop_disc: Polygon2D
 var _backdrop_ring: Line2D
@@ -56,21 +56,20 @@ func _build_backdrop() -> void:
 func _build_slices() -> void:
 	_slice_polygons.clear()
 	_slice_note_keys.clear()
-	_slice_original_indices.clear()
-	# NOTES.keys() preserva ordem de inserção; índice i == ângulo i*30° (C4=0 … B4=330).
-	# Pula as 4 notas de ação — suas posições viram vãos com só o backdrop.
-	var note_keys := NoteMapping.NOTES.keys()
-	for i in range(SLICE_COUNT):
-		var note_key: String = note_keys[i]
-		if NoteMapping.is_action_note(note_key):
+	# 8 notas de movimento em ordem de inserção do dicionário ocupam
+	# 0°, 45°, 90°, ..., 315° (N, NE, E, SE, S, SW, W, NW).
+	var idx := 0
+	for k in NoteMapping.NOTES.keys():
+		var key: String = k
+		if NoteMapping.is_action_note(key):
 			continue
 		var slice := Polygon2D.new()
-		slice.polygon = _build_slice_polygon(i)
-		slice.color = slice_display_color(note_key)
+		slice.polygon = _build_slice_polygon(idx)
+		slice.color = slice_display_color(key)
 		_slices_root.add_child(slice)
 		_slice_polygons.append(slice)
-		_slice_note_keys.append(note_key)
-		_slice_original_indices.append(i)
+		_slice_note_keys.append(key)
+		idx += 1
 
 func slice_display_color(note_key: String) -> Color:
 	if CueSettings.shows_color():
@@ -85,7 +84,8 @@ func _on_cue_changed(_level: int) -> void:
 
 func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 	var points: Array[Vector2] = [Vector2.ZERO]
-	# ângulo 0° aponta pra Norte (-y); fatia começa 15° antes (centro alinhado com nota)
+	# ângulo 0° aponta pra Norte (-y); fatia começa metade do passo antes
+	# (centro alinhado com a direção da nota).
 	var start_deg := slice_index * SLICE_ANGLE_DEG - SLICE_ANGLE_DEG * 0.5
 	for v in range(SLICE_VERTICES + 1):
 		var t := float(v) / SLICE_VERTICES
@@ -142,12 +142,10 @@ func _reset_thumb() -> void:
 	_refresh_slice_alphas()
 
 func _refresh_slice_alphas() -> void:
-	# _active_slice_index é 0..11 (angular). Highlight a fatia cujo
-	# _slice_original_indices[i] casa com o índice ativo.
 	for i in range(_slice_polygons.size()):
 		var slice := _slice_polygons[i]
 		var base := slice.color
-		base.a = 0.85 if _slice_original_indices[i] == _active_slice_index else 0.35
+		base.a = 0.85 if i == _active_slice_index else 0.35
 		slice.color = base
 
 func _emit_for_offset(offset: Vector2) -> void:
@@ -157,14 +155,11 @@ func _emit_for_offset(offset: Vector2) -> void:
 		note_triggered.emit(note)
 
 func _flash_active_slice() -> void:
-	if _active_slice_index < 0:
+	if _active_slice_index < 0 or _active_slice_index >= _slice_polygons.size():
 		return
-	var idx := _slice_original_indices.find(_active_slice_index)
-	if idx < 0:
-		return  # ângulo ativo é de uma ação — não há fatia para piscar
 	if _flash_tween:
 		_flash_tween.kill()
-	var slice := _slice_polygons[idx]
+	var slice := _slice_polygons[_active_slice_index]
 	var bright := slice.color
 	bright.a = 1.0
 	var dim := slice.color
@@ -174,7 +169,7 @@ func _flash_active_slice() -> void:
 	_flash_tween.tween_property(slice, "color", dim, 0.16)
 
 ## Converte um vetor 2D (relativo ao centro) em uma chave de nota.
-## Só retorna notas de movimento; ângulos de ações resolvem na mov. mais próxima.
+## Só retorna notas de movimento (snap em layout direcional 8x45°).
 func vector_to_note(v: Vector2) -> String:
 	if v.length() < DEAD_ZONE:
 		return ""
@@ -182,11 +177,11 @@ func vector_to_note(v: Vector2) -> String:
 	var angle_deg := rad_to_deg(angle_rad)
 	return NoteMapping.snap_angle_to_note(angle_deg, true)
 
-## Índice da fatia (0-11) correspondente ao ângulo em graus.
-## 0° = Norte (C4 / fatia 0). Sentido horário.
+## Índice da fatia (0..7) correspondente ao ângulo em graus. 0°=N, 45°=NE, etc.
+## Consistente com vector_to_note: usa o mesmo snap para resolver empates exatos.
 func slice_index_for_angle(angle_deg: float) -> int:
-	var normalized := fposmod(angle_deg, 360.0)
-	return int(round(normalized / SLICE_ANGLE_DEG)) % SLICE_COUNT
+	var note := NoteMapping.snap_angle_to_note(angle_deg, true)
+	return _slice_note_keys.find(note)
 
 func slice_index_for_offset(offset: Vector2) -> int:
 	if offset.length() < DEAD_ZONE:

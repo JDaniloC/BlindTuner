@@ -17,21 +17,32 @@ const NOTES := {
 }
 
 ## Recebe ângulo em graus, retorna a chave da nota cujo ângulo é o mais próximo.
-## Normaliza para [0, 360) antes de comparar. Se movement_only=true, ignora notas de ação.
+## Normaliza para [0, 360) antes de comparar.
 ## Empates são desempatados pela ordem de inserção do dicionário (primeira nota ganha).
+##
+## Sem movement_only: usa o ângulo cromático de cada nota (12 posições a 30°).
+## Com movement_only=true: layout direcional 8x45° (4 cardinais + 4 diagonais),
+## ignorando notas de ação. Notas de movimento em ordem de inserção mapeiam para
+## 0°, 45°, 90°, ..., 315° — C4=N, D4=NE, Ds4=E, F4=SE, Fs4=S, Gs4=SW, A4=W, B4=NW.
 func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> String:
     var normalized := fposmod(angle_degrees, 360.0)
     var best_key := "C4"  # sentinela; C4 é sempre is_movement=true, válido com qualquer filtro
     var best_distance := INF
+    var movement_idx := 0
     for key in NOTES:
         if movement_only and not NOTES[key]["is_movement"]:
             continue
-        var note_angle: float = NOTES[key]["angle"]
+        var note_angle: float
+        if movement_only:
+            note_angle = float(movement_idx) * 45.0
+            movement_idx += 1
+        else:
+            note_angle = float(NOTES[key]["angle"])
         var diff: float = absf(normalized - note_angle)
         var distance: float = minf(diff, 360.0 - diff)
         # Quantiza para 6 casas decimais para absorver drift de atan2 em empates exatos
-        # (ex.: 15.0° equidistante entre C4 e Cs4). A precisão é segura: 1e-6° << 30°
-        # (menor separação entre notas adjacentes), portanto não cria falsos empates.
+        # (ex.: 22.5° equidistante entre C4 e D4 no layout direcional). 1e-6° << 30°,
+        # então a quantização não cria falsos empates entre notas adjacentes.
         var rounded_distance := roundf(distance * 1e6) / 1e6
         var rounded_best := roundf(best_distance * 1e6) / 1e6
         if rounded_distance < rounded_best:
