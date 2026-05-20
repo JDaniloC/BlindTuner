@@ -12,6 +12,7 @@ const ROOM_SIZE := Vector2i(10, 10)
 @onready var _screen_flash: ColorRect = $UI/ScreenFlash
 @onready var _conductor: Node = $Conductor
 @onready var _hud: Control = $UI/GameHUD
+@onready var _special_actions: Control = $UI/SpecialActionPanel
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -38,6 +39,7 @@ func _ready() -> void:
 	_character.position = _character.grid_to_world(_character.grid_position)
 	_character.blocked.connect(_on_character_blocked)
 	_joystick.note_triggered.connect(_on_note_triggered)
+	_special_actions.note_triggered.connect(_on_note_triggered)
 	_conductor.preview_note.connect(_on_preview_note)
 	_conductor.call_cue.connect(_on_call_cue)
 	_conductor.replay_note.connect(_on_replay_note)
@@ -78,9 +80,12 @@ func _on_call_cue(note_key: String, index: int) -> void:
 	_hud.set_progress(index, _conductor._preset.notes.size())
 
 func _on_replay_note(note_key: String, index: int) -> void:
-	# REPLAY: o personagem "toca" e anda o caminho canônico do preset.
+	# REPLAY: o personagem "toca" e (se movement) anda o caminho canônico do preset.
 	AudioManager.play_note(note_key)
-	_character._try_walk(NoteMapping.direction_for(note_key))
+	if NoteMapping.is_action_note(note_key):
+		_character.handle_action(note_key)
+	else:
+		_character._try_walk(NoteMapping.direction_for(note_key))
 	_hud.set_progress(index, _conductor._preset.notes.size())
 
 func _on_phase_changed(phase: int) -> void:
@@ -107,6 +112,13 @@ func _on_note_triggered(note_key: String) -> void:
 
 func _on_note_resolved(hit: bool, index: int) -> void:
 	var note_key: String = _conductor._preset.notes[index]
+	if NoteMapping.is_action_note(note_key):
+		# Acerto numa ação: dispara a ação; erro: tropeço com a última direção.
+		if hit:
+			_character.handle_action(note_key)
+		else:
+			_character._enter_trip(_character._last_direction)
+		return
 	var dir: Vector2i = NoteMapping.direction_for(note_key)
 	if hit:
 		# Preset validado contra _wall_tiles; _try_walk não deveria tropeçar.
