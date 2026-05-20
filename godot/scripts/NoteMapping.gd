@@ -18,6 +18,7 @@ const NOTES := {
 
 ## Recebe ângulo em graus, retorna a chave da nota cujo ângulo é o mais próximo.
 ## Normaliza para [0, 360) antes de comparar. Se movement_only=true, ignora notas de ação.
+## Empates são desempatados pela ordem de inserção do dicionário (primeira nota ganha).
 func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> String:
     var normalized := fposmod(angle_degrees, 360.0)
     var best_key := "C4"  # sentinela; C4 é sempre is_movement=true, válido com qualquer filtro
@@ -28,7 +29,12 @@ func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> St
         var note_angle: float = NOTES[key]["angle"]
         var diff: float = absf(normalized - note_angle)
         var distance: float = minf(diff, 360.0 - diff)
-        if distance < best_distance:
+        # Quantiza para 6 casas decimais para absorver drift de atan2 em empates exatos
+        # (ex.: 15.0° equidistante entre C4 e Cs4). A precisão é segura: 1e-6° << 30°
+        # (menor separação entre notas adjacentes), portanto não cria falsos empates.
+        var rounded_distance := roundf(distance * 1e6) / 1e6
+        var rounded_best := roundf(best_distance * 1e6) / 1e6
+        if rounded_distance < rounded_best:
             best_distance = distance
             best_key = key
     return best_key
