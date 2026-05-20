@@ -64,3 +64,41 @@ func test_snap_angle_to_note_exact_midpoint_breaks_to_lower():
 
 func test_frequency_for_a4_is_440():
 	assert_eq(NoteMapping.frequency_for("A4"), 440)
+
+func test_is_action_note_true_for_four():
+	for n in ["Cs4","E4","G4","As4"]:
+		assert_true(NoteMapping.is_action_note(n), "%s deveria ser ação" % n)
+
+func test_is_action_note_false_for_eight_movement():
+	for n in ["C4","D4","Ds4","F4","Fs4","Gs4","A4","B4"]:
+		assert_false(NoteMapping.is_action_note(n), "%s não é ação" % n)
+
+func test_action_id_for_returns_expected():
+	assert_eq(NoteMapping.action_id_for("Cs4"), "pegar")
+	assert_eq(NoteMapping.action_id_for("E4"),  "abaixar")
+	assert_eq(NoteMapping.action_id_for("G4"),  "correr")
+	assert_eq(NoteMapping.action_id_for("As4"), "pular")
+
+func test_action_id_for_empty_for_movement():
+	for n in ["C4","D4","Ds4","F4","Fs4","Gs4","A4","B4"]:
+		assert_eq(NoteMapping.action_id_for(n), "", "%s sem action_id" % n)
+
+func test_snap_angle_movement_only_skips_action_at_30deg():
+	# 30° é exatamente Cs4 (ação). Com movement_only=true a mais próxima
+	# é C4 (0°) ou D4 (60°); o algoritmo escolhe a primeira de distância mínima
+	# segundo ordem de inserção do dicionário, e ambas estão a 30° de distância
+	# → C4 (vem antes de D4 em NOTES).
+	assert_eq(NoteMapping.snap_angle_to_note(30.0, true), "C4")
+
+func test_snap_angle_movement_only_at_120deg_picks_nearest_movement():
+	# 120° é E4 (ação). Movement vizinhos: Ds4 (90°) e F4 (150°), ambos a 30°.
+	# Ds4 vem antes na ordem de inserção.
+	assert_eq(NoteMapping.snap_angle_to_note(120.0, true), "Ds4")
+
+func test_snap_angle_default_keeps_old_behavior():
+	# Sem o filtro, 30° continua sendo Cs4 (compat com chamadas existentes).
+	assert_eq(NoteMapping.snap_angle_to_note(30.0), "Cs4")
+
+func test_snap_angle_movement_only_resolves_clean_movement_angle():
+	# 90° é Ds4 (is_movement=true). O filtro não deve interferir num ângulo de movimento.
+	assert_eq(NoteMapping.snap_angle_to_note(90.0, true), "Ds4")
