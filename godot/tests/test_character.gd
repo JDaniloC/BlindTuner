@@ -148,12 +148,12 @@ func test_handle_action_pegar_emits_action_performed():
 	assert_signal_emitted_with_parameters(c, "action_performed",
 		["pegar", c.grid_position, c._last_direction])
 
-func test_handle_action_abaixar_emits():
+func test_handle_action_interagir_emits():
 	var c = _make_character()
 	watch_signals(c)
 	c.handle_action("Gs4")
 	assert_signal_emitted_with_parameters(c, "action_performed",
-		["abaixar", c.grid_position, c._last_direction])
+		["interagir", c.grid_position, c._last_direction])
 
 func test_handle_action_pular_emits():
 	var c = _make_character()

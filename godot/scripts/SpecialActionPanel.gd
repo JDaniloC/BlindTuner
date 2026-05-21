@@ -1,5 +1,5 @@
 extends Control
-## Painel das 4 ações especiais (Gs4=abaixar, A4=pegar, As4=correr, B4=pular).
+## Painel das 4 ações especiais (Gs4=interagir, A4=pegar, As4=correr, B4=pular).
 ## Emite o mesmo sinal note_triggered do DirectionJoystick — Playground roteia.
 
 signal note_triggered(note_key: String)

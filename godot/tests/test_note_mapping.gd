@@ -74,7 +74,7 @@ func test_is_action_note_false_for_eight_movement():
 		assert_false(NoteMapping.is_action_note(n), "%s não é ação" % n)
 
 func test_action_id_for_returns_expected():
-	assert_eq(NoteMapping.action_id_for("Gs4"), "abaixar")
+	assert_eq(NoteMapping.action_id_for("Gs4"), "interagir")
 	assert_eq(NoteMapping.action_id_for("A4"),  "pegar")
 	assert_eq(NoteMapping.action_id_for("As4"), "correr")
 	assert_eq(NoteMapping.action_id_for("B4"),  "pular")

@@ -79,7 +79,7 @@ const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 
 func test_each_button_has_action_icon_child():
 	var p = _make()
-	var expected_actions = ["abaixar", "pegar", "correr", "pular"]
+	var expected_actions = ["interagir", "pegar", "correr", "pular"]
 	for i in range(p._buttons.size()):
 		var btn = p._buttons[i]
 		var icon: Node = null

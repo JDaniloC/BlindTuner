@@ -19,8 +19,8 @@ func _draw() -> void:
 	var c := size * 0.5
 	var r := minf(size.x, size.y) * RADIUS_FRAC
 	match action_id:
-		"pegar":   _draw_pegar(c, r)
-		"abaixar": _draw_abaixar(c, r)
+		"pegar":    _draw_pegar(c, r)
+		"interagir": _draw_interagir(c, r)
 		"correr":  _draw_correr(c, r)
 		"pular":   _draw_pular(c, r)
 
@@ -33,12 +33,12 @@ func _draw_pegar(c: Vector2, r: float) -> void:
 	draw_line(bottom, bottom + Vector2( r * 0.5, -r * 0.4), ICON_COLOR, LINE_WIDTH, true)
 	draw_line(c + Vector2(-r, r * 0.8), c + Vector2(r, r * 0.8), ICON_COLOR, LINE_WIDTH, true)
 
-## Dois chevrons descendentes empilhados.
-func _draw_abaixar(c: Vector2, r: float) -> void:
-	draw_line(c + Vector2(-r, -r * 0.5), c + Vector2(0, r * 0.1), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2( r, -r * 0.5), c + Vector2(0, r * 0.1), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(-r, r * 0.1), c + Vector2(0, r * 0.7), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2( r, r * 0.1), c + Vector2(0, r * 0.7), ICON_COLOR, LINE_WIDTH, true)
+## Símbolo "!" — exclamação para "interagir / aqui!".
+func _draw_interagir(c: Vector2, r: float) -> void:
+	# Linha vertical (corpo do !)
+	draw_line(c + Vector2(0, -r * 0.8), c + Vector2(0, r * 0.2), ICON_COLOR, LINE_WIDTH, true)
+	# Ponto (base do !) — circulo pequeno preenchido
+	draw_circle(c + Vector2(0, r * 0.6), LINE_WIDTH * 0.9, ICON_COLOR)
 
 ## Três linhas horizontais (motion) + chevron » direita.
 func _draw_correr(c: Vector2, r: float) -> void:

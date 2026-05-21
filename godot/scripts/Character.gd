@@ -189,8 +189,8 @@ func handle_action(note_key: String) -> void:
 		return
 	var aid := NoteMapping.action_id_for(note_key)
 	match aid:
-		"pegar":   _do_pegar()
-		"abaixar": _do_abaixar()
+		"pegar":    _do_pegar()
+		"interagir": _do_interagir()
 		"correr":  _do_correr()
 		"pular":   _do_pular()
 		_:         push_warning("handle_action: action_id desconhecido '%s'" % aid)
@@ -200,7 +200,7 @@ func _do_pegar() -> void:
 	_play_animation("rotate", _last_direction)
 	get_tree().create_timer(ROTATE_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
-func _do_abaixar() -> void:
+func _do_interagir() -> void:
 	# Squash procedural — escala Y temporariamente. Sprite custom de crouch é Diferido.
 	if _crouch_tween:
 		_crouch_tween.kill()
