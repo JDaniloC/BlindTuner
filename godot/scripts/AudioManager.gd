@@ -1,48 +1,59 @@
 extends Node
 ## Autoload singleton — gera e toca tons sintetizados representando cada nota.
-##
-## Histórico: usava AudioStreamGenerator com push_frame síncrono. Em CALL/PREVIEW
-## com várias notas próximas, o padrão sofria — ou o buffer enchia antes do loop
-## terminar (samples descartados) ou o sinal `finished` não disparava para o
-## generator, deixando AudioStreamPlayers vazando como filhos do AudioManager
-## até esgotar slots de voz (default 64). Sintoma: 1ª nota OK, 2ª/3ª silenciosa.
-##
-## Agora: pré-renderiza um AudioStreamWAV (PCM estático) por chamada. Streams
-## finitos disparam `finished` de forma confiável → queue_free() limpa o player.
+## Serializa o playback: um único player ativo por vez. Cada chamada de
+## play_note/play_collision_sfx cancela o anterior, garantindo:
+##   - notas repetidas sempre tocam (sem silent-fail por overlap)
+##   - nunca 2 sons simultâneos (clareza pedagógica)
 
-const MIX_RATE := 44100
+const MIX_RATE := 44100.0
 const NOTE_DURATION_SEC := 0.6
+const COLLISION_DURATION_SEC := 0.2
 const ATTACK_SEC := 0.01
 const DECAY_SEC := 0.15
 const SUSTAIN_LEVEL := 0.4
 const RELEASE_SEC := 0.3
 const COLLISION_FREQ := 80.0
 
-## Toca a nota pela chave (ex: "A4"). Retorna o AudioStreamPlayer instanciado.
+var _current_player: AudioStreamPlayer = null
+
+## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
 func play_note(note_key: String) -> AudioStreamPlayer:
     var freq := float(NoteMapping.frequency_for(note_key))
-    return _play_synth(freq, false)
+    return _play_synth(freq, false, NOTE_DURATION_SEC)
 
-## Toca SFX de colisão (tom grave e curto).
+## Toca SFX de colisão (tom grave e curto). Cancela qualquer player ativo antes.
 func play_collision_sfx() -> AudioStreamPlayer:
-    return _play_synth(COLLISION_FREQ, true)
+    return _play_synth(COLLISION_FREQ, true, COLLISION_DURATION_SEC)
 
 ## Stub para o modo cello futuro (pitch contínuo controlável em tempo real).
 func play_continuous_pitch(_freq_hz: float):
     return null
 
-func _play_synth(freq: float, harsh: bool) -> AudioStreamPlayer:
-    var stream := _render_wave(freq, harsh)
+func _play_synth(freq: float, harsh: bool, duration: float) -> AudioStreamPlayer:
+    _stop_current()
     var player := AudioStreamPlayer.new()
-    player.stream = stream
+    player.stream = _make_stream(freq, harsh, duration)
     add_child(player)
-    # auto-remove após terminar (AudioStreamWAV é finito; signal dispara confiavelmente)
-    player.finished.connect(func(): player.queue_free())
+    _current_player = player
+    player.finished.connect(_on_player_finished.bind(player))
     player.play()
     return player
 
-func _render_wave(freq: float, harsh: bool) -> AudioStreamWAV:
-    var total_samples := int(MIX_RATE * NOTE_DURATION_SEC)
+func _stop_current() -> void:
+    if _current_player and is_instance_valid(_current_player):
+        _current_player.stop()
+        _current_player.queue_free()
+    _current_player = null
+
+func _on_player_finished(player: AudioStreamPlayer) -> void:
+    if not is_instance_valid(player):
+        return
+    if _current_player == player:
+        _current_player = null
+    player.queue_free()
+
+func _make_stream(freq: float, harsh: bool, duration: float) -> AudioStreamWAV:
+    var total_samples := int(MIX_RATE * duration)
     var attack_samples := int(MIX_RATE * ATTACK_SEC)
     var decay_samples := int(MIX_RATE * DECAY_SEC)
     var release_samples := int(MIX_RATE * RELEASE_SEC)
@@ -63,7 +74,7 @@ func _render_wave(freq: float, harsh: bool) -> AudioStreamWAV:
 
     var stream := AudioStreamWAV.new()
     stream.format = AudioStreamWAV.FORMAT_16_BITS
-    stream.mix_rate = MIX_RATE
+    stream.mix_rate = int(MIX_RATE)
     stream.stereo = false
     stream.data = bytes
     return stream

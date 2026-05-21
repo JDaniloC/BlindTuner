@@ -101,7 +101,9 @@ func test_call_cue_re_emitted_same_index_on_miss():
 	watch_signals(c)
 	c._advance()  # preview C4
 	c._advance()  # -> CALL, call_cue idx0 (emissão 0)
-	c.submit_note("D4")  # erro -> note_resolved(false) + call_cue idx0 de novo
+	c.submit_note("D4")  # erro -> note_resolved(false), agenda call_cue idx0 de novo
+	# call_cue após submit_note é agendado (CUE_GAP_AFTER_USER_SEC); aguarda o timer
+	await get_tree().create_timer(c.CUE_GAP_AFTER_USER_SEC + 0.05).timeout
 	assert_signal_emit_count(c, "call_cue", 2)
 	assert_signal_emitted_with_parameters(c, "call_cue", ["C4", 0], 1)
 	assert_signal_emitted_with_parameters(c, "note_resolved", [false, 0])
@@ -154,3 +156,32 @@ func test_restart_mid_game_resets():
 	c.start()
 	assert_eq(c.phase, c.Phase.PREVIEW)
 	assert_eq(c._index, 0)
+
+func test_submit_note_schedules_next_cue_with_delay():
+	# Garante que call_cue para a 2ª nota NÃO é emitido sincronicamente após o acerto.
+	var c = _conductor()
+	_enter_call(c, ["C4", "D4"])
+	watch_signals(c)
+	# Emissão 0 já foi em _begin_call (antes do watch); zera o contador que importa.
+	c.submit_note("C4")  # acerto na 1ª nota
+	# call_cue para D4 (idx 1) ainda não deve ter disparado
+	assert_signal_emit_count(c, "call_cue", 0)
+	# Aguarda o timer disparar
+	await get_tree().create_timer(c.CUE_GAP_AFTER_USER_SEC + 0.05).timeout
+	assert_signal_emit_count(c, "call_cue", 1)
+	assert_signal_emitted_with_parameters(c, "call_cue", ["D4", 1])
+
+func test_pending_cue_cancelled_by_new_submit():
+	# Garante que uma segunda submit_note cancela o cue agendado pelo primeiro acerto.
+	var c = _conductor()
+	_enter_call(c, ["C4", "D4", "F4"])
+	# Acerta C4 (schedula cue para D4 idx1)
+	c.submit_note("C4")
+	# Antes do timer: erra D4 (deve cancelar o cue de D4 e agendar novo para D4)
+	c.submit_note("F4")  # errado — alvo ainda é D4
+	watch_signals(c)
+	# Aguarda ambos os possíveis timers
+	await get_tree().create_timer(c.CUE_GAP_AFTER_USER_SEC + 0.05).timeout
+	# Apenas UM call_cue deve ter disparado (o do segundo submit, não o do primeiro)
+	assert_signal_emit_count(c, "call_cue", 1)
+	assert_signal_emitted_with_parameters(c, "call_cue", ["D4", 1])
