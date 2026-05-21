@@ -101,12 +101,14 @@ func handle_note(note_key: String) -> void:
 	if _run_next and _jump_next:
 		_run_next = false
 		_jump_next = false
-		_try_long_jump(dir)
+		_set_jump_loop(false)
+		_try_run_then_jump(dir)
 	elif _run_next:
 		_run_next = false
 		_try_run(dir)
 	elif _jump_next:
 		_jump_next = false
+		_set_jump_loop(false)
 		_try_jump(dir)
 	elif is_double_tap:
 		_try_run(dir)
@@ -128,22 +130,16 @@ func _try_walk(dir: Vector2i) -> void:
 	_tween_to(grid_to_world(target), MOVE_DURATION)
 
 func _try_run(dir: Vector2i) -> void:
-	var target1 := grid_position + dir
-	if blocked_tiles.get(target1, false):
+	var target := grid_position + dir
+	if blocked_tiles.get(target, false):
 		_enter_trip(dir)
 		return
-	var target2 := target1 + dir
 	_last_direction = dir
 	state = State.RUN
+	grid_position = target
+	moved.emit(grid_position)
 	_play_animation("run", dir)
-	if blocked_tiles.get(target2, false):
-		grid_position = target1
-		moved.emit(grid_position)
-		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
-	else:
-		grid_position = target2
-		moved.emit(grid_position)
-		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
 
 ## Salto curto: 1 tile com anim jump. Blocked = trip.
 func _try_jump(dir: Vector2i) -> void:
@@ -158,10 +154,9 @@ func _try_jump(dir: Vector2i) -> void:
 	_play_animation("jump", dir)
 	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
 
-## Salto longo (correr+pular combo): 2 tiles com anim jump.
-## Mesma semântica de bloqueio do _try_run: 1º tile bloqueado = trip;
-## 2º tile bloqueado = anda só 1.
-func _try_long_jump(dir: Vector2i) -> void:
+## Combo correr+pular: 2 tiles totais. 1º tile com anim 'run', troca pra 'jump' antes
+## do 2º tile. tween_callback faz a transição entre os dois segmentos.
+func _try_run_then_jump(dir: Vector2i) -> void:
 	var target1 := grid_position + dir
 	if blocked_tiles.get(target1, false):
 		_enter_trip(dir)
@@ -169,15 +164,22 @@ func _try_long_jump(dir: Vector2i) -> void:
 	var target2 := target1 + dir
 	_last_direction = dir
 	state = State.RUN
-	_play_animation("jump", dir)
+	_play_animation("run", dir)
 	if blocked_tiles.get(target2, false):
+		# 2º bloqueado: anda só 1 tile com anim run, sem trocar pra jump
 		grid_position = target1
 		moved.emit(grid_position)
 		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
 	else:
 		grid_position = target2
 		moved.emit(grid_position)
-		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+		if _tween:
+			_tween.kill()
+		_tween = create_tween()
+		_tween.tween_property(self, "position", grid_to_world(target1), RUN_MOVE_DURATION)
+		_tween.tween_callback(_play_animation.bind("jump", dir))
+		_tween.tween_property(self, "position", grid_to_world(target2), RUN_MOVE_DURATION)
+		_tween.finished.connect(_on_tween_finished)
 
 func _tween_to(target_world: Vector2, duration: float) -> void:
 	if _tween:
@@ -203,6 +205,7 @@ func _on_tween_finished() -> void:
 func _enter_trip(dir: Vector2i) -> void:
 	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
 	_jump_next = false
+	_set_jump_loop(false)  # garante que o trip não loope (jump anim é one-shot pra trip)
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -254,9 +257,10 @@ func _do_correr() -> void:
 	_play_animation("run", _last_direction)
 
 func _do_pular() -> void:
-	# Arma pular: anim 'jump' (loop=false) congela no último frame como indicador armado.
-	# Próximo handle_note vira _try_jump (1 tile). Combo com correr → _try_long_jump.
+	# Arma pular: jump anim LOOPA enquanto armado (vira "saltando no lugar").
+	# Loop é desligado em handle_note ao consumir, ou em _enter_trip.
 	_jump_next = true
+	_set_jump_loop(true)
 	_play_animation("jump", _last_direction)
 
 func _return_to_idle_if_static() -> void:
@@ -265,3 +269,15 @@ func _return_to_idle_if_static() -> void:
 	# Só volta a idle se o personagem não iniciou movimento durante a anim.
 	if state == State.IDLE:
 		_play_animation("idle", _last_direction)
+
+## Habilita ou desabilita o loop nas 5 variantes de 'jump_*' do SpriteFrames.
+## Usado para fazer a anim de jump loopar enquanto _jump_next está armado
+## (sem isso, a anim congela no último frame e o personagem fica "no ar").
+func _set_jump_loop(loop: bool) -> void:
+	var sf := _animated_sprite.sprite_frames
+	if sf == null:
+		return
+	for row in DIRECTION_ROWS:
+		var anim_name = "jump_" + row
+		if sf.has_animation(anim_name):
+			sf.set_animation_loop(anim_name, loop)

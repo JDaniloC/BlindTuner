@@ -101,22 +101,14 @@ func test_run_triggered_by_double_tap_same_note():
 	c.handle_note("C4")
 	assert_eq(c.state, c.State.RUN)
 
-func test_run_moves_two_tiles_when_path_clear():
+func test_run_moves_one_tile_when_path_clear():
 	var c = _make_character()
 	c.handle_note("C4")
 	var pos_after_walk = c.grid_position  # (4,4)
 	c._last_note_time_ms = Time.get_ticks_msec()
 	c.handle_note("C4")
-	assert_eq(c.grid_position, pos_after_walk + Vector2i(-2, -2))
+	assert_eq(c.grid_position, pos_after_walk + Vector2i(-1, -1))
 
-func test_run_blocked_at_second_tile_moves_one():
-	var c = _make_character()
-	c.blocked_tiles = { Vector2i(3, 3): true }  # (5,5)->(4,4)->bloqueado
-	c.handle_note("C4")
-	var pos_after_walk = c.grid_position  # (4,4)
-	c._last_note_time_ms = Time.get_ticks_msec()
-	c.handle_note("C4")
-	assert_eq(c.grid_position, pos_after_walk)
 
 func test_run_blocked_at_first_tile_trips():
 	var c = _make_character()
@@ -194,9 +186,9 @@ func test_handle_note_routes_action_notes_to_handle_action():
 func test_run_next_makes_next_walk_become_run():
 	var c = _make_character()
 	c.handle_action("As4")  # arma o correr
-	c.handle_note("C4")    # próximo movimento
+	c.handle_note("C4")     # próximo movimento
 	assert_eq(c.state, c.State.RUN)
-	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles diagonal
+	assert_eq(c.grid_position, Vector2i(4, 4))  # 1 tile diagonal (era 2)
 	assert_false(c._run_next, "flag consumida")
 
 func test_run_next_consumed_only_on_movement():
@@ -265,6 +257,9 @@ func test_pular_armed_plays_jump_animation_in_place():
 	assert_true(c._animated_sprite.animation.begins_with("jump"),
 		"anim 'jump' enquanto armado; era %s" % c._animated_sprite.animation)
 	assert_eq(c.grid_position, start_pos, "armar não move")
+	# Confirma que a anim jump está loopando (não congela)
+	assert_true(c._animated_sprite.sprite_frames.get_animation_loop(c._animated_sprite.animation),
+		"jump anim deveria estar loopando enquanto armado")
 
 func test_jump_consumed_moves_1_tile_with_jump_anim():
 	var c = _make_character()
@@ -274,6 +269,8 @@ func test_jump_consumed_moves_1_tile_with_jump_anim():
 	assert_true(c._animated_sprite.animation.begins_with("jump"),
 		"anim 'jump' durante o movimento; era %s" % c._animated_sprite.animation)
 	assert_false(c._jump_next, "flag consumida")
+	assert_false(c._animated_sprite.sprite_frames.get_animation_loop(c._animated_sprite.animation),
+		"loop desativado após consumo (para tween_finished voltar ao idle)")
 
 func test_combo_run_plus_jump_moves_2_tiles_with_jump_anim():
 	var c = _make_character()
@@ -282,8 +279,10 @@ func test_combo_run_plus_jump_moves_2_tiles_with_jump_anim():
 	assert_true(c._run_next and c._jump_next, "ambas armadas")
 	c.handle_note("C4")     # movimento consome combo
 	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles na direção (-1,-1)
-	assert_true(c._animated_sprite.animation.begins_with("jump"),
-		"anim 'jump' (não 'run') no combo; era %s" % c._animated_sprite.animation)
+	# anim ao consumir começa como 'run', troca pra 'jump' no meio via tween_callback.
+	# Imediatamente após o consume, anim é 'run' (ainda não passou pelo callback).
+	assert_true(c._animated_sprite.animation.begins_with("run"),
+		"anim 'run' no início do combo; era %s" % c._animated_sprite.animation)
 	assert_false(c._run_next, "run flag consumida")
 	assert_false(c._jump_next, "jump flag consumida")
 
@@ -297,16 +296,19 @@ func test_trip_clears_both_armed_flags():
 	assert_eq(c.state, c.State.TRIP)
 	assert_false(c._run_next, "run flag limpa no trip")
 	assert_false(c._jump_next, "jump flag limpa no trip")
+	# Trip usa anim 'jump' mas não pode loopar
+	assert_false(c._animated_sprite.sprite_frames.get_animation_loop("jump_n"),
+		"loop de jump desativado para anim de trip não loopar")
 
 func test_combo_blocked_at_2nd_tile_moves_only_1():
-	# Combo (long jump 2 tiles), mas o 2º tile está bloqueado → move só 1.
 	var c = _make_character()
-	c.blocked_tiles = { Vector2i(3, 3): true }  # 2º tile (5,5)→(4,4)→(3,3) bloqueado
+	c.blocked_tiles = { Vector2i(3, 3): true }  # 2º tile bloqueado
 	c.handle_action("As4")
 	c.handle_action("B4")
 	c.handle_note("C4")
 	assert_eq(c.grid_position, Vector2i(4, 4), "move só 1 tile (2º bloqueado)")
-	assert_true(c._animated_sprite.animation.begins_with("jump"))
+	assert_true(c._animated_sprite.animation.begins_with("run"),
+		"anim 'run' quando 2º bloqueado (sem trocar pra jump)")
 
 func test_combo_blocked_at_1st_tile_trips():
 	var c = _make_character()
