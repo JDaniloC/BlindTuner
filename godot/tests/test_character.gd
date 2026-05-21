@@ -394,3 +394,37 @@ func test_armed_state_changed_emitted_on_trip():
 	watch_signals(c)
 	c.handle_note("C4")  # bate parede → TRIP, limpa armado
 	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_run_spawns_dust_puffs():
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("As4")  # arma correr
+	c.handle_note("C4")     # consume → _try_run → spawn dust
+	var after := c.get_child_count()
+	assert_eq(after - before, c.DUST_PUFF_COUNT, "dust puffs spawnados como filhos")
+
+func test_walk_does_not_spawn_dust():
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_note("C4")  # walk normal
+	var after := c.get_child_count()
+	assert_eq(after, before, "walk não spawna dust")
+
+func test_jump_solo_does_not_spawn_dust():
+	# Pular solo é com anim jump (não run), sem dust.
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("B4")
+	c.handle_note("C4")
+	var after := c.get_child_count()
+	assert_eq(after, before, "jump solo não spawna dust")
+
+func test_combo_spawns_dust_at_run_segment():
+	# Combo correr+pular tem 1º segmento de run — deveria spawnar dust.
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("As4")
+	c.handle_action("B4")
+	c.handle_note("C4")
+	var after := c.get_child_count()
+	assert_eq(after - before, c.DUST_PUFF_COUNT, "combo spawna dust no segmento de run")

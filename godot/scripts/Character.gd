@@ -16,6 +16,9 @@ const TRIP_DURATION_SEC := 0.6
 const INTERACT_DURATION_SEC := 0.4   # 4 frames / 10 fps
 const ATTACK_DURATION_SEC := 0.667   # 8 frames / 12 fps
 const JUMP_ARC_HEIGHT_PX := 18.0     # elevação Y do sprite no pico do arco
+const DUST_PUFF_COUNT := 4
+const DUST_PUFF_LIFETIME := 0.5
+const DUST_PUFF_COLOR := Color(0.85, 0.78, 0.6, 0.7)
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -148,6 +151,7 @@ func _try_run(dir: Vector2i) -> void:
 	grid_position = target
 	moved.emit(grid_position)
 	_play_animation("run", dir)
+	_spawn_dust_puffs()
 	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
 
 ## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
@@ -184,6 +188,7 @@ func _try_run_then_jump(dir: Vector2i) -> void:
 	_last_direction = dir
 	state = State.RUN
 	_play_animation("run", dir)
+	_spawn_dust_puffs()
 	if blocked_tiles.get(target2, false):
 		# 2º bloqueado: anda só 1 tile com anim run, sem trocar pra jump
 		grid_position = target1
@@ -328,3 +333,24 @@ func _reset_sprite_arc() -> void:
 		_arc_tween.kill()
 		_arc_tween = null
 	_animated_sprite.position.y = _sprite_base_y
+
+## Spawna N polígonos de poeira na posição atual; cada um sobe, desvanece e se
+## autodestroi. top_level=true mantém-os fixos no mundo (não seguem o personagem).
+func _spawn_dust_puffs() -> void:
+	for i in range(DUST_PUFF_COUNT):
+		var puff := Polygon2D.new()
+		var s: float = randf_range(2.0, 4.0)
+		puff.polygon = PackedVector2Array([
+			Vector2(-s, -s), Vector2(s, -s), Vector2(s, s), Vector2(-s, s)
+		])
+		puff.color = DUST_PUFF_COLOR
+		puff.top_level = true
+		puff.position = position + Vector2(randf_range(-12.0, 12.0), randf_range(0.0, 8.0))
+		add_child(puff)
+		var lifetime: float = DUST_PUFF_LIFETIME * randf_range(0.7, 1.0)
+		var drift := Vector2(randf_range(-10.0, 10.0), -randf_range(8.0, 14.0))
+		var t := puff.create_tween()
+		t.set_parallel(true)
+		t.tween_property(puff, "modulate:a", 0.0, lifetime)
+		t.tween_property(puff, "position", puff.position + drift, lifetime)
+		t.chain().tween_callback(puff.queue_free)
