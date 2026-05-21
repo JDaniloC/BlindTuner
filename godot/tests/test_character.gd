@@ -367,3 +367,30 @@ func test_trip_resets_sprite_arc():
 	assert_eq(c.state, c.State.TRIP)
 	assert_eq(c._animated_sprite.position.y, c._sprite_base_y,
 		"trip restaura sprite y para base")
+
+func test_armed_state_changed_emitted_on_correr():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("As4")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [true, false])
+
+func test_armed_state_changed_emitted_on_pular():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("B4")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, true])
+
+func test_armed_state_changed_emitted_on_consume():
+	var c = _make_character()
+	c.handle_action("As4")  # arma
+	watch_signals(c)
+	c.handle_note("C4")  # consome
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_armed_state_changed_emitted_on_trip():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("As4")
+	watch_signals(c)
+	c.handle_note("C4")  # bate parede → TRIP, limpa armado
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])

@@ -105,3 +105,38 @@ func test_action_icon_ignores_unknown_action():
 	icon.set_action("inexistente")
 	await get_tree().process_frame  # força _draw() para garantir que o match no-op não quebra
 	assert_eq(icon.action_id, "inexistente")
+
+func test_on_armed_state_changed_brightens_correr_button():
+	CueSettings.set_level(0)  # cor visível
+	var p = _make()
+	var base = p._buttons[2].modulate  # As4 = correr (índice 2)
+	p.on_armed_state_changed(true, false)
+	assert_gt(p._buttons[2].modulate.r, base.r, "armed brighten R")
+	assert_eq(p._armed, [false, false, true, false])
+
+func test_on_armed_state_changed_brightens_pular_button():
+	CueSettings.set_level(0)
+	var p = _make()
+	var base = p._buttons[3].modulate  # B4 = pular (índice 3)
+	p.on_armed_state_changed(false, true)
+	assert_gt(p._buttons[3].modulate.r, base.r, "armed brighten R")
+	assert_eq(p._armed, [false, false, false, true])
+
+func test_disarm_restores_modulate_to_cue_base():
+	CueSettings.set_level(0)
+	var p = _make()
+	var base = p._buttons[2].modulate
+	p.on_armed_state_changed(true, false)
+	p.on_armed_state_changed(false, false)
+	assert_eq(p._buttons[2].modulate, base, "modulate volta ao base após disarm")
+
+func test_armed_brighten_respects_neutral_at_cue_3():
+	# Em cue 3 a cor base é NEUTRAL_BUTTON; armed multiplica em cima.
+	CueSettings.set_level(0)
+	var p = _make()
+	CueSettings.set_level(3)
+	p.on_armed_state_changed(true, false)
+	var expected = Color(p.NEUTRAL_BUTTON.r * p.ARMED_BRIGHTNESS,
+		p.NEUTRAL_BUTTON.g * p.ARMED_BRIGHTNESS,
+		p.NEUTRAL_BUTTON.b * p.ARMED_BRIGHTNESS, p.NEUTRAL_BUTTON.a)
+	assert_eq(p._buttons[2].modulate, expected)

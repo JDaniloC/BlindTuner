@@ -4,6 +4,8 @@ extends Node2D
 signal moved(new_grid_position: Vector2i)
 signal blocked(direction: Vector2i)
 signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
+## Notifica mudança de _run_next / _jump_next para UI espelhar (botão armado brilha).
+signal armed_state_changed(running: bool, jumping: bool)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -102,6 +104,7 @@ func handle_note(note_key: String) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double_tap := (note_key == _last_note_key
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
+	var was_armed := _run_next or _jump_next
 	if _run_next and _jump_next:
 		_run_next = false
 		_jump_next = false
@@ -118,6 +121,8 @@ func handle_note(note_key: String) -> void:
 		_try_run(dir)
 	else:
 		_try_walk(dir)
+	if was_armed:
+		armed_state_changed.emit(_run_next, _jump_next)
 	_last_note_key = note_key
 	_last_note_time_ms = now
 
@@ -218,10 +223,13 @@ func _on_tween_finished() -> void:
 	_play_animation("idle", _last_direction)
 
 func _enter_trip(dir: Vector2i) -> void:
+	var was_armed := _run_next or _jump_next
 	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
 	_jump_next = false
 	_set_jump_loop(false)  # garante que o trip não loope (jump anim é one-shot pra trip)
 	_reset_sprite_arc()    # cancela qualquer arco em andamento e devolve sprite ao base
+	if was_armed:
+		armed_state_changed.emit(false, false)
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -271,6 +279,7 @@ func _do_correr() -> void:
 	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
 	_run_next = true
 	_play_animation("run", _last_direction)
+	armed_state_changed.emit(_run_next, _jump_next)
 
 func _do_pular() -> void:
 	# Arma pular: jump anim LOOPA enquanto armado (vira "saltando no lugar").
@@ -278,6 +287,7 @@ func _do_pular() -> void:
 	_jump_next = true
 	_set_jump_loop(true)
 	_play_animation("jump", _last_direction)
+	armed_state_changed.emit(_run_next, _jump_next)
 
 func _return_to_idle_if_static() -> void:
 	if not is_instance_valid(self):
