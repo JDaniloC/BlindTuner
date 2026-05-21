@@ -1,8 +1,6 @@
 extends Node2D
 ## Cena raiz. Chão/paredes procedurais + loop de jogo (Conductor + GameHUD).
 
-const ROOM_SIZE := Vector2i(10, 10)
-
 @onready var _character: Node2D = $Character
 @onready var _joystick: Control = $UI/DirectionJoystick
 @onready var _note_panel: PanelContainer = $UI/NotePanel
@@ -13,15 +11,12 @@ const ROOM_SIZE := Vector2i(10, 10)
 @onready var _conductor: Node = $Conductor
 @onready var _hud: Control = $UI/GameHUD
 @onready var _special_actions: Control = $UI/SpecialActionPanel
+@onready var _goal_node: Node2D = $Goal
+var _current_map_id: String = ""
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
 const WALL_HEIGHT := 32
-const FLOOR_COLOR_A := Color(0.55, 0.40, 0.28, 1.0)
-const FLOOR_COLOR_B := Color(0.50, 0.36, 0.25, 1.0)
-const WALL_TOP_COLOR := Color(0.62, 0.55, 0.48, 1.0)
-const WALL_FRONT_COLOR := Color(0.50, 0.42, 0.35, 1.0)
-const WALL_OUTLINE := Color(0.20, 0.16, 0.12, 1.0)
 
 const SHAKE_INTENSITY := 8.0
 const SHAKE_DURATION := 0.25
@@ -36,10 +31,14 @@ var _shake_remaining := 0.0
 var _flash_tween: Tween
 
 func _ready() -> void:
+	# Sala inicial = primeiro mapa (quarto). Será re-buildada se o usuário
+	# selecionar outro preset com map_id diferente.
+	var first_map = MapPresets.ALL[0]
+	_current_map_id = first_map.id
 	_build_room()
-	_character.grid_position = Vector2i(5, 5)
+	_character.grid_position = first_map.start_grid
 	_character.blocked_tiles = _wall_tiles
-	_character.position = _character.grid_to_world(_character.grid_position)
+	_character.position = _character.grid_to_world(first_map.start_grid)
 	_character.blocked.connect(_on_character_blocked)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_joystick.note_triggered.connect(_on_note_triggered)
@@ -67,7 +66,11 @@ func _begin_preset(preset_id: String, cue_level: int) -> void:
 	var map = MapPresets.by_id(preset.map_id)
 	CueSettings.set_level(cue_level)
 	_hud.hide_stats()
+	if _current_map_id != map.id:
+		_current_map_id = map.id
+		_build_room()
 	_character.grid_position = map.start_grid
+	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(map.start_grid)
 	_conductor.load_preset(preset)
 	_conductor.start()
@@ -138,33 +141,47 @@ func _on_sequence_complete(stats: Dictionary) -> void:
 	_hud.show_stats(stats)
 
 func _build_room() -> void:
-	for x in range(ROOM_SIZE.x):
-		for y in range(ROOM_SIZE.y):
-			_spawn_floor_tile(Vector2i(x, y))
-	var walls: Array[Vector2i] = []
-	for x in range(ROOM_SIZE.x):
-		walls.append(Vector2i(x, 0))
-		walls.append(Vector2i(x, ROOM_SIZE.y - 1))
-	for y in range(ROOM_SIZE.y):
-		walls.append(Vector2i(0, y))
-		walls.append(Vector2i(ROOM_SIZE.x - 1, y))
-	walls.append(Vector2i(3, 4))
-	walls.append(Vector2i(7, 6))
-	walls.append(Vector2i(4, 7))
-	for tile in walls:
+	_clear_room()
+	var map = MapPresets.by_id(_current_map_id)
+	var theme = SceneryThemes.by_id(map.theme_id)
+	for x in range(map.size.x):
+		for y in range(map.size.y):
+			_spawn_floor_tile(Vector2i(x, y), theme)
+	var all_walls: Array[Vector2i] = _border_walls(map.size)
+	# Manual append em vez de `+` concat porque GDScript 4 perde Array[Vector2i] no concat.
+	for w in map.walls:
+		all_walls.append(w)
+	for tile in all_walls:
 		_wall_tiles[tile] = true
-		_spawn_wall_visual(tile)
+		_spawn_wall_visual(tile, theme)
+	_spawn_goal_marker(map.goal_grid, theme)
 
-func _spawn_floor_tile(tile: Vector2i) -> void:
+func _clear_room() -> void:
+	for n in [_floor_node, _walls_node, _goal_node]:
+		for c in n.get_children():
+			c.queue_free()
+	_wall_tiles.clear()
+
+func _border_walls(s: Vector2i) -> Array[Vector2i]:
+	var arr: Array[Vector2i] = []
+	for x in range(s.x):
+		arr.append(Vector2i(x, 0))
+		arr.append(Vector2i(x, s.y - 1))
+	for y in range(s.y):
+		arr.append(Vector2i(0, y))
+		arr.append(Vector2i(s.x - 1, y))
+	return arr
+
+func _spawn_floor_tile(tile: Vector2i, theme) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
 	var poly := Polygon2D.new()
 	poly.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	var checker := (tile.x + tile.y) % 2 == 0
-	poly.color = FLOOR_COLOR_A if checker else FLOOR_COLOR_B
+	poly.color = theme.floor_a if checker else theme.floor_b
 	poly.position = center
 	_floor_node.add_child(poly)
 
-func _spawn_wall_visual(tile: Vector2i) -> void:
+func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
 	var node := Node2D.new()
 	node.position = center
@@ -176,11 +193,11 @@ func _spawn_wall_visual(tile: Vector2i) -> void:
 		Vector2( hw, -WALL_HEIGHT),
 		Vector2(-hw, -WALL_HEIGHT),
 	])
-	front.color = WALL_FRONT_COLOR
+	front.color = theme.wall_front
 	node.add_child(front)
 	var top := Polygon2D.new()
 	top.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
-	top.color = WALL_TOP_COLOR
+	top.color = theme.wall_top
 	top.position = Vector2(0, -WALL_HEIGHT)
 	node.add_child(top)
 	var outline := Line2D.new()
@@ -191,10 +208,13 @@ func _spawn_wall_visual(tile: Vector2i) -> void:
 	pts_closed.append(pts[0])
 	outline.points = PackedVector2Array(pts_closed)
 	outline.width = 1.0
-	outline.default_color = WALL_OUTLINE
+	outline.default_color = theme.wall_outline
 	outline.position = Vector2(0, -WALL_HEIGHT)
 	node.add_child(outline)
 	_walls_node.add_child(node)
+
+func _spawn_goal_marker(_tile: Vector2i, _theme) -> void:
+	pass  # implementado no commit seguinte (Task 4)
 
 func _diamond_polygon(w: int, h: int) -> PackedVector2Array:
 	var hw := w * 0.5
