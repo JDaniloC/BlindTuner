@@ -4,6 +4,8 @@ extends Node2D
 signal moved(new_grid_position: Vector2i)
 signal blocked(direction: Vector2i)
 signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
+## Notifica mudança de _run_next / _jump_next para UI espelhar (botão armado brilha).
+signal armed_state_changed(running: bool, jumping: bool)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -13,6 +15,10 @@ const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
 const INTERACT_DURATION_SEC := 0.4   # 4 frames / 10 fps
 const ATTACK_DURATION_SEC := 0.667   # 8 frames / 12 fps
+const JUMP_ARC_HEIGHT_PX := 18.0     # elevação Y do sprite no pico do arco
+const DUST_PUFF_COUNT := 4
+const DUST_PUFF_LIFETIME := 0.5
+const DUST_PUFF_COLOR := Color(0.85, 0.78, 0.6, 0.7)
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -20,6 +26,8 @@ enum State { IDLE, WALK, RUN, TRIP }
 ## Dicionário { Vector2i -> bool } populado pela cena pai (Playground) com tiles bloqueados.
 var blocked_tiles: Dictionary = {}
 var _tween: Tween
+var _arc_tween: Tween
+var _sprite_base_y: float = 0.0  # capturado em _ready; offset do AnimatedSprite na cena
 
 var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
@@ -83,6 +91,7 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 func _ready() -> void:
 	position = grid_to_world(grid_position)
 	_animated_sprite.sprite_frames = _build_sprite_frames()
+	_sprite_base_y = _animated_sprite.position.y
 	_play_animation("idle", Vector2i(0, 1))
 
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
@@ -98,6 +107,7 @@ func handle_note(note_key: String) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double_tap := (note_key == _last_note_key
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
+	var was_armed := _run_next or _jump_next
 	if _run_next and _jump_next:
 		_run_next = false
 		_jump_next = false
@@ -114,6 +124,8 @@ func handle_note(note_key: String) -> void:
 		_try_run(dir)
 	else:
 		_try_walk(dir)
+	if was_armed:
+		armed_state_changed.emit(_run_next, _jump_next)
 	_last_note_key = note_key
 	_last_note_time_ms = now
 
@@ -139,11 +151,12 @@ func _try_run(dir: Vector2i) -> void:
 	grid_position = target
 	moved.emit(grid_position)
 	_play_animation("run", dir)
+	_spawn_dust_puffs()
 	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
 
 ## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
 ## anim 'jump' nos dois segmentos). 1º tile bloqueado = trip;
-## 2º tile bloqueado = anda só 1 com anim jump.
+## 2º tile bloqueado = anda só 1 com anim jump. Arco visual em cada segmento.
 func _try_jump(dir: Vector2i) -> void:
 	var target1 := grid_position + dir
 	if blocked_tiles.get(target1, false):
@@ -157,10 +170,12 @@ func _try_jump(dir: Vector2i) -> void:
 		grid_position = target1
 		moved.emit(grid_position)
 		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
+		_start_jump_arc(1, RUN_MOVE_DURATION)
 	else:
 		grid_position = target2
 		moved.emit(grid_position)
 		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+		_start_jump_arc(2, RUN_MOVE_DURATION)
 
 ## Combo correr+pular: 2 tiles totais. 1º tile com anim 'run', troca pra 'jump' antes
 ## do 2º tile. tween_callback faz a transição entre os dois segmentos.
@@ -173,6 +188,7 @@ func _try_run_then_jump(dir: Vector2i) -> void:
 	_last_direction = dir
 	state = State.RUN
 	_play_animation("run", dir)
+	_spawn_dust_puffs()
 	if blocked_tiles.get(target2, false):
 		# 2º bloqueado: anda só 1 tile com anim run, sem trocar pra jump
 		grid_position = target1
@@ -186,6 +202,7 @@ func _try_run_then_jump(dir: Vector2i) -> void:
 		_tween = create_tween()
 		_tween.tween_property(self, "position", grid_to_world(target1), RUN_MOVE_DURATION)
 		_tween.tween_callback(_play_animation.bind("jump", dir))
+		_tween.tween_callback(_start_jump_arc.bind(1, RUN_MOVE_DURATION))
 		_tween.tween_property(self, "position", grid_to_world(target2), RUN_MOVE_DURATION)
 		_tween.finished.connect(_on_tween_finished)
 
@@ -211,9 +228,13 @@ func _on_tween_finished() -> void:
 	_play_animation("idle", _last_direction)
 
 func _enter_trip(dir: Vector2i) -> void:
+	var was_armed := _run_next or _jump_next
 	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
 	_jump_next = false
 	_set_jump_loop(false)  # garante que o trip não loope (jump anim é one-shot pra trip)
+	_reset_sprite_arc()    # cancela qualquer arco em andamento e devolve sprite ao base
+	if was_armed:
+		armed_state_changed.emit(false, false)
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -263,6 +284,7 @@ func _do_correr() -> void:
 	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
 	_run_next = true
 	_play_animation("run", _last_direction)
+	armed_state_changed.emit(_run_next, _jump_next)
 
 func _do_pular() -> void:
 	# Arma pular: jump anim LOOPA enquanto armado (vira "saltando no lugar").
@@ -270,6 +292,7 @@ func _do_pular() -> void:
 	_jump_next = true
 	_set_jump_loop(true)
 	_play_animation("jump", _last_direction)
+	armed_state_changed.emit(_run_next, _jump_next)
 
 func _return_to_idle_if_static() -> void:
 	if not is_instance_valid(self):
@@ -289,3 +312,45 @@ func _set_jump_loop(loop: bool) -> void:
 		var anim_name = "jump_" + row
 		if sf.has_animation(anim_name):
 			sf.set_animation_loop(anim_name, loop)
+
+## Anima o sprite numa parábola (sobe e desce) durante N segmentos de duração igual.
+## Cada segmento sobe metade do tempo e desce a outra metade; runs em paralelo
+## com o tween de posição. Sprite y retorna ao _sprite_base_y no fim de cada segmento.
+func _start_jump_arc(segments: int, segment_duration: float) -> void:
+	if _arc_tween:
+		_arc_tween.kill()
+	_animated_sprite.position.y = _sprite_base_y
+	_arc_tween = create_tween()
+	for i in range(segments):
+		_arc_tween.tween_property(_animated_sprite, "position:y",
+			_sprite_base_y - JUMP_ARC_HEIGHT_PX, segment_duration * 0.5)
+		_arc_tween.tween_property(_animated_sprite, "position:y",
+			_sprite_base_y, segment_duration * 0.5)
+
+## Cancela qualquer arco em andamento e devolve o sprite ao Y base.
+func _reset_sprite_arc() -> void:
+	if _arc_tween:
+		_arc_tween.kill()
+		_arc_tween = null
+	_animated_sprite.position.y = _sprite_base_y
+
+## Spawna N polígonos de poeira na posição atual; cada um sobe, desvanece e se
+## autodestroi. top_level=true mantém-os fixos no mundo (não seguem o personagem).
+func _spawn_dust_puffs() -> void:
+	for i in range(DUST_PUFF_COUNT):
+		var puff := Polygon2D.new()
+		var s: float = randf_range(2.0, 4.0)
+		puff.polygon = PackedVector2Array([
+			Vector2(-s, -s), Vector2(s, -s), Vector2(s, s), Vector2(-s, s)
+		])
+		puff.color = DUST_PUFF_COLOR
+		puff.top_level = true
+		puff.position = position + Vector2(randf_range(-12.0, 12.0), randf_range(0.0, 8.0))
+		add_child(puff)
+		var lifetime: float = DUST_PUFF_LIFETIME * randf_range(0.7, 1.0)
+		var drift := Vector2(randf_range(-10.0, 10.0), -randf_range(8.0, 14.0))
+		var t := puff.create_tween()
+		t.set_parallel(true)
+		t.tween_property(puff, "modulate:a", 0.0, lifetime)
+		t.tween_property(puff, "position", puff.position + drift, lifetime)
+		t.chain().tween_callback(puff.queue_free)

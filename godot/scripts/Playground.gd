@@ -41,6 +41,7 @@ func _ready() -> void:
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(_character.grid_position)
 	_character.blocked.connect(_on_character_blocked)
+	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_joystick.note_triggered.connect(_on_note_triggered)
 	_special_actions.note_triggered.connect(_on_note_triggered)
 	_conductor.preview_note.connect(_on_preview_note)

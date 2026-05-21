@@ -326,3 +326,105 @@ func test_combo_blocked_at_1st_tile_trips():
 	c.handle_action("B4")
 	c.handle_note("C4")
 	assert_eq(c.state, c.State.TRIP)
+
+func test_jump_solo_starts_arc_tween():
+	var c = _make_character()
+	c.handle_action("B4")  # pular arma
+	c.handle_note("C4")    # consume: 2 tiles com arco em cada
+	var has_arc = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_true(has_arc, "arc tween ativo durante pular")
+
+func test_jump_solo_arc_restores_sprite_y():
+	var c = _make_character()
+	c.handle_action("B4")
+	c.handle_note("C4")
+	# 2 segmentos a RUN_MOVE_DURATION cada = 0.22s + margem
+	await get_tree().create_timer(c.RUN_MOVE_DURATION * 2 + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_almost_eq(c._animated_sprite.position.y, c._sprite_base_y, 0.5,
+		"sprite y volta ao base após o arco")
+
+func test_walk_does_not_start_arc():
+	var c = _make_character()
+	c.handle_note("C4")  # andar normal
+	# Se algum arc tween foi criado por engano, falha
+	var arc_started = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_false(arc_started, "andar não inicia arco")
+
+func test_run_solo_does_not_start_arc():
+	var c = _make_character()
+	c.handle_action("As4")
+	c.handle_note("C4")
+	var arc_started = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_false(arc_started, "correr solo não inicia arco")
+
+func test_trip_resets_sprite_arc():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("B4")  # pular arma
+	c.handle_note("C4")    # bate parede no 1º tile → TRIP
+	assert_eq(c.state, c.State.TRIP)
+	assert_eq(c._animated_sprite.position.y, c._sprite_base_y,
+		"trip restaura sprite y para base")
+
+func test_armed_state_changed_emitted_on_correr():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("As4")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [true, false])
+
+func test_armed_state_changed_emitted_on_pular():
+	var c = _make_character()
+	watch_signals(c)
+	c.handle_action("B4")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, true])
+
+func test_armed_state_changed_emitted_on_consume():
+	var c = _make_character()
+	c.handle_action("As4")  # arma
+	watch_signals(c)
+	c.handle_note("C4")  # consome
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_armed_state_changed_emitted_on_trip():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("As4")
+	watch_signals(c)
+	c.handle_note("C4")  # bate parede → TRIP, limpa armado
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_run_spawns_dust_puffs():
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("As4")  # arma correr
+	c.handle_note("C4")     # consume → _try_run → spawn dust
+	var after := c.get_child_count()
+	assert_eq(after - before, c.DUST_PUFF_COUNT, "dust puffs spawnados como filhos")
+
+func test_walk_does_not_spawn_dust():
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_note("C4")  # walk normal
+	var after := c.get_child_count()
+	assert_eq(after, before, "walk não spawna dust")
+
+func test_jump_solo_does_not_spawn_dust():
+	# Pular solo é com anim jump (não run), sem dust.
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("B4")
+	c.handle_note("C4")
+	var after := c.get_child_count()
+	assert_eq(after, before, "jump solo não spawna dust")
+
+func test_combo_spawns_dust_at_run_segment():
+	# Combo correr+pular tem 1º segmento de run — deveria spawnar dust.
+	var c = _make_character()
+	var before := c.get_child_count()
+	c.handle_action("As4")
+	c.handle_action("B4")
+	c.handle_note("C4")
+	var after := c.get_child_count()
+	assert_eq(after - before, c.DUST_PUFF_COUNT, "combo spawna dust no segmento de run")
