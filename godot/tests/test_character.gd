@@ -16,7 +16,7 @@ func test_movement_note_moves_one_tile():
 
 func test_reserved_note_does_not_move():
 	var c = _make_character()
-	c.handle_note("Cs4")
+	c.handle_note("A4")
 	assert_eq(c.grid_position, Vector2i(5, 5))
 
 func test_blocked_tile_prevents_movement():
@@ -27,7 +27,7 @@ func test_blocked_tile_prevents_movement():
 
 func test_cardinal_north_movement():
 	var c = _make_character()
-	c.handle_note("D4")  # Vector2i(0, -1)
+	c.handle_note("Cs4")  # Vector2i(0, -1) no novo mapeamento
 	assert_eq(c.grid_position, Vector2i(5, 4))
 
 func test_animation_for_south_uses_native_row():
@@ -136,7 +136,7 @@ func test_trip_state_resets_after_window():
 
 func test_last_direction_persists_after_idle():
 	var c = _make_character()
-	c.handle_note("D4")  # Vector2i(0, -1)
+	c.handle_note("Cs4")  # Vector2i(0, -1) no novo mapeamento
 	await get_tree().create_timer(c.MOVE_DURATION + 0.1).timeout
 	assert_eq(c.state, c.State.IDLE)
 	assert_eq(c._last_direction, Vector2i(0, -1))
@@ -144,28 +144,28 @@ func test_last_direction_persists_after_idle():
 func test_handle_action_pegar_emits_action_performed():
 	var c = _make_character()
 	watch_signals(c)
-	c.handle_action("Cs4")
+	c.handle_action("A4")
 	assert_signal_emitted_with_parameters(c, "action_performed",
 		["pegar", c.grid_position, c._last_direction])
 
 func test_handle_action_abaixar_emits():
 	var c = _make_character()
 	watch_signals(c)
-	c.handle_action("E4")
+	c.handle_action("Gs4")
 	assert_signal_emitted_with_parameters(c, "action_performed",
 		["abaixar", c.grid_position, c._last_direction])
 
 func test_handle_action_pular_emits():
 	var c = _make_character()
 	watch_signals(c)
-	c.handle_action("As4")
+	c.handle_action("B4")
 	assert_signal_emitted_with_parameters(c, "action_performed",
 		["pular", c.grid_position, c._last_direction])
 
 func test_handle_action_correr_sets_run_next_flag():
 	var c = _make_character()
 	assert_false(c._run_next)
-	c.handle_action("G4")
+	c.handle_action("As4")
 	assert_true(c._run_next)
 
 func test_handle_action_movement_note_is_noop():
@@ -179,21 +179,21 @@ func test_handle_action_ignored_during_trip():
 	c.blocked_tiles = { Vector2i(4, 4): true }
 	c.handle_note("C4")  # trip
 	watch_signals(c)
-	c.handle_action("Cs4")
+	c.handle_action("A4")
 	assert_signal_emit_count(c, "action_performed", 0)
 
 func test_handle_note_routes_action_notes_to_handle_action():
-	# handle_note(Cs4) deve disparar action_performed=pegar e não mover
+	# handle_note(A4) deve disparar action_performed=pegar e não mover
 	var c = _make_character()
 	watch_signals(c)
-	c.handle_note("Cs4")
+	c.handle_note("A4")
 	assert_signal_emitted_with_parameters(c, "action_performed",
 		["pegar", c.grid_position, c._last_direction])
 	assert_eq(c.grid_position, Vector2i(5, 5))
 
 func test_run_next_makes_next_walk_become_run():
 	var c = _make_character()
-	c.handle_action("G4")  # arma o correr
+	c.handle_action("As4")  # arma o correr
 	c.handle_note("C4")    # próximo movimento
 	assert_eq(c.state, c.State.RUN)
 	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles diagonal
@@ -202,8 +202,8 @@ func test_run_next_makes_next_walk_become_run():
 func test_run_next_consumed_only_on_movement():
 	# Armar correr e em seguida chamar outra ação NÃO deve consumir a flag
 	var c = _make_character()
-	c.handle_action("G4")
-	c.handle_action("Cs4")  # pegar não consome
+	c.handle_action("As4")
+	c.handle_action("A4")  # pegar não consome
 	assert_true(c._run_next, "ação não consome _run_next")
 
 func test_run_next_cleared_on_trip():
@@ -211,7 +211,7 @@ func test_run_next_cleared_on_trip():
 	# _run_next deve estar limpo — tropeçar quebra a corrida armada.
 	var c = _make_character()
 	c.blocked_tiles = { Vector2i(4, 4): true }
-	c.handle_action("G4")
+	c.handle_action("As4")
 	assert_true(c._run_next, "armado antes do trip")
 	c.handle_note("C4")  # bate na parede -> TRIP, deve limpar _run_next
 	assert_eq(c.state, c.State.TRIP)

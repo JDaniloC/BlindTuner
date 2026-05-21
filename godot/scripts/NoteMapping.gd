@@ -3,17 +3,17 @@ extends Node
 
 const NOTES := {
     "C4":  { "freq": 262, "angle":   0, "color": Color("#E91E63"), "label": "Dó",   "direction": Vector2i(-1, -1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "Cs4": { "freq": 277, "angle":  30, "color": Color("#1B5E20"), "label": "Dó#",  "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "pegar" },
-    "D4":  { "freq": 294, "angle":  60, "color": Color("#FF9800"), "label": "Ré",   "direction": Vector2i( 0, -1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "Ds4": { "freq": 311, "angle":  90, "color": Color("#1976D2"), "label": "Ré#",  "direction": Vector2i( 1, -1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "E4":  { "freq": 330, "angle": 120, "color": Color("#FBC02D"), "label": "Mi",   "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "abaixar" },
-    "F4":  { "freq": 349, "angle": 150, "color": Color("#7B1FA2"), "label": "Fá",   "direction": Vector2i( 1,  0), "is_movement": true,  "is_action": false, "action_id": "" },
-    "Fs4": { "freq": 370, "angle": 180, "color": Color("#388E3C"), "label": "Fá#",  "direction": Vector2i( 1,  1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "G4":  { "freq": 392, "angle": 210, "color": Color("#D32F2F"), "label": "Sol",  "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "correr" },
-    "Gs4": { "freq": 415, "angle": 240, "color": Color("#00838F"), "label": "Sol#", "direction": Vector2i( 0,  1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "A4":  { "freq": 440, "angle": 270, "color": Color("#FB8C00"), "label": "Lá",   "direction": Vector2i(-1,  1), "is_movement": true,  "is_action": false, "action_id": "" },
-    "As4": { "freq": 466, "angle": 300, "color": Color("#3949AB"), "label": "Lá#",  "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "pular" },
-    "B4":  { "freq": 494, "angle": 330, "color": Color("#7CB342"), "label": "Si",   "direction": Vector2i(-1,  0), "is_movement": true,  "is_action": false, "action_id": "" },
+    "Cs4": { "freq": 277, "angle":  30, "color": Color("#1B5E20"), "label": "Dó#",  "direction": Vector2i( 0, -1), "is_movement": true,  "is_action": false, "action_id": "" },
+    "D4":  { "freq": 294, "angle":  60, "color": Color("#FF9800"), "label": "Ré",   "direction": Vector2i( 1, -1), "is_movement": true,  "is_action": false, "action_id": "" },
+    "Ds4": { "freq": 311, "angle":  90, "color": Color("#1976D2"), "label": "Ré#",  "direction": Vector2i( 1,  0), "is_movement": true,  "is_action": false, "action_id": "" },
+    "E4":  { "freq": 330, "angle": 120, "color": Color("#FBC02D"), "label": "Mi",   "direction": Vector2i( 1,  1), "is_movement": true,  "is_action": false, "action_id": "" },
+    "F4":  { "freq": 349, "angle": 150, "color": Color("#7B1FA2"), "label": "Fá",   "direction": Vector2i( 0,  1), "is_movement": true,  "is_action": false, "action_id": "" },
+    "Fs4": { "freq": 370, "angle": 180, "color": Color("#388E3C"), "label": "Fá#",  "direction": Vector2i(-1,  1), "is_movement": true,  "is_action": false, "action_id": "" },
+    "G4":  { "freq": 392, "angle": 210, "color": Color("#D32F2F"), "label": "Sol",  "direction": Vector2i(-1,  0), "is_movement": true,  "is_action": false, "action_id": "" },
+    "Gs4": { "freq": 415, "angle": 240, "color": Color("#00838F"), "label": "Sol#", "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "abaixar" },
+    "A4":  { "freq": 440, "angle": 270, "color": Color("#FB8C00"), "label": "Lá",   "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "pegar" },
+    "As4": { "freq": 466, "angle": 300, "color": Color("#3949AB"), "label": "Lá#",  "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "correr" },
+    "B4":  { "freq": 494, "angle": 330, "color": Color("#7CB342"), "label": "Si",   "direction": Vector2i.ZERO,    "is_movement": false, "is_action": true,  "action_id": "pular" },
 }
 
 ## Recebe ângulo em graus, retorna a chave da nota cujo ângulo é o mais próximo.
@@ -23,7 +23,7 @@ const NOTES := {
 ## Sem movement_only: usa o ângulo cromático de cada nota (12 posições a 30°).
 ## Com movement_only=true: layout direcional 8x45° (4 cardinais + 4 diagonais),
 ## ignorando notas de ação. Notas de movimento em ordem de inserção mapeiam para
-## 0°, 45°, 90°, ..., 315° — C4=N, D4=NE, Ds4=E, F4=SE, Fs4=S, Gs4=SW, A4=W, B4=NW.
+## 0°, 45°, 90°, ..., 315° — C4=NW, Cs4=N, D4=NE, Ds4=E, E4=SE, F4=S, Fs4=SW, G4=W.
 func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> String:
     var normalized := fposmod(angle_degrees, 360.0)
     var best_key := "C4"  # sentinela; C4 é sempre is_movement=true, válido com qualquer filtro

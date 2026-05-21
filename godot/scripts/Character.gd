@@ -23,7 +23,7 @@ var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
 var _last_note_key: String = ""
 var _last_note_time_ms: int = 0
-var _run_next: bool = false  # armado por handle_action("G4"); consumido pelo próximo handle_note de movimento
+var _run_next: bool = false  # armado por handle_action(As4); consumido pelo próximo handle_note de movimento
 
 const SHEET_BASE := "res://assets/sprites/character/16x32/"
 const SHEETS := {

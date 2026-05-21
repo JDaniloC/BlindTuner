@@ -1,10 +1,10 @@
 extends Control
-## Painel das 4 ações especiais (Cs4=pegar, E4=abaixar, G4=correr, As4=pular).
+## Painel das 4 ações especiais (Gs4=abaixar, A4=pegar, As4=correr, B4=pular).
 ## Emite o mesmo sinal note_triggered do DirectionJoystick — Playground roteia.
 
 signal note_triggered(note_key: String)
 
-const ACTION_NOTES := ["Cs4", "E4", "G4", "As4"]
+const ACTION_NOTES := ["Gs4", "A4", "As4", "B4"]
 const BUTTON_SIZE := Vector2(96, 96)
 const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha DirectionJoystick.NEUTRAL_SLICE
 
