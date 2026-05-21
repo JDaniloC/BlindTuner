@@ -83,10 +83,13 @@ func _sample_value(phase: float, harsh: bool) -> float:
     if harsh:
         # square wave para colisão
         return 1.0 if phase < 0.5 else -1.0
-    # piano-like: senoidal + 2º harmônico atenuado
+    # Piano-like: fundamental + harmônicos pares e ímpares para corpo.
+    # Soma máxima teórica ~1.45; com amplitude 0.5 no _make_stream → ~0.72, sem clip.
     var fundamental := sin(phase * TAU)
-    var harmonic := 0.3 * sin(phase * TAU * 2.0)
-    return fundamental + harmonic
+    var h2 := 0.3 * sin(phase * TAU * 2.0)
+    var h3 := 0.12 * sin(phase * TAU * 3.0)
+    var h5 := 0.06 * sin(phase * TAU * 5.0)
+    return fundamental + h2 + h3 + h5
 
 func _envelope_at(idx: int, a: int, d: int, s: int, r: int) -> float:
     if idx < a:
@@ -96,5 +99,6 @@ func _envelope_at(idx: int, a: int, d: int, s: int, r: int) -> float:
         return lerpf(1.0, SUSTAIN_LEVEL, t)
     if idx < a + d + s:
         return SUSTAIN_LEVEL
+    # Release com curva exponencial (t²) — mais musical que linear.
     var t := float(idx - a - d - s) / float(r)
-    return lerpf(SUSTAIN_LEVEL, 0.0, t)
+    return lerpf(SUSTAIN_LEVEL, 0.0, t * t)
