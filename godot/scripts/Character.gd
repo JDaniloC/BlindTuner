@@ -3,6 +3,7 @@ extends Node2D
 
 signal moved(new_grid_position: Vector2i)
 signal blocked(direction: Vector2i)
+signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -10,6 +11,8 @@ const MOVE_DURATION := 0.18
 const RUN_MOVE_DURATION := 0.11  # ~MOVE_DURATION * 0.6
 const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
+const INTERACT_DURATION_SEC := 0.4   # 4 frames / 10 fps
+const ATTACK_DURATION_SEC := 0.667   # 8 frames / 12 fps
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -22,14 +25,18 @@ var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
 var _last_note_key: String = ""
 var _last_note_time_ms: int = 0
+var _run_next: bool = false   # armado por handle_action(As4); consumido pelo próximo handle_note de movimento
+var _jump_next: bool = false  # armado por handle_action(B4); idem, mas pula 1 tile com anim jump
 
 const SHEET_BASE := "res://assets/sprites/character/16x32/"
 const SHEETS := {
 	"idle":   { "file": "16x32 Idle-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 6 },
 	"walk":   { "file": "16x32 Walk-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 10 },
 	"run":    { "file": "16x32 Run-Sheet.png",    "cols": 6, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 14 },
-	"rotate": { "file": "16x32 Rotate-Sheet.png", "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
-	"jump":   { "file": "16x32 Jump-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"rotate":   { "file": "16x32 Rotate-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"jump":     { "file": "16x32 Jump-Sheet.png",     "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"interact": { "file": "16x32 Interact-Sheet.png", "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"attack":   { "file": "16x32 Attack-Sheet.png",   "cols": 8, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 12 },
 }
 const DIRECTION_ROWS := ["s", "se", "e", "ne", "n"]
 const DIRECTION_TO_KEY := {
@@ -78,9 +85,12 @@ func _ready() -> void:
 	_animated_sprite.sprite_frames = _build_sprite_frames()
 	_play_animation("idle", Vector2i(0, 1))
 
-## Recebe a nota disparada pelo joystick. Trata movimento ou ignora se for reservada.
+## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
 func handle_note(note_key: String) -> void:
 	if state == State.TRIP:
+		return
+	if NoteMapping.is_action_note(note_key):
+		handle_action(note_key)
 		return
 	if not NoteMapping.is_movement_note(note_key):
 		return
@@ -88,7 +98,19 @@ func handle_note(note_key: String) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double_tap := (note_key == _last_note_key
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
-	if is_double_tap:
+	if _run_next and _jump_next:
+		_run_next = false
+		_jump_next = false
+		_set_jump_loop(false)
+		_try_run_then_jump(dir)
+	elif _run_next:
+		_run_next = false
+		_try_run(dir)
+	elif _jump_next:
+		_jump_next = false
+		_set_jump_loop(false)
+		_try_jump(dir)
+	elif is_double_tap:
 		_try_run(dir)
 	else:
 		_try_walk(dir)
@@ -108,6 +130,41 @@ func _try_walk(dir: Vector2i) -> void:
 	_tween_to(grid_to_world(target), MOVE_DURATION)
 
 func _try_run(dir: Vector2i) -> void:
+	var target := grid_position + dir
+	if blocked_tiles.get(target, false):
+		_enter_trip(dir)
+		return
+	_last_direction = dir
+	state = State.RUN
+	grid_position = target
+	moved.emit(grid_position)
+	_play_animation("run", dir)
+	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
+
+## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
+## anim 'jump' nos dois segmentos). 1º tile bloqueado = trip;
+## 2º tile bloqueado = anda só 1 com anim jump.
+func _try_jump(dir: Vector2i) -> void:
+	var target1 := grid_position + dir
+	if blocked_tiles.get(target1, false):
+		_enter_trip(dir)
+		return
+	var target2 := target1 + dir
+	_last_direction = dir
+	state = State.RUN  # reusa RUN state para que _on_tween_finished volte a idle
+	_play_animation("jump", dir)
+	if blocked_tiles.get(target2, false):
+		grid_position = target1
+		moved.emit(grid_position)
+		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
+	else:
+		grid_position = target2
+		moved.emit(grid_position)
+		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+
+## Combo correr+pular: 2 tiles totais. 1º tile com anim 'run', troca pra 'jump' antes
+## do 2º tile. tween_callback faz a transição entre os dois segmentos.
+func _try_run_then_jump(dir: Vector2i) -> void:
 	var target1 := grid_position + dir
 	if blocked_tiles.get(target1, false):
 		_enter_trip(dir)
@@ -117,13 +174,20 @@ func _try_run(dir: Vector2i) -> void:
 	state = State.RUN
 	_play_animation("run", dir)
 	if blocked_tiles.get(target2, false):
+		# 2º bloqueado: anda só 1 tile com anim run, sem trocar pra jump
 		grid_position = target1
 		moved.emit(grid_position)
 		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
 	else:
 		grid_position = target2
 		moved.emit(grid_position)
-		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+		if _tween:
+			_tween.kill()
+		_tween = create_tween()
+		_tween.tween_property(self, "position", grid_to_world(target1), RUN_MOVE_DURATION)
+		_tween.tween_callback(_play_animation.bind("jump", dir))
+		_tween.tween_property(self, "position", grid_to_world(target2), RUN_MOVE_DURATION)
+		_tween.finished.connect(_on_tween_finished)
 
 func _tween_to(target_world: Vector2, duration: float) -> void:
 	if _tween:
@@ -147,6 +211,9 @@ func _on_tween_finished() -> void:
 	_play_animation("idle", _last_direction)
 
 func _enter_trip(dir: Vector2i) -> void:
+	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
+	_jump_next = false
+	_set_jump_loop(false)  # garante que o trip não loope (jump anim é one-shot pra trip)
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -166,3 +233,59 @@ func grid_to_world(g: Vector2i) -> Vector2:
 	var wx := float(g.x - g.y) * TILE_WIDTH * 0.5
 	var wy := float(g.x + g.y) * TILE_HEIGHT * 0.5
 	return Vector2(wx, wy)
+
+## Executa uma ação especial (não-movimento). No-op se state==TRIP ou se a nota não é ação.
+func handle_action(note_key: String) -> void:
+	if state == State.TRIP:
+		return
+	if not NoteMapping.is_action_note(note_key):
+		return
+	var aid := NoteMapping.action_id_for(note_key)
+	match aid:
+		"pegar":    _do_pegar()
+		"interagir": _do_interagir()
+		"correr":  _do_correr()
+		"pular":   _do_pular()
+		_:         push_warning("handle_action: action_id desconhecido '%s'" % aid)
+	action_performed.emit(aid, grid_position, _last_direction)
+
+func _do_pegar() -> void:
+	# Anim de "abaixar e pegar" via sprite Interact (5 dirs, 4 frames @ 10fps).
+	_play_animation("interact", _last_direction)
+	get_tree().create_timer(INTERACT_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
+
+func _do_interagir() -> void:
+	# Anim de "balançar bengala" via sprite Attack (5 dirs, 8 frames @ 12fps).
+	_play_animation("attack", _last_direction)
+	get_tree().create_timer(ATTACK_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
+
+func _do_correr() -> void:
+	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
+	_run_next = true
+	_play_animation("run", _last_direction)
+
+func _do_pular() -> void:
+	# Arma pular: jump anim LOOPA enquanto armado (vira "saltando no lugar").
+	# Loop é desligado em handle_note ao consumir, ou em _enter_trip.
+	_jump_next = true
+	_set_jump_loop(true)
+	_play_animation("jump", _last_direction)
+
+func _return_to_idle_if_static() -> void:
+	if not is_instance_valid(self):
+		return
+	# Só volta a idle se o personagem não iniciou movimento durante a anim.
+	if state == State.IDLE:
+		_play_animation("idle", _last_direction)
+
+## Habilita ou desabilita o loop nas 5 variantes de 'jump_*' do SpriteFrames.
+## Usado para fazer a anim de jump loopar enquanto _jump_next está armado
+## (sem isso, a anim congela no último frame e o personagem fica "no ar").
+func _set_jump_loop(loop: bool) -> void:
+	var sf := _animated_sprite.sprite_frames
+	if sf == null:
+		return
+	for row in DIRECTION_ROWS:
+		var anim_name = "jump_" + row
+		if sf.has_animation(anim_name):
+			sf.set_animation_loop(anim_name, loop)

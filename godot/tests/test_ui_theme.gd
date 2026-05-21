@@ -51,7 +51,7 @@ func test_joystick_has_procedural_backdrop():
 	var slices = j.get_node("Slices")
 	assert_eq(slices.get_child(0), j._backdrop_disc, "disc desenha primeiro (índice 0)")
 	assert_eq(slices.get_child(1), j._backdrop_ring, "ring índice 1")
-	assert_eq(j._slice_polygons.size(), 12, "_slice_polygons só as 12 fatias (backdrop fora)")
+	assert_eq(j._slice_polygons.size(), 8, "_slice_polygons só as 8 fatias de movimento (backdrop fora)")
 
 func test_theme_font_color_is_dark():
 	for ty in ["Button", "OptionButton", "Label"]:

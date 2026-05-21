@@ -15,6 +15,7 @@ signal sequence_complete(stats: Dictionary)
 enum Phase { IDLE, PREVIEW, CALL, REPLAY, DONE }
 
 const DEFAULT_BPM := 90.0
+const CUE_GAP_AFTER_USER_SEC := 0.7  # ~note_duration + margem; cancelável por novo submit_note
 
 var bpm: float = DEFAULT_BPM
 var phase: int = Phase.IDLE
@@ -27,6 +28,7 @@ var _attempted_current: bool = false  # true se o índice atual já teve ao meno
 var _stats: Dictionary = {}
 var _start_ticks_ms: int = 0
 var _timer: Timer = null
+var _pending_cue_timer: SceneTreeTimer = null
 
 func _ready() -> void:
 	_reset_state()
@@ -67,6 +69,7 @@ func start() -> void:
 		_timer.start(beat_sec())
 
 ## Entrada do jogador no CALL. Resolve imediatamente (sem esperar tick).
+## O próximo call_cue é agendado via timer para dar tempo à nota do jogador tocar.
 func submit_note(note_key: String) -> void:
 	if phase != Phase.CALL:
 		return
@@ -74,6 +77,8 @@ func submit_note(note_key: String) -> void:
 		return
 	if _index >= _preset.notes.size():
 		return
+	# Cancela qualquer cue agendada — entrada do usuário interrompe o cue pendente
+	_pending_cue_timer = null
 	var target: String = _preset.notes[_index]
 	if note_key == target:
 		if not _attempted_current:
@@ -84,12 +89,28 @@ func submit_note(note_key: String) -> void:
 		if _index >= _preset.notes.size():
 			_begin_replay()
 		else:
-			call_cue.emit(_preset.notes[_index], _index)
+			_schedule_call_cue(_preset.notes[_index], _index)
 	else:
 		_stats.total_trips += 1
 		_attempted_current = true
 		note_resolved.emit(false, _index)
-		call_cue.emit(_preset.notes[_index], _index)  # re-toca o alvo, mesmo índice
+		_schedule_call_cue(_preset.notes[_index], _index)
+
+func _schedule_call_cue(note: String, idx: int) -> void:
+	var t := get_tree().create_timer(CUE_GAP_AFTER_USER_SEC)
+	_pending_cue_timer = t
+	t.timeout.connect(_fire_call_cue.bind(note, idx, t))
+
+func _fire_call_cue(note: String, idx: int, timer: SceneTreeTimer) -> void:
+	# Bail se outra submit_note do usuário substituiu este timer pendente
+	if _pending_cue_timer != timer:
+		return
+	if phase != Phase.CALL:
+		return
+	if _index != idx:
+		return
+	_pending_cue_timer = null
+	call_cue.emit(note, idx)
 
 func _set_phase(p: int) -> void:
 	if phase == p:
@@ -116,6 +137,7 @@ func _preview_step() -> void:
 func _begin_call() -> void:
 	if _timer:
 		_timer.stop()  # CALL é orientado a input, sem relógio
+	_pending_cue_timer = null
 	_index = 0
 	_attempted_current = false
 	_start_ticks_ms = Time.get_ticks_msec()
@@ -123,6 +145,7 @@ func _begin_call() -> void:
 	call_cue.emit(_preset.notes[_index], _index)
 
 func _begin_replay() -> void:
+	_pending_cue_timer = null
 	_stats.elapsed_sec = float(Time.get_ticks_msec() - _start_ticks_ms) / 1000.0
 	_replay_index = 0
 	_set_phase(Phase.REPLAY)
