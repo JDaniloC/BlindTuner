@@ -261,16 +261,25 @@ func test_pular_armed_plays_jump_animation_in_place():
 	assert_true(c._animated_sprite.sprite_frames.get_animation_loop(c._animated_sprite.animation),
 		"jump anim deveria estar loopando enquanto armado")
 
-func test_jump_consumed_moves_1_tile_with_jump_anim():
+func test_jump_consumed_moves_2_tiles_with_jump_anim():
 	var c = _make_character()
 	c.handle_action("B4")  # pular arma
 	c.handle_note("C4")    # movimento consome
-	assert_eq(c.grid_position, Vector2i(4, 4))  # 1 tile na direção (-1,-1)
+	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles na direção (-1,-1)
 	assert_true(c._animated_sprite.animation.begins_with("jump"),
 		"anim 'jump' durante o movimento; era %s" % c._animated_sprite.animation)
 	assert_false(c._jump_next, "flag consumida")
 	assert_false(c._animated_sprite.sprite_frames.get_animation_loop(c._animated_sprite.animation),
 		"loop desativado após consumo (para tween_finished voltar ao idle)")
+
+func test_jump_consumed_blocked_at_2nd_tile_moves_1():
+	# Jump solo: se o 2º tile estiver bloqueado, anda só 1 com anim jump.
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(3, 3): true }  # 2º tile do (5,5)+C4(-1,-1) duplo bloqueado
+	c.handle_action("B4")
+	c.handle_note("C4")
+	assert_eq(c.grid_position, Vector2i(4, 4), "move só 1 tile (2º bloqueado)")
+	assert_true(c._animated_sprite.animation.begins_with("jump"))
 
 func test_combo_run_plus_jump_moves_2_tiles_with_jump_anim():
 	var c = _make_character()

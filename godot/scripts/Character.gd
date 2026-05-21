@@ -141,18 +141,26 @@ func _try_run(dir: Vector2i) -> void:
 	_play_animation("run", dir)
 	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
 
-## Salto curto: 1 tile com anim jump. Blocked = trip.
+## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
+## anim 'jump' nos dois segmentos). 1º tile bloqueado = trip;
+## 2º tile bloqueado = anda só 1 com anim jump.
 func _try_jump(dir: Vector2i) -> void:
-	var target := grid_position + dir
-	if blocked_tiles.get(target, false):
+	var target1 := grid_position + dir
+	if blocked_tiles.get(target1, false):
 		_enter_trip(dir)
 		return
+	var target2 := target1 + dir
 	_last_direction = dir
 	state = State.RUN  # reusa RUN state para que _on_tween_finished volte a idle
-	grid_position = target
-	moved.emit(grid_position)
 	_play_animation("jump", dir)
-	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
+	if blocked_tiles.get(target2, false):
+		grid_position = target1
+		moved.emit(grid_position)
+		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
+	else:
+		grid_position = target2
+		moved.emit(grid_position)
+		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
 
 ## Combo correr+pular: 2 tiles totais. 1º tile com anim 'run', troca pra 'jump' antes
 ## do 2º tile. tween_callback faz a transição entre os dois segmentos.
