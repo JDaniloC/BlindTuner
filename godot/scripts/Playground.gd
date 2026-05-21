@@ -213,8 +213,16 @@ func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	node.add_child(outline)
 	_walls_node.add_child(node)
 
-func _spawn_goal_marker(_tile: Vector2i, _theme) -> void:
-	pass  # implementado no commit seguinte (Task 4)
+func _spawn_goal_marker(tile: Vector2i, theme) -> void:
+	var poly := Polygon2D.new()
+	poly.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
+	poly.color = theme.goal_marker_color
+	poly.position = _character.grid_to_world(tile)
+	poly.z_index = 1
+	_goal_node.add_child(poly)
+	var tw := poly.create_tween().set_loops()
+	tw.tween_property(poly, "modulate:a", 0.5, 1.0)
+	tw.tween_property(poly, "modulate:a", 1.0, 1.0)
 
 func _diamond_polygon(w: int, h: int) -> PackedVector2Array:
 	var hw := w * 0.5
