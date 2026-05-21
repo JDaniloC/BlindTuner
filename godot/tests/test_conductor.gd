@@ -6,7 +6,7 @@ const Preset := preload("res://scripts/SequencePreset.gd")
 func _preset(notes: Array) -> Resource:
 	var p = Preset.new()
 	p.id = "t"
-	p.start_grid = Vector2i(5, 5)
+	p.map_id = "quarto"
 	var typed: Array[String] = []
 	for n in notes:
 		typed.append(n)

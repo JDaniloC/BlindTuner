@@ -10,7 +10,7 @@ func _playground() -> Node:
 func test_start_positions_character_at_preset_start():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	assert_eq(p._character.grid_position, Vector2i(5, 5))
+	assert_eq(p._character.grid_position, Vector2i(1, 6))
 	assert_eq(p._conductor.phase, p._conductor.Phase.PREVIEW)
 	CueSettings.set_level(0)
 
@@ -23,10 +23,10 @@ func test_cue_level_applied_on_begin():
 func test_free_roam_moves_character_in_idle():
 	var p = _playground()
 	# Sem _begin_preset: conductor em IDLE, joystick anda livre.
-	# Ds4 dir agora é (1,0) no novo mapeamento; (5,5) + (1,0) = (6,5).
+	# Ds4 dir agora é (1,0) no novo mapeamento; (1,6) + (1,0) = (2,6).
 	assert_eq(p._conductor.phase, p._conductor.Phase.IDLE)
-	p._on_note_triggered("Ds4")  # dir (1,0) a partir de (5,5)
-	assert_eq(p._character.grid_position, Vector2i(6, 5))
+	p._on_note_triggered("Ds4")  # dir (1,0) a partir de (1,6)
+	assert_eq(p._character.grid_position, Vector2i(2, 6))
 
 func test_free_roam_wall_collision_trips():
 	var p = _playground()
@@ -48,20 +48,20 @@ func test_input_ignored_during_preview():
 func test_hit_moves_character_along_path():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	for i in range(5):
-		p._conductor._advance()  # PREVIEW -> CALL
+	for i in range(7):
+		p._conductor._advance()  # PREVIEW (6 notas) -> CALL
 	assert_eq(p._conductor.phase, p._conductor.Phase.CALL)
-	p._on_note_triggered("D4")  # 1ª nota do preset "curto"
-	assert_eq(p._character.grid_position, Vector2i(6, 4))
+	p._on_note_triggered("Cs4")  # 1ª nota do preset "curto"
+	assert_eq(p._character.grid_position, Vector2i(1, 5))
 	CueSettings.set_level(0)
 
 func test_miss_trips_character_in_place():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	for i in range(5):
+	for i in range(7):
 		p._conductor._advance()
 	var before = p._character.grid_position
-	p._on_note_triggered("C4")  # errado (alvo D4)
+	p._on_note_triggered("C4")  # errado (alvo Cs4)
 	assert_eq(p._character.grid_position, before)
 	assert_eq(p._character.state, p._character.State.TRIP)
 	assert_eq(p._conductor._index, 0)
@@ -70,27 +70,27 @@ func test_miss_trips_character_in_place():
 func test_full_run_replays_path_and_shows_stats():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	for i in range(5):
+	for i in range(7):
 		p._conductor._advance()
-	for n in ["D4", "D4", "F4", "F4"]:
+	for n in ["Cs4", "D4", "D4", "D4", "Ds4", "D4"]:
 		p._on_note_triggered(n)
 	assert_eq(p._conductor.phase, p._conductor.Phase.REPLAY)
-	assert_eq(p._character.grid_position, Vector2i(5, 5))
-	for i in range(5):
+	assert_eq(p._character.grid_position, Vector2i(1, 6))
+	for i in range(7):
 		p._conductor._advance()
 	assert_eq(p._conductor.phase, p._conductor.Phase.DONE)
 	assert_true(p._hud._stats_panel.visible)
-	assert_eq(p._character.grid_position, Vector2i(7, 5))
+	assert_eq(p._character.grid_position, Vector2i(6, 1))
 	CueSettings.set_level(0)
 
 func test_restart_resets_to_preset_start():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	for i in range(5):
+	for i in range(7):
 		p._conductor._advance()
-	p._on_note_triggered("D4")  # char sai de (5,5) -> (6,4)
+	p._on_note_triggered("Cs4")  # char sai de (1,6) -> (1,5)
 	p._on_restart_requested()
-	assert_eq(p._character.grid_position, Vector2i(5, 5))
+	assert_eq(p._character.grid_position, Vector2i(1, 6))
 	assert_eq(p._conductor.phase, p._conductor.Phase.PREVIEW)
 	assert_false(p._hud._stats_panel.visible)
 	CueSettings.set_level(0)
@@ -98,9 +98,9 @@ func test_restart_resets_to_preset_start():
 func test_input_ignored_during_replay():
 	var p = _playground()
 	p._begin_preset("curto", 0)
-	for i in range(5):
+	for i in range(7):
 		p._conductor._advance()
-	for n in ["D4", "D4", "F4", "F4"]:
+	for n in ["Cs4", "D4", "D4", "D4", "Ds4", "D4"]:
 		p._on_note_triggered(n)
 	assert_eq(p._conductor.phase, p._conductor.Phase.REPLAY)
 	var before = p._character.grid_position
@@ -121,10 +121,10 @@ func test_free_roam_action_note_triggers_character_action():
 	watch_signals(p._character)
 	p._on_note_triggered("A4")
 	# Valores literais (não ler do objeto após o emit) — fixa o contrato:
-	# personagem em (5,5) default, last_direction default (0,1), ação=pegar.
+	# personagem em (1,6) (quarto start_grid), last_direction default (0,1), ação=pegar.
 	assert_signal_emitted_with_parameters(p._character, "action_performed",
-		["pegar", Vector2i(5, 5), Vector2i(0, 1)])
-	assert_eq(p._character.grid_position, Vector2i(5, 5))
+		["pegar", Vector2i(1, 6), Vector2i(0, 1)])
+	assert_eq(p._character.grid_position, Vector2i(1, 6))
 
 func test_call_with_action_note_advances_conductor():
 	# Vamos forçar um preset só com A4 (pegar) para testar a integração com o loop.
@@ -132,7 +132,7 @@ func test_call_with_action_note_advances_conductor():
 	var Preset := preload("res://scripts/SequencePreset.gd")
 	var preset = Preset.new()
 	preset.id = "tact"
-	preset.start_grid = Vector2i(5, 5)
+	preset.map_id = "quarto"  # start (1,6), 8×8
 	var notes: Array[String] = ["A4"]
 	preset.notes = notes
 	p._conductor.load_preset(preset)
@@ -153,7 +153,7 @@ func test_replay_with_action_note_triggers_action_without_moving():
 	var Preset := preload("res://scripts/SequencePreset.gd")
 	var preset = Preset.new()
 	preset.id = "trep"
-	preset.start_grid = Vector2i(5, 5)
+	preset.map_id = "quarto"  # start (1,6), 8×8
 	var notes: Array[String] = ["A4"]
 	preset.notes = notes
 	p._conductor.load_preset(preset)
