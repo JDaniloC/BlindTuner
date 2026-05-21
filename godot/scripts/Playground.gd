@@ -27,6 +27,9 @@ const SHAKE_INTENSITY := 8.0
 const SHAKE_DURATION := 0.25
 const FLASH_PEAK_ALPHA := 0.45
 const FLASH_DURATION := 0.18
+# Atrasa o SFX de colisão para não mascarar a nota tocada pelo jogador.
+# A nota dura NOTE_DURATION_SEC=0.6s; 0.5s deixa o pitch ser percebido antes do "erro".
+const COLLISION_SFX_DELAY := 0.5
 
 var _wall_tiles: Dictionary = {}
 var _shake_remaining := 0.0
@@ -212,9 +215,10 @@ func _process(delta: float) -> void:
 		_camera.offset = Vector2.ZERO
 
 func _on_character_blocked(_dir: Vector2i) -> void:
-	AudioManager.play_collision_sfx()
 	_shake_remaining = SHAKE_DURATION
 	_flash_screen()
+	# Delay no SFX para a nota do jogador ser ouvida antes (pista auditiva de cima/baixo).
+	get_tree().create_timer(COLLISION_SFX_DELAY).timeout.connect(AudioManager.play_collision_sfx)
 
 func _flash_screen() -> void:
 	if _flash_tween:
