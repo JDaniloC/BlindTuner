@@ -74,3 +74,34 @@ func test_level_two_hides_name_keeps_color():
 	CueSettings.set_level(2)
 	assert_eq(p._buttons[0].text, "")
 	assert_eq(p._buttons[0].modulate, NoteMapping.color_for("Gs4"))
+
+const ActionIconScript := preload("res://scripts/ActionIcon.gd")
+
+func test_each_button_has_action_icon_child():
+	var p = _make()
+	var expected_actions = ["abaixar", "pegar", "correr", "pular"]
+	for i in range(p._buttons.size()):
+		var btn = p._buttons[i]
+		var icon: Node = null
+		for child in btn.get_children():
+			if child.get_script() == ActionIconScript:
+				icon = child
+				break
+		assert_not_null(icon, "botão %d sem ActionIcon" % i)
+		assert_eq(icon.action_id, expected_actions[i],
+			"ActionIcon do botão %d deveria ser %s" % [i, expected_actions[i]])
+
+func test_set_action_updates_action_id():
+	var icon = ActionIconScript.new()
+	icon.size = Vector2(64, 64)
+	add_child_autofree(icon)
+	icon.set_action("pular")
+	assert_eq(icon.action_id, "pular")
+
+func test_action_icon_ignores_unknown_action():
+	var icon = ActionIconScript.new()
+	icon.size = Vector2(64, 64)
+	add_child_autofree(icon)
+	icon.set_action("inexistente")
+	await get_tree().process_frame  # força _draw() para garantir que o match no-op não quebra
+	assert_eq(icon.action_id, "inexistente")

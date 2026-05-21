@@ -7,6 +7,7 @@ signal note_triggered(note_key: String)
 const ACTION_NOTES := ["Gs4", "A4", "As4", "B4"]
 const BUTTON_SIZE := Vector2(96, 96)
 const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha DirectionJoystick.NEUTRAL_SLICE
+const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 
 var _buttons: Array[Button] = []
 var _button_notes: Array[String] = []
@@ -22,6 +23,11 @@ func _ready() -> void:
 		btn.custom_minimum_size = BUTTON_SIZE
 		btn.pressed.connect(_emit_note.bind(note_key))
 		grid.add_child(btn)
+		var icon := ActionIconScript.new()
+		btn.add_child(icon)
+		icon.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		icon.anchor_bottom = 0.55  # icon ocupa o terço superior; texto fica embaixo
+		icon.set_action(NoteMapping.action_id_for(note_key))
 		_buttons.append(btn)
 		_button_notes.append(note_key)
 	CueSettings.cue_level_changed.connect(_on_cue_changed)

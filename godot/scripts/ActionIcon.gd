@@ -1,0 +1,60 @@
+extends Control
+## Desenha um ícone procedural representando uma ação especial.
+## Sem dependência de fonte/sprite — usa draw_line/draw_arc.
+
+const ICON_COLOR := Color.WHITE
+const LINE_WIDTH := 4.0
+const RADIUS_FRAC := 0.35  # raio do ícone relativo ao menor lado do Control
+
+var action_id: String = ""
+
+func _ready() -> void:
+	mouse_filter = MOUSE_FILTER_IGNORE
+
+func set_action(id: String) -> void:
+	action_id = id
+	queue_redraw()
+
+func _draw() -> void:
+	var c := size * 0.5
+	var r := minf(size.x, size.y) * RADIUS_FRAC
+	match action_id:
+		"pegar":   _draw_pegar(c, r)
+		"abaixar": _draw_abaixar(c, r)
+		"correr":  _draw_correr(c, r)
+		"pular":   _draw_pular(c, r)
+
+## Seta vertical apontando para baixo + linha do chão. Símbolo "pegar do chão".
+func _draw_pegar(c: Vector2, r: float) -> void:
+	var top := c + Vector2(0, -r)
+	var bottom := c + Vector2(0, r * 0.4)
+	draw_line(top, bottom, ICON_COLOR, LINE_WIDTH, true)
+	draw_line(bottom, bottom + Vector2(-r * 0.5, -r * 0.4), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(bottom, bottom + Vector2( r * 0.5, -r * 0.4), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(-r, r * 0.8), c + Vector2(r, r * 0.8), ICON_COLOR, LINE_WIDTH, true)
+
+## Dois chevrons descendentes empilhados.
+func _draw_abaixar(c: Vector2, r: float) -> void:
+	draw_line(c + Vector2(-r, -r * 0.5), c + Vector2(0, r * 0.1), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2( r, -r * 0.5), c + Vector2(0, r * 0.1), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(-r, r * 0.1), c + Vector2(0, r * 0.7), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2( r, r * 0.1), c + Vector2(0, r * 0.7), ICON_COLOR, LINE_WIDTH, true)
+
+## Três linhas horizontais (motion) + chevron » direita.
+func _draw_correr(c: Vector2, r: float) -> void:
+	var spacing := r * 0.35
+	draw_line(c + Vector2(-r,          -spacing), c + Vector2(r * 0.55, -spacing), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(-r * 0.85,    0      ), c + Vector2(r * 0.75,  0      ), ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(-r,           spacing), c + Vector2(r * 0.55,  spacing), ICON_COLOR, LINE_WIDTH, true)
+	var tip := c + Vector2(r, 0)
+	draw_line(c + Vector2(r * 0.55, -spacing - r * 0.15), tip, ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(r * 0.55,  spacing + r * 0.15), tip, ICON_COLOR, LINE_WIDTH, true)
+
+## Arco semicircular pra cima + setinha no topo + linha do chão.
+func _draw_pular(c: Vector2, r: float) -> void:
+	var arc_center := c + Vector2(0, r * 0.45)
+	draw_arc(arc_center, r, PI, TAU, 24, ICON_COLOR, LINE_WIDTH, true)
+	var top := arc_center + Vector2(0, -r)
+	draw_line(top + Vector2(-r * 0.25, r * 0.2), top, ICON_COLOR, LINE_WIDTH, true)
+	draw_line(top + Vector2( r * 0.25, r * 0.2), top, ICON_COLOR, LINE_WIDTH, true)
+	draw_line(c + Vector2(-r, r * 0.5), c + Vector2(r, r * 0.5), ICON_COLOR, LINE_WIDTH, true)
