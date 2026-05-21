@@ -218,36 +218,35 @@ func test_run_next_cleared_on_trip():
 	assert_false(c._run_next, "trip cancela a corrida armada")
 
 
-func test_base_scale_captured_from_scene():
-	var c = _make_character()
-	# A cena define scale (2, 2). _ready captura.
-	assert_eq(c._base_scale, Vector2(2, 2))
-
-func test_interagir_pulses_scale_x_and_restores():
-	var c = _make_character()
-	c.handle_action("Gs4")  # interagir
-	var has_active = c._action_fx_tween != null and c._action_fx_tween.is_valid()
-	assert_true(has_active, "tween de pulse deveria estar ativo")
-	await get_tree().create_timer(c.ACTION_FX_DURATION_SEC + 0.1).timeout
-	if not is_instance_valid(c):
-		return
-	assert_almost_eq(c._animated_sprite.scale.x, c._base_scale.x, 0.05,
-		"scale.x restaurada à base após pulse")
-	assert_almost_eq(c._animated_sprite.scale.y, c._base_scale.y, 0.05,
-		"scale.y intacta")
-
-func test_pegar_squashes_scale_y_and_restores():
+func test_pegar_plays_interact_animation():
 	var c = _make_character()
 	c.handle_action("A4")  # pegar
-	var has_active = c._action_fx_tween != null and c._action_fx_tween.is_valid()
-	assert_true(has_active, "tween de squash deveria estar ativo")
-	await get_tree().create_timer(c.ACTION_FX_DURATION_SEC + 0.1).timeout
+	assert_true(c._animated_sprite.animation.begins_with("interact"),
+		"anim 'interact' após pegar; era %s" % c._animated_sprite.animation)
+
+func test_pegar_returns_to_idle_after_interact_duration():
+	var c = _make_character()
+	c.handle_action("A4")
+	await get_tree().create_timer(c.INTERACT_DURATION_SEC + 0.1).timeout
 	if not is_instance_valid(c):
 		return
-	assert_almost_eq(c._animated_sprite.scale.y, c._base_scale.y, 0.05,
-		"scale.y restaurada à base")
-	assert_almost_eq(c._animated_sprite.scale.x, c._base_scale.x, 0.05,
-		"scale.x intacta")
+	assert_true(c._animated_sprite.animation.begins_with("idle"),
+		"volta a idle; era %s" % c._animated_sprite.animation)
+
+func test_interagir_plays_attack_animation():
+	var c = _make_character()
+	c.handle_action("Gs4")  # interagir
+	assert_true(c._animated_sprite.animation.begins_with("attack"),
+		"anim 'attack' após interagir; era %s" % c._animated_sprite.animation)
+
+func test_interagir_returns_to_idle_after_attack_duration():
+	var c = _make_character()
+	c.handle_action("Gs4")
+	await get_tree().create_timer(c.ATTACK_DURATION_SEC + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_true(c._animated_sprite.animation.begins_with("idle"),
+		"volta a idle; era %s" % c._animated_sprite.animation)
 
 func test_correr_armed_plays_run_animation_in_place():
 	var c = _make_character()

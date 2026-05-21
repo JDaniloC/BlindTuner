@@ -11,16 +11,15 @@ const MOVE_DURATION := 0.18
 const RUN_MOVE_DURATION := 0.11  # ~MOVE_DURATION * 0.6
 const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
-const ACTION_FX_DURATION_SEC := 0.3
+const INTERACT_DURATION_SEC := 0.4   # 4 frames / 10 fps
+const ATTACK_DURATION_SEC := 0.667   # 8 frames / 12 fps
 
 enum State { IDLE, WALK, RUN, TRIP }
 
 @export var grid_position: Vector2i = Vector2i(5, 5)
 ## Dicionário { Vector2i -> bool } populado pela cena pai (Playground) com tiles bloqueados.
 var blocked_tiles: Dictionary = {}
-var _base_scale: Vector2 = Vector2.ONE  # capturado em _ready (cena define scale 2,2)
 var _tween: Tween
-var _action_fx_tween: Tween
 
 var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
@@ -34,8 +33,10 @@ const SHEETS := {
 	"idle":   { "file": "16x32 Idle-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 6 },
 	"walk":   { "file": "16x32 Walk-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 10 },
 	"run":    { "file": "16x32 Run-Sheet.png",    "cols": 6, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 14 },
-	"rotate": { "file": "16x32 Rotate-Sheet.png", "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
-	"jump":   { "file": "16x32 Jump-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"rotate":   { "file": "16x32 Rotate-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"jump":     { "file": "16x32 Jump-Sheet.png",     "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"interact": { "file": "16x32 Interact-Sheet.png", "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"attack":   { "file": "16x32 Attack-Sheet.png",   "cols": 8, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 12 },
 }
 const DIRECTION_ROWS := ["s", "se", "e", "ne", "n"]
 const DIRECTION_TO_KEY := {
@@ -82,7 +83,6 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 func _ready() -> void:
 	position = grid_to_world(grid_position)
 	_animated_sprite.sprite_frames = _build_sprite_frames()
-	_base_scale = _animated_sprite.scale
 	_play_animation("idle", Vector2i(0, 1))
 
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
@@ -239,32 +239,14 @@ func handle_action(note_key: String) -> void:
 	action_performed.emit(aid, grid_position, _last_direction)
 
 func _do_pegar() -> void:
-	# Squash vertical relativo à scale base: "abaixa para pegar do chão".
-	_play_action_fx_y(_base_scale.y * 0.85)
-
-func _play_action_fx_y(squash_target: float) -> void:
-	if _action_fx_tween:
-		_action_fx_tween.kill()
-		_animated_sprite.scale = _base_scale
-	_action_fx_tween = create_tween()
-	_action_fx_tween.tween_property(_animated_sprite, "scale:y",
-		squash_target, ACTION_FX_DURATION_SEC * 0.5)
-	_action_fx_tween.tween_property(_animated_sprite, "scale:y",
-		_base_scale.y, ACTION_FX_DURATION_SEC * 0.5)
+	# Anim de "abaixar e pegar" via sprite Interact (5 dirs, 4 frames @ 10fps).
+	_play_animation("interact", _last_direction)
+	get_tree().create_timer(INTERACT_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_interagir() -> void:
-	# Pulse horizontal relativo à scale base: "se inclina pra examinar/usar".
-	_play_action_fx_x(_base_scale.x * 1.1)
-
-func _play_action_fx_x(stretch_target: float) -> void:
-	if _action_fx_tween:
-		_action_fx_tween.kill()
-		_animated_sprite.scale = _base_scale
-	_action_fx_tween = create_tween()
-	_action_fx_tween.tween_property(_animated_sprite, "scale:x",
-		stretch_target, ACTION_FX_DURATION_SEC * 0.5)
-	_action_fx_tween.tween_property(_animated_sprite, "scale:x",
-		_base_scale.x, ACTION_FX_DURATION_SEC * 0.5)
+	# Anim de "balançar bengala" via sprite Attack (5 dirs, 8 frames @ 12fps).
+	_play_animation("attack", _last_direction)
+	get_tree().create_timer(ATTACK_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_correr() -> void:
 	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
@@ -276,3 +258,10 @@ func _do_pular() -> void:
 	# Próximo handle_note vira _try_jump (1 tile). Combo com correr → _try_long_jump.
 	_jump_next = true
 	_play_animation("jump", _last_direction)
+
+func _return_to_idle_if_static() -> void:
+	if not is_instance_valid(self):
+		return
+	# Só volta a idle se o personagem não iniciou movimento durante a anim.
+	if state == State.IDLE:
+		_play_animation("idle", _last_direction)
