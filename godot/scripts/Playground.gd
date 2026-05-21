@@ -64,10 +64,11 @@ func _begin_preset(preset_id: String, cue_level: int) -> void:
 	var preset = SequencePresets.by_id(preset_id)
 	if preset == null:
 		return
+	var map = MapPresets.by_id(preset.map_id)
 	CueSettings.set_level(cue_level)
 	_hud.hide_stats()
-	_character.grid_position = preset.start_grid
-	_character.position = _character.grid_to_world(preset.start_grid)
+	_character.grid_position = map.start_grid
+	_character.position = _character.grid_to_world(map.start_grid)
 	_conductor.load_preset(preset)
 	_conductor.start()
 	_hud.set_progress(0, preset.notes.size())
@@ -95,7 +96,8 @@ func _on_replay_note(note_key: String, index: int) -> void:
 func _on_phase_changed(phase: int) -> void:
 	# Ao entrar no REPLAY, reposiciona o personagem no início do preset.
 	if phase == _conductor.Phase.REPLAY:
-		var sg: Vector2i = _conductor._preset.start_grid
+		var preset = _conductor._preset
+		var sg: Vector2i = MapPresets.by_id(preset.map_id).start_grid
 		_character.grid_position = sg
 		_character.position = _character.grid_to_world(sg)
 

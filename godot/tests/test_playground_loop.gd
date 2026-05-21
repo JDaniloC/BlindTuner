@@ -132,7 +132,7 @@ func test_call_with_action_note_advances_conductor():
 	var Preset := preload("res://scripts/SequencePreset.gd")
 	var preset = Preset.new()
 	preset.id = "tact"
-	preset.start_grid = Vector2i(5, 5)
+	preset.map_id = "quarto"  # start (1,6), 8×8
 	var notes: Array[String] = ["A4"]
 	preset.notes = notes
 	p._conductor.load_preset(preset)
@@ -153,7 +153,7 @@ func test_replay_with_action_note_triggers_action_without_moving():
 	var Preset := preload("res://scripts/SequencePreset.gd")
 	var preset = Preset.new()
 	preset.id = "trep"
-	preset.start_grid = Vector2i(5, 5)
+	preset.map_id = "quarto"  # start (1,6), 8×8
 	var notes: Array[String] = ["A4"]
 	preset.notes = notes
 	p._conductor.load_preset(preset)
