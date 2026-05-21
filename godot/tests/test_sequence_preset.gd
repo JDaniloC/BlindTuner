@@ -8,7 +8,7 @@ func _make() -> Preset:
 	p.label = "T"
 	p.size_class = "curto"
 	p.start_grid = Vector2i(5, 5)
-	var n: Array[String] = ["Ds4", "Ds4", "Gs4", "Gs4"]  # (1,-1)(1,-1)(0,1)(0,1)
+	var n: Array[String] = ["D4", "D4", "F4", "F4"]  # (1,-1)(1,-1)(0,1)(0,1)
 	p.notes = n
 	return p
 

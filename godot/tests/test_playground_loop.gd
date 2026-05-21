@@ -38,9 +38,9 @@ func test_free_roam_wall_collision_trips():
 
 func test_input_ignored_during_preview():
 	var p = _playground()
-	p._begin_preset("curto", 0)  # PREVIEW
+	p._begin_preset("curto", 0)
 	var before = p._character.grid_position
-	p._on_note_triggered("Ds4")
+	p._on_note_triggered("D4")
 	assert_eq(p._character.grid_position, before)
 	assert_eq(p._conductor._index, 0)
 	CueSettings.set_level(0)
@@ -49,9 +49,9 @@ func test_hit_moves_character_along_path():
 	var p = _playground()
 	p._begin_preset("curto", 0)
 	for i in range(5):
-		p._conductor._advance()  # esgota PREVIEW -> CALL
+		p._conductor._advance()  # PREVIEW -> CALL
 	assert_eq(p._conductor.phase, p._conductor.Phase.CALL)
-	p._on_note_triggered("Ds4")  # 1ª nota; resolve na hora
+	p._on_note_triggered("D4")  # 1ª nota do preset "curto"
 	assert_eq(p._character.grid_position, Vector2i(6, 4))
 	CueSettings.set_level(0)
 
@@ -61,24 +61,23 @@ func test_miss_trips_character_in_place():
 	for i in range(5):
 		p._conductor._advance()
 	var before = p._character.grid_position
-	p._on_note_triggered("C4")  # errado (alvo Ds4)
+	p._on_note_triggered("C4")  # errado (alvo D4)
 	assert_eq(p._character.grid_position, before)
 	assert_eq(p._character.state, p._character.State.TRIP)
-	assert_eq(p._conductor._index, 0)  # miss não avança
+	assert_eq(p._conductor._index, 0)
 	CueSettings.set_level(0)
 
 func test_full_run_replays_path_and_shows_stats():
 	var p = _playground()
 	p._begin_preset("curto", 0)
 	for i in range(5):
-		p._conductor._advance()  # -> CALL
-	for n in ["Ds4", "Ds4", "Gs4", "Gs4"]:
+		p._conductor._advance()
+	for n in ["D4", "D4", "F4", "F4"]:
 		p._on_note_triggered(n)
 	assert_eq(p._conductor.phase, p._conductor.Phase.REPLAY)
-	# Ao entrar em REPLAY o personagem volta ao start_grid:
 	assert_eq(p._character.grid_position, Vector2i(5, 5))
 	for i in range(5):
-		p._conductor._advance()  # replay anda o caminho -> DONE
+		p._conductor._advance()
 	assert_eq(p._conductor.phase, p._conductor.Phase.DONE)
 	assert_true(p._hud._stats_panel.visible)
 	assert_eq(p._character.grid_position, Vector2i(7, 5))
@@ -89,7 +88,7 @@ func test_restart_resets_to_preset_start():
 	p._begin_preset("curto", 0)
 	for i in range(5):
 		p._conductor._advance()
-	p._on_note_triggered("Ds4")  # char sai de (5,5) -> (6,4)
+	p._on_note_triggered("D4")  # char sai de (5,5) -> (6,4)
 	p._on_restart_requested()
 	assert_eq(p._character.grid_position, Vector2i(5, 5))
 	assert_eq(p._conductor.phase, p._conductor.Phase.PREVIEW)
@@ -100,12 +99,12 @@ func test_input_ignored_during_replay():
 	var p = _playground()
 	p._begin_preset("curto", 0)
 	for i in range(5):
-		p._conductor._advance()  # -> CALL
-	for n in ["Ds4", "Ds4", "Gs4", "Gs4"]:
-		p._on_note_triggered(n)  # -> REPLAY, char volta a (5,5)
+		p._conductor._advance()
+	for n in ["D4", "D4", "F4", "F4"]:
+		p._on_note_triggered(n)
 	assert_eq(p._conductor.phase, p._conductor.Phase.REPLAY)
 	var before = p._character.grid_position
-	p._on_note_triggered("Ds4")  # deve ser ignorado silenciosamente
+	p._on_note_triggered("D4")  # deve ser ignorado silenciosamente
 	assert_eq(p._character.grid_position, before)
 	CueSettings.set_level(0)
 
