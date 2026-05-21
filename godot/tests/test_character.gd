@@ -239,26 +239,36 @@ func test_trip_clears_run_tint():
 	assert_eq(c.state, c.State.TRIP)
 	assert_eq(c._animated_sprite.modulate, Color.WHITE, "tint limpo no trip")
 
-func test_abaixar_starts_scale_tween():
+func test_base_scale_captured_from_scene():
 	var c = _make_character()
-	c.handle_action("Gs4")  # abaixar
-	var has_active = c._crouch_tween != null and c._crouch_tween.is_valid()
-	assert_true(has_active, "tween de squash deveria estar ativo")
-	await get_tree().create_timer(c.CROUCH_DURATION_SEC + 0.1).timeout
+	# A cena define scale (2, 2). _ready captura.
+	assert_eq(c._base_scale, Vector2(2, 2))
+
+func test_interagir_pulses_scale_x_and_restores():
+	var c = _make_character()
+	c.handle_action("Gs4")  # interagir
+	var has_active = c._action_fx_tween != null and c._action_fx_tween.is_valid()
+	assert_true(has_active, "tween de pulse deveria estar ativo")
+	await get_tree().create_timer(c.ACTION_FX_DURATION_SEC + 0.1).timeout
 	if not is_instance_valid(c):
 		return
-	assert_almost_eq(c._animated_sprite.scale.y, 1.0, 0.05, "scale.y restaurada após squash")
+	assert_almost_eq(c._animated_sprite.scale.x, c._base_scale.x, 0.05,
+		"scale.x restaurada à base após pulse")
+	assert_almost_eq(c._animated_sprite.scale.y, c._base_scale.y, 0.05,
+		"scale.y intacta")
 
-func test_pegar_returns_to_idle_after_timer():
+func test_pegar_squashes_scale_y_and_restores():
 	var c = _make_character()
 	c.handle_action("A4")  # pegar
-	assert_true(c._animated_sprite.animation.begins_with("rotate"),
-		"anim 'rotate' após pegar; era %s" % c._animated_sprite.animation)
-	await get_tree().create_timer(c.ROTATE_DURATION_SEC + 0.1).timeout
+	var has_active = c._action_fx_tween != null and c._action_fx_tween.is_valid()
+	assert_true(has_active, "tween de squash deveria estar ativo")
+	await get_tree().create_timer(c.ACTION_FX_DURATION_SEC + 0.1).timeout
 	if not is_instance_valid(c):
 		return
-	assert_true(c._animated_sprite.animation.begins_with("idle"),
-		"anim volta a idle após ROTATE_DURATION_SEC; era %s" % c._animated_sprite.animation)
+	assert_almost_eq(c._animated_sprite.scale.y, c._base_scale.y, 0.05,
+		"scale.y restaurada à base")
+	assert_almost_eq(c._animated_sprite.scale.x, c._base_scale.x, 0.05,
+		"scale.x intacta")
 
 func test_pular_returns_to_idle_after_timer():
 	var c = _make_character()
