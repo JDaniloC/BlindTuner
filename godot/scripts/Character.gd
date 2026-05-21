@@ -13,6 +13,7 @@ const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
 const INTERACT_DURATION_SEC := 0.4   # 4 frames / 10 fps
 const ATTACK_DURATION_SEC := 0.667   # 8 frames / 12 fps
+const JUMP_ARC_HEIGHT_PX := 18.0     # elevação Y do sprite no pico do arco
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -20,6 +21,8 @@ enum State { IDLE, WALK, RUN, TRIP }
 ## Dicionário { Vector2i -> bool } populado pela cena pai (Playground) com tiles bloqueados.
 var blocked_tiles: Dictionary = {}
 var _tween: Tween
+var _arc_tween: Tween
+var _sprite_base_y: float = 0.0  # capturado em _ready; offset do AnimatedSprite na cena
 
 var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
@@ -83,6 +86,7 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 func _ready() -> void:
 	position = grid_to_world(grid_position)
 	_animated_sprite.sprite_frames = _build_sprite_frames()
+	_sprite_base_y = _animated_sprite.position.y
 	_play_animation("idle", Vector2i(0, 1))
 
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
@@ -143,7 +147,7 @@ func _try_run(dir: Vector2i) -> void:
 
 ## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
 ## anim 'jump' nos dois segmentos). 1º tile bloqueado = trip;
-## 2º tile bloqueado = anda só 1 com anim jump.
+## 2º tile bloqueado = anda só 1 com anim jump. Arco visual em cada segmento.
 func _try_jump(dir: Vector2i) -> void:
 	var target1 := grid_position + dir
 	if blocked_tiles.get(target1, false):
@@ -157,10 +161,12 @@ func _try_jump(dir: Vector2i) -> void:
 		grid_position = target1
 		moved.emit(grid_position)
 		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
+		_start_jump_arc(1, RUN_MOVE_DURATION)
 	else:
 		grid_position = target2
 		moved.emit(grid_position)
 		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+		_start_jump_arc(2, RUN_MOVE_DURATION)
 
 ## Combo correr+pular: 2 tiles totais. 1º tile com anim 'run', troca pra 'jump' antes
 ## do 2º tile. tween_callback faz a transição entre os dois segmentos.
@@ -186,6 +192,7 @@ func _try_run_then_jump(dir: Vector2i) -> void:
 		_tween = create_tween()
 		_tween.tween_property(self, "position", grid_to_world(target1), RUN_MOVE_DURATION)
 		_tween.tween_callback(_play_animation.bind("jump", dir))
+		_tween.tween_callback(_start_jump_arc.bind(1, RUN_MOVE_DURATION))
 		_tween.tween_property(self, "position", grid_to_world(target2), RUN_MOVE_DURATION)
 		_tween.finished.connect(_on_tween_finished)
 
@@ -214,6 +221,7 @@ func _enter_trip(dir: Vector2i) -> void:
 	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
 	_jump_next = false
 	_set_jump_loop(false)  # garante que o trip não loope (jump anim é one-shot pra trip)
+	_reset_sprite_arc()    # cancela qualquer arco em andamento e devolve sprite ao base
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -289,3 +297,24 @@ func _set_jump_loop(loop: bool) -> void:
 		var anim_name = "jump_" + row
 		if sf.has_animation(anim_name):
 			sf.set_animation_loop(anim_name, loop)
+
+## Anima o sprite numa parábola (sobe e desce) durante N segmentos de duração igual.
+## Cada segmento sobe metade do tempo e desce a outra metade; runs em paralelo
+## com o tween de posição. Sprite y retorna ao _sprite_base_y no fim de cada segmento.
+func _start_jump_arc(segments: int, segment_duration: float) -> void:
+	if _arc_tween:
+		_arc_tween.kill()
+	_animated_sprite.position.y = _sprite_base_y
+	_arc_tween = create_tween()
+	for i in range(segments):
+		_arc_tween.tween_property(_animated_sprite, "position:y",
+			_sprite_base_y - JUMP_ARC_HEIGHT_PX, segment_duration * 0.5)
+		_arc_tween.tween_property(_animated_sprite, "position:y",
+			_sprite_base_y, segment_duration * 0.5)
+
+## Cancela qualquer arco em andamento e devolve o sprite ao Y base.
+func _reset_sprite_arc() -> void:
+	if _arc_tween:
+		_arc_tween.kill()
+		_arc_tween = null
+	_animated_sprite.position.y = _sprite_base_y

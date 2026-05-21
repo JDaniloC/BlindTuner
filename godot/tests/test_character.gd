@@ -326,3 +326,44 @@ func test_combo_blocked_at_1st_tile_trips():
 	c.handle_action("B4")
 	c.handle_note("C4")
 	assert_eq(c.state, c.State.TRIP)
+
+func test_jump_solo_starts_arc_tween():
+	var c = _make_character()
+	c.handle_action("B4")  # pular arma
+	c.handle_note("C4")    # consume: 2 tiles com arco em cada
+	var has_arc = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_true(has_arc, "arc tween ativo durante pular")
+
+func test_jump_solo_arc_restores_sprite_y():
+	var c = _make_character()
+	c.handle_action("B4")
+	c.handle_note("C4")
+	# 2 segmentos a RUN_MOVE_DURATION cada = 0.22s + margem
+	await get_tree().create_timer(c.RUN_MOVE_DURATION * 2 + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_almost_eq(c._animated_sprite.position.y, c._sprite_base_y, 0.5,
+		"sprite y volta ao base após o arco")
+
+func test_walk_does_not_start_arc():
+	var c = _make_character()
+	c.handle_note("C4")  # andar normal
+	# Se algum arc tween foi criado por engano, falha
+	var arc_started = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_false(arc_started, "andar não inicia arco")
+
+func test_run_solo_does_not_start_arc():
+	var c = _make_character()
+	c.handle_action("As4")
+	c.handle_note("C4")
+	var arc_started = c._arc_tween != null and c._arc_tween.is_valid()
+	assert_false(arc_started, "correr solo não inicia arco")
+
+func test_trip_resets_sprite_arc():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("B4")  # pular arma
+	c.handle_note("C4")    # bate parede no 1º tile → TRIP
+	assert_eq(c.state, c.State.TRIP)
+	assert_eq(c._animated_sprite.position.y, c._sprite_base_y,
+		"trip restaura sprite y para base")
