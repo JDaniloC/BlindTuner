@@ -217,27 +217,6 @@ func test_run_next_cleared_on_trip():
 	assert_eq(c.state, c.State.TRIP)
 	assert_false(c._run_next, "trip cancela a corrida armada")
 
-func test_correr_applies_armed_tint():
-	var c = _make_character()
-	assert_eq(c._animated_sprite.modulate, Color.WHITE, "modulate inicia branco")
-	c.handle_action("As4")  # correr
-	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
-
-func test_run_consumed_clears_tint():
-	var c = _make_character()
-	c.handle_action("As4")
-	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
-	c.handle_note("C4")  # movimento consome _run_next
-	assert_eq(c._animated_sprite.modulate, Color.WHITE, "tint limpo ao consumir")
-
-func test_trip_clears_run_tint():
-	var c = _make_character()
-	c.blocked_tiles = { Vector2i(4, 4): true }
-	c.handle_action("As4")
-	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
-	c.handle_note("C4")  # bate parede -> TRIP
-	assert_eq(c.state, c.State.TRIP)
-	assert_eq(c._animated_sprite.modulate, Color.WHITE, "tint limpo no trip")
 
 func test_base_scale_captured_from_scene():
 	var c = _make_character()
@@ -270,13 +249,70 @@ func test_pegar_squashes_scale_y_and_restores():
 	assert_almost_eq(c._animated_sprite.scale.x, c._base_scale.x, 0.05,
 		"scale.x intacta")
 
-func test_pular_returns_to_idle_after_timer():
+func test_correr_armed_plays_run_animation_in_place():
 	var c = _make_character()
-	c.handle_action("B4")  # pular
+	var start_pos = c.grid_position
+	c.handle_action("As4")  # correr arma
+	assert_true(c._run_next, "correr armado")
+	assert_true(c._animated_sprite.animation.begins_with("run"),
+		"anim 'run' enquanto armado; era %s" % c._animated_sprite.animation)
+	assert_eq(c.grid_position, start_pos, "armar não move")
+
+func test_pular_armed_plays_jump_animation_in_place():
+	var c = _make_character()
+	var start_pos = c.grid_position
+	c.handle_action("B4")  # pular arma
+	assert_true(c._jump_next, "pular armado")
 	assert_true(c._animated_sprite.animation.begins_with("jump"),
-		"anim 'jump' após pular; era %s" % c._animated_sprite.animation)
-	await get_tree().create_timer(c.JUMP_DURATION_SEC + 0.1).timeout
-	if not is_instance_valid(c):
-		return
-	assert_true(c._animated_sprite.animation.begins_with("idle"),
-		"anim volta a idle após JUMP_DURATION_SEC; era %s" % c._animated_sprite.animation)
+		"anim 'jump' enquanto armado; era %s" % c._animated_sprite.animation)
+	assert_eq(c.grid_position, start_pos, "armar não move")
+
+func test_jump_consumed_moves_1_tile_with_jump_anim():
+	var c = _make_character()
+	c.handle_action("B4")  # pular arma
+	c.handle_note("C4")    # movimento consome
+	assert_eq(c.grid_position, Vector2i(4, 4))  # 1 tile na direção (-1,-1)
+	assert_true(c._animated_sprite.animation.begins_with("jump"),
+		"anim 'jump' durante o movimento; era %s" % c._animated_sprite.animation)
+	assert_false(c._jump_next, "flag consumida")
+
+func test_combo_run_plus_jump_moves_2_tiles_with_jump_anim():
+	var c = _make_character()
+	c.handle_action("As4")  # correr arma
+	c.handle_action("B4")   # pular arma — combo!
+	assert_true(c._run_next and c._jump_next, "ambas armadas")
+	c.handle_note("C4")     # movimento consome combo
+	assert_eq(c.grid_position, Vector2i(3, 3))  # 2 tiles na direção (-1,-1)
+	assert_true(c._animated_sprite.animation.begins_with("jump"),
+		"anim 'jump' (não 'run') no combo; era %s" % c._animated_sprite.animation)
+	assert_false(c._run_next, "run flag consumida")
+	assert_false(c._jump_next, "jump flag consumida")
+
+func test_trip_clears_both_armed_flags():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("As4")
+	c.handle_action("B4")
+	assert_true(c._run_next and c._jump_next)
+	c.handle_note("C4")  # bate parede → TRIP
+	assert_eq(c.state, c.State.TRIP)
+	assert_false(c._run_next, "run flag limpa no trip")
+	assert_false(c._jump_next, "jump flag limpa no trip")
+
+func test_combo_blocked_at_2nd_tile_moves_only_1():
+	# Combo (long jump 2 tiles), mas o 2º tile está bloqueado → move só 1.
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(3, 3): true }  # 2º tile (5,5)→(4,4)→(3,3) bloqueado
+	c.handle_action("As4")
+	c.handle_action("B4")
+	c.handle_note("C4")
+	assert_eq(c.grid_position, Vector2i(4, 4), "move só 1 tile (2º bloqueado)")
+	assert_true(c._animated_sprite.animation.begins_with("jump"))
+
+func test_combo_blocked_at_1st_tile_trips():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }  # 1º tile bloqueado
+	c.handle_action("As4")
+	c.handle_action("B4")
+	c.handle_note("C4")
+	assert_eq(c.state, c.State.TRIP)

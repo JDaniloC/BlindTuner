@@ -11,9 +11,7 @@ const MOVE_DURATION := 0.18
 const RUN_MOVE_DURATION := 0.11  # ~MOVE_DURATION * 0.6
 const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
-const JUMP_DURATION_SEC := 0.4     # 4 frames / 10 fps
 const ACTION_FX_DURATION_SEC := 0.3
-const ARMED_RUN_TINT := Color(1.4, 1.2, 0.8)  # amarelo quente, brilho > 1.0
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -28,7 +26,8 @@ var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
 var _last_note_key: String = ""
 var _last_note_time_ms: int = 0
-var _run_next: bool = false  # armado por handle_action(As4); consumido pelo próximo handle_note de movimento
+var _run_next: bool = false   # armado por handle_action(As4); consumido pelo próximo handle_note de movimento
+var _jump_next: bool = false  # armado por handle_action(B4); idem, mas pula 1 tile com anim jump
 
 const SHEET_BASE := "res://assets/sprites/character/16x32/"
 const SHEETS := {
@@ -99,9 +98,17 @@ func handle_note(note_key: String) -> void:
 	var now := Time.get_ticks_msec()
 	var is_double_tap := (note_key == _last_note_key
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
-	if _run_next or is_double_tap:
+	if _run_next and _jump_next:
 		_run_next = false
-		_animated_sprite.modulate = Color.WHITE
+		_jump_next = false
+		_try_long_jump(dir)
+	elif _run_next:
+		_run_next = false
+		_try_run(dir)
+	elif _jump_next:
+		_jump_next = false
+		_try_jump(dir)
+	elif is_double_tap:
 		_try_run(dir)
 	else:
 		_try_walk(dir)
@@ -138,6 +145,40 @@ func _try_run(dir: Vector2i) -> void:
 		moved.emit(grid_position)
 		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
 
+## Salto curto: 1 tile com anim jump. Blocked = trip.
+func _try_jump(dir: Vector2i) -> void:
+	var target := grid_position + dir
+	if blocked_tiles.get(target, false):
+		_enter_trip(dir)
+		return
+	_last_direction = dir
+	state = State.RUN  # reusa RUN state para que _on_tween_finished volte a idle
+	grid_position = target
+	moved.emit(grid_position)
+	_play_animation("jump", dir)
+	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
+
+## Salto longo (correr+pular combo): 2 tiles com anim jump.
+## Mesma semântica de bloqueio do _try_run: 1º tile bloqueado = trip;
+## 2º tile bloqueado = anda só 1.
+func _try_long_jump(dir: Vector2i) -> void:
+	var target1 := grid_position + dir
+	if blocked_tiles.get(target1, false):
+		_enter_trip(dir)
+		return
+	var target2 := target1 + dir
+	_last_direction = dir
+	state = State.RUN
+	_play_animation("jump", dir)
+	if blocked_tiles.get(target2, false):
+		grid_position = target1
+		moved.emit(grid_position)
+		_tween_to(grid_to_world(target1), RUN_MOVE_DURATION)
+	else:
+		grid_position = target2
+		moved.emit(grid_position)
+		_tween_chain([grid_to_world(target1), grid_to_world(target2)], RUN_MOVE_DURATION)
+
 func _tween_to(target_world: Vector2, duration: float) -> void:
 	if _tween:
 		_tween.kill()
@@ -160,8 +201,8 @@ func _on_tween_finished() -> void:
 	_play_animation("idle", _last_direction)
 
 func _enter_trip(dir: Vector2i) -> void:
-	_run_next = false  # tropeçar cancela qualquer corrida armada (semântica de "quebra")
-	_animated_sprite.modulate = Color.WHITE
+	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
+	_jump_next = false
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -226,16 +267,12 @@ func _play_action_fx_x(stretch_target: float) -> void:
 		_base_scale.x, ACTION_FX_DURATION_SEC * 0.5)
 
 func _do_correr() -> void:
-	# One-shot: o próximo handle_note de movimento vira _try_run.
+	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
 	_run_next = true
-	_animated_sprite.modulate = ARMED_RUN_TINT
+	_play_animation("run", _last_direction)
 
 func _do_pular() -> void:
+	# Arma pular: anim 'jump' (loop=false) congela no último frame como indicador armado.
+	# Próximo handle_note vira _try_jump (1 tile). Combo com correr → _try_long_jump.
+	_jump_next = true
 	_play_animation("jump", _last_direction)
-	get_tree().create_timer(JUMP_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
-
-func _return_to_idle_if_static() -> void:
-	if not is_instance_valid(self):
-		return
-	if state == State.IDLE:
-		_play_animation("idle", _last_direction)
