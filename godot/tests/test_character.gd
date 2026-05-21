@@ -216,3 +216,57 @@ func test_run_next_cleared_on_trip():
 	c.handle_note("C4")  # bate na parede -> TRIP, deve limpar _run_next
 	assert_eq(c.state, c.State.TRIP)
 	assert_false(c._run_next, "trip cancela a corrida armada")
+
+func test_correr_applies_armed_tint():
+	var c = _make_character()
+	assert_eq(c._animated_sprite.modulate, Color.WHITE, "modulate inicia branco")
+	c.handle_action("As4")  # correr
+	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
+
+func test_run_consumed_clears_tint():
+	var c = _make_character()
+	c.handle_action("As4")
+	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
+	c.handle_note("C4")  # movimento consome _run_next
+	assert_eq(c._animated_sprite.modulate, Color.WHITE, "tint limpo ao consumir")
+
+func test_trip_clears_run_tint():
+	var c = _make_character()
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_action("As4")
+	assert_eq(c._animated_sprite.modulate, c.ARMED_RUN_TINT)
+	c.handle_note("C4")  # bate parede -> TRIP
+	assert_eq(c.state, c.State.TRIP)
+	assert_eq(c._animated_sprite.modulate, Color.WHITE, "tint limpo no trip")
+
+func test_abaixar_starts_scale_tween():
+	var c = _make_character()
+	c.handle_action("Gs4")  # abaixar
+	var has_active = c._crouch_tween != null and c._crouch_tween.is_valid()
+	assert_true(has_active, "tween de squash deveria estar ativo")
+	await get_tree().create_timer(c.CROUCH_DURATION_SEC + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_almost_eq(c._animated_sprite.scale.y, 1.0, 0.05, "scale.y restaurada após squash")
+
+func test_pegar_returns_to_idle_after_timer():
+	var c = _make_character()
+	c.handle_action("A4")  # pegar
+	assert_true(c._animated_sprite.animation.begins_with("rotate"),
+		"anim 'rotate' após pegar; era %s" % c._animated_sprite.animation)
+	await get_tree().create_timer(c.ROTATE_DURATION_SEC + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_true(c._animated_sprite.animation.begins_with("idle"),
+		"anim volta a idle após ROTATE_DURATION_SEC; era %s" % c._animated_sprite.animation)
+
+func test_pular_returns_to_idle_after_timer():
+	var c = _make_character()
+	c.handle_action("B4")  # pular
+	assert_true(c._animated_sprite.animation.begins_with("jump"),
+		"anim 'jump' após pular; era %s" % c._animated_sprite.animation)
+	await get_tree().create_timer(c.JUMP_DURATION_SEC + 0.1).timeout
+	if not is_instance_valid(c):
+		return
+	assert_true(c._animated_sprite.animation.begins_with("idle"),
+		"anim volta a idle após JUMP_DURATION_SEC; era %s" % c._animated_sprite.animation)

@@ -11,6 +11,10 @@ const MOVE_DURATION := 0.18
 const RUN_MOVE_DURATION := 0.11  # ~MOVE_DURATION * 0.6
 const DOUBLE_TAP_WINDOW_MS := 400
 const TRIP_DURATION_SEC := 0.6
+const ROTATE_DURATION_SEC := 0.4   # 4 frames / 10 fps
+const JUMP_DURATION_SEC := 0.4     # 4 frames / 10 fps
+const CROUCH_DURATION_SEC := 0.3
+const ARMED_RUN_TINT := Color(1.4, 1.2, 0.8)  # amarelo quente, brilho > 1.0
 
 enum State { IDLE, WALK, RUN, TRIP }
 
@@ -18,6 +22,7 @@ enum State { IDLE, WALK, RUN, TRIP }
 ## Dicionário { Vector2i -> bool } populado pela cena pai (Playground) com tiles bloqueados.
 var blocked_tiles: Dictionary = {}
 var _tween: Tween
+var _crouch_tween: Tween
 
 var state: State = State.IDLE
 var _last_direction: Vector2i = Vector2i(0, 1)
@@ -95,6 +100,7 @@ func handle_note(note_key: String) -> void:
 						  and now - _last_note_time_ms < DOUBLE_TAP_WINDOW_MS)
 	if _run_next or is_double_tap:
 		_run_next = false
+		_animated_sprite.modulate = Color.WHITE
 		_try_run(dir)
 	else:
 		_try_walk(dir)
@@ -154,6 +160,7 @@ func _on_tween_finished() -> void:
 
 func _enter_trip(dir: Vector2i) -> void:
 	_run_next = false  # tropeçar cancela qualquer corrida armada (semântica de "quebra")
+	_animated_sprite.modulate = Color.WHITE
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
@@ -191,14 +198,28 @@ func handle_action(note_key: String) -> void:
 
 func _do_pegar() -> void:
 	_play_animation("rotate", _last_direction)
+	get_tree().create_timer(ROTATE_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_abaixar() -> void:
-	# Placeholder: sprite custom de crouch é Diferido. Reusa idle para feedback mínimo.
-	_play_animation("idle", _last_direction)
+	# Squash procedural — escala Y temporariamente. Sprite custom de crouch é Diferido.
+	if _crouch_tween:
+		_crouch_tween.kill()
+		_animated_sprite.scale.y = 1.0  # restaura antes de re-anim para evitar hiccup
+	_crouch_tween = create_tween()
+	_crouch_tween.tween_property(_animated_sprite, "scale:y", 0.7, CROUCH_DURATION_SEC * 0.5)
+	_crouch_tween.tween_property(_animated_sprite, "scale:y", 1.0, CROUCH_DURATION_SEC * 0.5)
 
 func _do_correr() -> void:
 	# One-shot: o próximo handle_note de movimento vira _try_run.
 	_run_next = true
+	_animated_sprite.modulate = ARMED_RUN_TINT
 
 func _do_pular() -> void:
 	_play_animation("jump", _last_direction)
+	get_tree().create_timer(JUMP_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
+
+func _return_to_idle_if_static() -> void:
+	if not is_instance_valid(self):
+		return
+	if state == State.IDLE:
+		_play_animation("idle", _last_direction)
