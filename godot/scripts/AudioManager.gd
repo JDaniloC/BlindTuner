@@ -1,13 +1,21 @@
 extends Node
 ## Autoload singleton — gera e toca tons sintetizados representando cada nota.
+##
+## Histórico: usava AudioStreamGenerator com push_frame síncrono. Em CALL/PREVIEW
+## com várias notas próximas, o padrão sofria — ou o buffer enchia antes do loop
+## terminar (samples descartados) ou o sinal `finished` não disparava para o
+## generator, deixando AudioStreamPlayers vazando como filhos do AudioManager
+## até esgotar slots de voz (default 64). Sintoma: 1ª nota OK, 2ª/3ª silenciosa.
+##
+## Agora: pré-renderiza um AudioStreamWAV (PCM estático) por chamada. Streams
+## finitos disparam `finished` de forma confiável → queue_free() limpa o player.
 
-const MIX_RATE := 44100.0
+const MIX_RATE := 44100
 const NOTE_DURATION_SEC := 0.6
 const ATTACK_SEC := 0.01
 const DECAY_SEC := 0.15
 const SUSTAIN_LEVEL := 0.4
 const RELEASE_SEC := 0.3
-const BUFFER_LENGTH_SEC := NOTE_DURATION_SEC
 const COLLISION_FREQ := 80.0
 
 ## Toca a nota pela chave (ex: "A4"). Retorna o AudioStreamPlayer instanciado.
@@ -24,37 +32,41 @@ func play_continuous_pitch(_freq_hz: float):
     return null
 
 func _play_synth(freq: float, harsh: bool) -> AudioStreamPlayer:
+    var stream := _render_wave(freq, harsh)
     var player := AudioStreamPlayer.new()
-    var generator := AudioStreamGenerator.new()
-    generator.mix_rate = MIX_RATE
-    generator.buffer_length = BUFFER_LENGTH_SEC
-    player.stream = generator
+    player.stream = stream
     add_child(player)
-    player.play()
-
-    var playback: AudioStreamGeneratorPlayback = player.get_stream_playback()
-    _fill_buffer(playback, freq, harsh)
-    # auto-remove após terminar
+    # auto-remove após terminar (AudioStreamWAV é finito; signal dispara confiavelmente)
     player.finished.connect(func(): player.queue_free())
+    player.play()
     return player
 
-func _fill_buffer(playback: AudioStreamGeneratorPlayback, freq: float, harsh: bool) -> void:
+func _render_wave(freq: float, harsh: bool) -> AudioStreamWAV:
     var total_samples := int(MIX_RATE * NOTE_DURATION_SEC)
     var attack_samples := int(MIX_RATE * ATTACK_SEC)
     var decay_samples := int(MIX_RATE * DECAY_SEC)
     var release_samples := int(MIX_RATE * RELEASE_SEC)
     var sustain_samples := total_samples - attack_samples - decay_samples - release_samples
 
+    # PCM16 mono (2 bytes por sample). Mono é suficiente — Godot duplica no bus.
+    var bytes := PackedByteArray()
+    bytes.resize(total_samples * 2)
     var phase := 0.0
-    var phase_inc := freq / MIX_RATE
-    var idx := 0
-    while idx < total_samples and playback.can_push_buffer(1):
+    var phase_inc := freq / float(MIX_RATE)
+    for idx in range(total_samples):
         var sample := _sample_value(phase, harsh)
         var amplitude := _envelope_at(idx, attack_samples, decay_samples, sustain_samples, release_samples)
         var value := sample * amplitude * 0.5
-        playback.push_frame(Vector2(value, value))
+        var pcm: int = clampi(int(value * 32767.0), -32768, 32767)
+        bytes.encode_s16(idx * 2, pcm)
         phase = fposmod(phase + phase_inc, 1.0)
-        idx += 1
+
+    var stream := AudioStreamWAV.new()
+    stream.format = AudioStreamWAV.FORMAT_16_BITS
+    stream.mix_rate = MIX_RATE
+    stream.stereo = false
+    stream.data = bytes
+    return stream
 
 func _sample_value(phase: float, harsh: bool) -> float:
     if harsh:
