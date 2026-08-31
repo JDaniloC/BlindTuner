@@ -86,6 +86,21 @@ func test_blocked_sets_state_to_trip():
 	c.handle_note("C4")
 	assert_eq(c.state, c.State.TRIP)
 
+func test_enter_trip_default_reason_is_wall():
+	var c = _make_character()
+	var captured_reason := [null]  # array como container mutável p/ lambda capturar por referência
+	c.blocked.connect(func(_dir, reason): captured_reason[0] = reason)
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	c.handle_note("C4")
+	assert_eq(captured_reason[0], c.TripReason.WALL)
+
+func test_enter_trip_note_miss_reason():
+	var c = _make_character()
+	var captured_reason := [null]  # array como container mutável p/ lambda capturar por referência
+	c.blocked.connect(func(_dir, reason): captured_reason[0] = reason)
+	c._enter_trip(Vector2i(0, 1), c.TripReason.NOTE_MISS)
+	assert_eq(captured_reason[0], c.TripReason.NOTE_MISS)
+
 func test_input_ignored_during_trip():
 	var c = _make_character()
 	c.blocked_tiles = { Vector2i(4, 4): true }

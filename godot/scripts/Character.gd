@@ -2,7 +2,7 @@ extends Node2D
 ## Personagem isométrico do MVP. Move 1 tile por nota de movimento; bloqueado por paredes; ignora reservadas.
 
 signal moved(new_grid_position: Vector2i)
-signal blocked(direction: Vector2i)
+signal blocked(direction: Vector2i, reason: int)
 signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
 ## Notifica mudança de _run_next / _jump_next para UI espelhar (botão armado brilha).
 signal armed_state_changed(running: bool, jumping: bool)
@@ -21,6 +21,10 @@ const DUST_PUFF_LIFETIME := 0.5
 const DUST_PUFF_COLOR := Color(0.85, 0.78, 0.6, 0.7)
 
 enum State { IDLE, WALK, RUN, TRIP }
+## Distingue por que o personagem tropeçou: colisão física de verdade (WALL)
+## vs erro de conhecimento durante o CALL (NOTE_MISS). Usado por Playground
+## para diferenciar o feedback de tela/áudio sem mudar a anim de tropeço.
+enum TripReason { WALL, NOTE_MISS }
 
 @export var grid_position: Vector2i = Vector2i(5, 5)
 ## Dicionário { Vector2i -> bool } populado pela cena pai (Playground) com tiles bloqueados.
@@ -227,7 +231,7 @@ func _on_tween_finished() -> void:
 	state = State.IDLE
 	_play_animation("idle", _last_direction)
 
-func _enter_trip(dir: Vector2i) -> void:
+func _enter_trip(dir: Vector2i, reason: int = TripReason.WALL) -> void:
 	var was_armed := _run_next or _jump_next
 	_run_next = false   # tropeçar cancela qualquer corrida/salto armado
 	_jump_next = false
@@ -238,7 +242,7 @@ func _enter_trip(dir: Vector2i) -> void:
 	state = State.TRIP
 	_last_direction = dir
 	_play_animation("jump", dir)
-	blocked.emit(dir)
+	blocked.emit(dir, reason)
 	get_tree().create_timer(TRIP_DURATION_SEC).timeout.connect(_exit_trip)
 
 func _exit_trip() -> void:

@@ -126,7 +126,7 @@ func _on_note_resolved(hit: bool, index: int) -> void:
 		if hit:
 			_character.handle_action(note_key)
 		else:
-			_character._enter_trip(_character._last_direction)
+			_character._enter_trip(_character._last_direction, _character.TripReason.NOTE_MISS)
 		return
 	var dir: Vector2i = NoteMapping.direction_for(note_key)
 	if hit:
@@ -135,7 +135,7 @@ func _on_note_resolved(hit: bool, index: int) -> void:
 		_character._try_walk(dir)
 	else:
 		# Erro de conhecimento: tropeço no lugar (cosmético, sem dano).
-		_character._enter_trip(dir)
+		_character._enter_trip(dir, _character.TripReason.NOTE_MISS)
 
 func _on_sequence_complete(stats: Dictionary) -> void:
 	_hud.show_stats(stats)
@@ -245,7 +245,14 @@ func _process(delta: float) -> void:
 	elif _camera.offset != Vector2.ZERO:
 		_camera.offset = Vector2.ZERO
 
-func _on_character_blocked(_dir: Vector2i) -> void:
+func _on_character_blocked(_dir: Vector2i, reason: int) -> void:
+	if reason == _character.TripReason.NOTE_MISS:
+		# Erro de conhecimento no CALL: só o SFX suave, sem shake/flash de colisão.
+		# Mesmo delay do WALL abaixo: a nota errada que o jogador tocou (play_note,
+		# 0.6s) precisa ser ouvida antes do SFX de erro, senão ele a mascara quase
+		# instantaneamente (AudioManager serializa playback a um único player ativo).
+		get_tree().create_timer(COLLISION_SFX_DELAY).timeout.connect(AudioManager.play_note_miss_sfx)
+		return
 	_shake_remaining = SHAKE_DURATION
 	_flash_screen()
 	# Delay no SFX para a nota do jogador ser ouvida antes (pista auditiva de cima/baixo).

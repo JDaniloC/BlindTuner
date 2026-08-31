@@ -35,6 +35,7 @@ func test_free_roam_wall_collision_trips():
 	p._on_note_triggered("F4")  # dir (0,1) -> (4,7) é parede
 	assert_eq(p._character.grid_position, Vector2i(4, 6))
 	assert_eq(p._character.state, p._character.State.TRIP)
+	assert_true(p._shake_remaining > 0.0)
 
 func test_input_ignored_during_preview():
 	var p = _playground()
@@ -65,6 +66,29 @@ func test_miss_trips_character_in_place():
 	assert_eq(p._character.grid_position, before)
 	assert_eq(p._character.state, p._character.State.TRIP)
 	assert_eq(p._conductor._index, 0)
+	assert_eq(p._shake_remaining, 0.0)
+	CueSettings.set_level(0)
+
+func test_note_miss_sfx_is_delayed_to_not_mask_wrong_note():
+	var p = _playground()
+	p._begin_preset("curto", 0)
+	for i in range(7):
+		p._conductor._advance()
+	p._on_note_triggered("C4")  # errado (alvo Cs4) -> NOTE_MISS trip
+	assert_eq(p._character.state, p._character.State.TRIP)
+	# Imediatamente após o miss (mesmo frame, síncrono), o player ativo ainda deve
+	# ser a NOTA ERRADA que o jogador tocou (0.6s) -- não o SFX de erro. Se o SFX
+	# tocar sem delay, ele cancela a nota do jogador quase instantaneamente
+	# (AudioManager serializa playback a um único player ativo).
+	var stream: AudioStreamWAV = AudioManager._current_player.stream
+	var duration_sec: float = (stream.data.size() / 2.0) / AudioManager.MIX_RATE
+	assert_almost_eq(duration_sec, AudioManager.NOTE_DURATION_SEC, 0.01,
+		"o SFX de erro não deveria substituir a nota do jogador imediatamente")
+	await get_tree().create_timer(p.COLLISION_SFX_DELAY + 0.1).timeout
+	stream = AudioManager._current_player.stream
+	duration_sec = (stream.data.size() / 2.0) / AudioManager.MIX_RATE
+	assert_almost_eq(duration_sec, AudioManager.NOTE_MISS_DURATION_SEC, 0.01,
+		"o SFX de erro deveria tocar depois do delay, como a colisão de parede")
 	CueSettings.set_level(0)
 
 func test_full_run_replays_path_and_shows_stats():

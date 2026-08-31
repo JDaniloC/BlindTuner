@@ -13,6 +13,10 @@ const DECAY_SEC := 0.15
 const SUSTAIN_LEVEL := 0.4
 const RELEASE_SEC := 0.3
 const COLLISION_FREQ := 80.0
+const NOTE_MISS_FREQ := 220.0
+# Precisa ser > ATTACK_SEC+DECAY_SEC (0.16s), senão o buffer termina no meio do
+# decay (nunca alcança release) e corta com um click audível em vez de esmaecer.
+const NOTE_MISS_DURATION_SEC := 0.2
 
 var _current_player: AudioStreamPlayer = null
 
@@ -24,6 +28,10 @@ func play_note(note_key: String) -> AudioStreamPlayer:
 ## Toca SFX de colisão (tom grave e curto). Cancela qualquer player ativo antes.
 func play_collision_sfx() -> AudioStreamPlayer:
     return _play_synth(COLLISION_FREQ, true, COLLISION_DURATION_SEC)
+
+## Toca SFX de erro de conhecimento no CALL (curto, não-harsh). Distinto do SFX de colisão física.
+func play_note_miss_sfx() -> AudioStreamPlayer:
+    return _play_synth(NOTE_MISS_FREQ, false, NOTE_MISS_DURATION_SEC)
 
 ## Stub para o modo cello futuro (pitch contínuo controlável em tempo real).
 func play_continuous_pitch(_freq_hz: float):
