@@ -137,7 +137,13 @@ func _on_note_resolved(hit: bool, index: int) -> void:
 		# Erro de conhecimento: tropeço no lugar (cosmético, sem dano).
 		_character._enter_trip(dir, _character.TripReason.NOTE_MISS)
 
+func _goal_reached() -> bool:
+	var map = MapPresets.by_id(_current_map_id)
+	return _character.grid_position == map.goal_grid
+
 func _on_sequence_complete(stats: Dictionary) -> void:
+	if not _goal_reached():
+		push_warning("BlindTuner: sequence completed at %s but goal is %s (map=%s)" % [_character.grid_position, MapPresets.by_id(_current_map_id).goal_grid, _current_map_id])
 	_hud.show_stats(stats)
 
 func _build_room() -> void:

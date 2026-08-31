@@ -170,6 +170,20 @@ func test_call_with_action_note_advances_conductor():
 	assert_eq(p._character.grid_position, before)  # ação não move
 	CueSettings.set_level(0)
 
+func test_goal_reached_true_when_character_on_goal():
+	var p = _playground()
+	p._begin_preset("curto", 0)
+	p._character.grid_position = Vector2i(6, 1)  # goal_grid do mapa "quarto"
+	assert_true(p._goal_reached())
+	CueSettings.set_level(0)
+
+func test_goal_reached_false_when_character_off_goal():
+	var p = _playground()
+	p._begin_preset("curto", 0)
+	p._character.grid_position = Vector2i(0, 0)  # fora do goal
+	assert_false(p._goal_reached())
+	CueSettings.set_level(0)
+
 func test_replay_with_action_note_triggers_action_without_moving():
 	# REPLAY com uma nota de ação deve chamar handle_action (anim + signal)
 	# sem mover o personagem (action notes têm direction=ZERO).
