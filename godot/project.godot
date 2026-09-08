@@ -28,6 +28,7 @@ SceneryThemes="*res://scripts/SceneryThemes.gd"
 MapPresets="*res://scripts/MapPresets.gd"
 SequencePresets="*res://scripts/SequencePresets.gd"
 CueSettings="*res://scripts/CueSettings.gd"
+InputModeSettings="*res://scripts/InputModeSettings.gd"
 
 [display]
 
