@@ -89,3 +89,11 @@ func test_release_without_prior_press_is_ignored():
 	ev.position = Vector2.ZERO
 	b._gui_input(ev)
 	assert_signal_not_emitted(b, "note_triggered")
+
+func test_draws_neutral_affordance_without_revealing_any_note():
+	var b = _make()
+	# O modo é "no escuro": o desenho não pode consultar cor nem rótulo de nota.
+	var src = FileAccess.get_file_as_string("res://scripts/BlindTouchInput.gd")
+	assert_false(src.contains("color_for"), "afordance não pode usar cor por nota")
+	assert_false(src.contains("label_for"), "afordance não pode revelar o nome da nota")
+	assert_true(b.has_method("_draw"), "precisa desenhar a afordance")

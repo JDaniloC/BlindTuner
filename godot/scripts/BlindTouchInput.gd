@@ -10,6 +10,10 @@ const FLICK_MAX_MS := 150          # arrasto curto+rápido = flick = pular
 const LONG_PRESS_MS := 500         # segurar sem arrastar = interagir
 const DOUBLE_TAP_WINDOW_MS := 400  # espelha Character.DOUBLE_TAP_WINDOW_MS
 
+const AFFORDANCE_COLOR := Color(1, 1, 1, 0.22)
+const AFFORDANCE_RADIUS := 54.0
+const AFFORDANCE_WIDTH := 2.5
+
 var _press_pos := Vector2.ZERO
 var _press_time_ms := 0
 var _had_drag := false
@@ -85,3 +89,12 @@ func _classify_gesture(had_drag: bool, offset: Vector2, elapsed_ms: int) -> Stri
 	if elapsed_ms >= LONG_PRESS_MS:
 		return "Gs4"
 	return ""
+
+## Indica que dá pra tocar e arrastar aqui -- sem cor por nota e sem rótulo.
+## O desafio do modo é não saber QUAL nota tocar (só o som diz); não saber que
+## existe um controle na tela é confusão de interface, não desafio.
+func _draw() -> void:
+	var c := size * 0.5
+	draw_arc(c, AFFORDANCE_RADIUS, 0.0, TAU, 48, AFFORDANCE_COLOR, AFFORDANCE_WIDTH, true)
+	draw_line(c + Vector2(-AFFORDANCE_RADIUS * 0.45, 0), c + Vector2(AFFORDANCE_RADIUS * 0.45, 0), AFFORDANCE_COLOR, AFFORDANCE_WIDTH, true)
+	draw_line(c + Vector2(0, -AFFORDANCE_RADIUS * 0.45), c + Vector2(0, AFFORDANCE_RADIUS * 0.45), AFFORDANCE_COLOR, AFFORDANCE_WIDTH, true)
