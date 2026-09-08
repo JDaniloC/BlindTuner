@@ -18,6 +18,7 @@ var _dragging := false
 var _thumb_offset := Vector2.ZERO
 var _slice_polygons: Array[Polygon2D] = []
 var _slice_note_keys: Array[String] = []  # paralelo a _slice_polygons (8 entradas)
+var _slice_icons: Array = []              # paralelo a _slice_note_keys (8 entradas)
 var _active_slice_index: int = -1         # 0..7 (índice da fatia em _slice_polygons), ou -1
 var _flash_tween: Tween
 var _backdrop_disc: Polygon2D
@@ -70,6 +71,24 @@ func _build_slices() -> void:
 		_slice_polygons.append(slice)
 		_slice_note_keys.append(key)
 		idx += 1
+	_build_slice_icons()
+
+## Uma seta por fatia, posicionada no meio do arco (60% do raio), apontando
+## na direção que a nota daquela fatia representa.
+func _build_slice_icons() -> void:
+	var IconScript := load("res://scripts/ActionIcon.gd")
+	_slice_icons.clear()
+	for i in range(_slice_note_keys.size()):
+		var icon: Control = IconScript.new()
+		icon.custom_minimum_size = Vector2(30, 30)
+		icon.size = Vector2(30, 30)
+		var deg := i * SLICE_ANGLE_DEG
+		var rad := deg_to_rad(deg)
+		var center := Vector2(sin(rad), -cos(rad)) * (RADIUS * 0.6)
+		icon.position = center - icon.size * 0.5
+		_slices_root.add_child(icon)
+		icon.set_note(_slice_note_keys[i])
+		_slice_icons.append(icon)
 
 func slice_display_color(note_key: String) -> Color:
 	if CueSettings.shows_color():

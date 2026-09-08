@@ -17,16 +17,19 @@ const ICON_FOR_ACTION := {
 	"pular": "keyboard_double_arrow_up",
 }
 
-## Seta direcional por vetor de direção. 0,-1 é norte (y cresce pra baixo).
+## O vetor de `direction` é de GRID isométrico, não bússola de tela.
+## Character.grid_to_world projeta (x-y, x+y), então cada vetor de grid cai
+## num octante de tela diferente do que o vetor "parece" sugerir --
+## ex.: (-1,-1) não é noroeste, é reto para cima.
 const ICON_FOR_DIRECTION := {
-	Vector2i( 0, -1): "north",
-	Vector2i( 1, -1): "north_east",
-	Vector2i( 1,  0): "east",
-	Vector2i( 1,  1): "south_east",
-	Vector2i( 0,  1): "south",
-	Vector2i(-1,  1): "south_west",
-	Vector2i(-1,  0): "west",
-	Vector2i(-1, -1): "north_west",
+	Vector2i(-1, -1): "north",
+	Vector2i( 0, -1): "north_east",
+	Vector2i( 1, -1): "east",
+	Vector2i( 1,  0): "south_east",
+	Vector2i( 1,  1): "south",
+	Vector2i( 0,  1): "south_west",
+	Vector2i(-1,  1): "west",
+	Vector2i(-1,  0): "north_west",
 }
 
 var action_id: String = ""

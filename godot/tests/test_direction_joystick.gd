@@ -107,3 +107,23 @@ func test_eight_slices_cover_full_circle():
 	for i in range(8):
 		assert_true(NoteMapping.is_movement_note(j._slice_note_keys[i]))
 	assert_eq(j._slice_note_keys, ["C4","Cs4","D4","Ds4","E4","F4","Fs4","G4"])
+
+func test_each_slice_has_a_direction_icon():
+	var j = _make_joystick()
+	assert_eq(j._slice_icons.size(), 8, "uma seta por fatia de movimento")
+	for icon in j._slice_icons:
+		assert_not_null(icon._texture, "fatia sem textura de seta")
+
+func test_slice_icons_point_to_correct_screen_direction():
+	# Regressão: direction em NoteMapping é vetor de GRID isométrico, não
+	# bússola de tela -- ver comentário em ActionIcon.ICON_FOR_DIRECTION.
+	# C4 fica na fatia norte do joystick (índice 0) e deve exibir a seta
+	# "north" (reto pra cima na tela); E4 é a fatia oposta (índice 4, sul)
+	# e deve exibir "south".
+	var j = _make_joystick()
+	var c4_index: int = j._slice_note_keys.find("C4")
+	var e4_index: int = j._slice_note_keys.find("E4")
+	assert_eq(j._slice_icons[c4_index]._texture.resource_path, "res://assets/ui/icons/north.svg",
+		"fatia da C4 (norte do joystick) deveria exibir a seta north")
+	assert_eq(j._slice_icons[e4_index]._texture.resource_path, "res://assets/ui/icons/south.svg",
+		"fatia da E4 (sul do joystick, oposta à C4) deveria exibir a seta south")

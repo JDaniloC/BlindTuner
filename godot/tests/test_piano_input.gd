@@ -125,3 +125,9 @@ func test_black_keys_drawn_on_top_of_white_keys():
 	for note in ["C4", "D4"]:
 		var white_child_index = p._buttons[p._button_notes.find(note)].get_index()
 		assert_gt(black_child_index, white_child_index, "tecla preta deve ser filha posterior (desenhada por cima)")
+
+func test_each_key_has_an_icon():
+	var p = _make()
+	assert_eq(p._key_icons.size(), 12, "um ícone por tecla")
+	for icon in p._key_icons:
+		assert_not_null(icon._texture, "tecla sem ícone")

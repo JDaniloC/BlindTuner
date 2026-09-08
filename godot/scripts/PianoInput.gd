@@ -20,6 +20,7 @@ const ACTION_KEY_COLOR := Color(0.55, 0.38, 0.16)  # âmbar escuro -- as 4 tecla
 
 var _buttons: Array[Button] = []
 var _button_notes: Array[String] = []
+var _key_icons: Array = []
 # Paralelo às notas armáveis (correr/pular); atualizado por on_armed_state_changed.
 var _armed: Array[bool] = [false, false, false, false]
 
@@ -51,6 +52,14 @@ func _ready() -> void:
 		btn.size = Vector2(BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT) if black else Vector2(WHITE_KEY_WIDTH - 2, WHITE_KEY_HEIGHT)
 		btn.pressed.connect(_emit_note.bind(note_key))
 		add_child(btn)
+		var icon: Control = load("res://scripts/ActionIcon.gd").new()
+		icon.custom_minimum_size = Vector2(24, 24)
+		icon.size = Vector2(24, 24)
+		# Rodapé da tecla -- não colide com o rótulo de texto, que fica no centro.
+		icon.position = Vector2((btn.size.x - 24) * 0.5, btn.size.y - 34)
+		btn.add_child(icon)
+		icon.set_note(note_key)
+		_key_icons.append(icon)
 		_buttons.append(btn)
 		_button_notes.append(note_key)
 	# Reordena os FILHOS (não os arrays _buttons/_button_notes, que ficam na
