@@ -4,6 +4,31 @@ extends Control
 
 signal note_triggered(note_key: String)
 
+const WHITE_KEY_WIDTH := 54.0
+const WHITE_KEY_HEIGHT := 160.0
+const BLACK_KEY_WIDTH := 34.0
+const BLACK_KEY_HEIGHT := 100.0
+const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
+const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
+const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
+
+## Índices 1,3,6,8,10 (C#,D#,F#,G#,A#) são as teclas pretas de uma oitava --
+## os únicos 5 "buracos" no padrão cromático de 12 semitons (não há preta
+## entre E-F nem entre B-C, por isso o piano tem esse desenho assimétrico).
+static func is_black_key(chromatic_index: int) -> bool:
+	return chromatic_index in BLACK_KEY_INDICES
+
+## Posição X (em px, relativa à borda esquerda do teclado) da tecla, seguindo
+## o layout real de um piano de uma oitava. Fórmula padrão: uma tecla preta
+## fica centrada no limite entre a tecla branca à sua esquerda e a próxima --
+## x = (índice_branco_à_esquerda + 1) * largura_branca - largura_preta/2.
+static func key_x_position(chromatic_index: int) -> float:
+	if is_black_key(chromatic_index):
+		var left_white: int = LEFT_WHITE_FOR_BLACK[chromatic_index]
+		return (left_white + 1) * WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2.0
+	var white_index: int = WHITE_INDEX_FOR_CHROMATIC[chromatic_index]
+	return white_index * WHITE_KEY_WIDTH
+
 const BUTTON_SIZE := Vector2(56, 56)
 const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha SpecialActionPanel.NEUTRAL_BUTTON
 const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
