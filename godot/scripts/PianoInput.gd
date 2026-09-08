@@ -1,6 +1,7 @@
 extends Control
-## Modo de input "Piano Virtual": 12 teclas (8 movimento + 4 ação), uma por nota.
-## Emite o mesmo sinal note_triggered que DirectionJoystick/SpecialActionPanel.
+## Modo de input "Piano Virtual": teclado real de uma oitava (C4-B4), teclas
+## brancas/pretas na posição de um piano de verdade. Emite o mesmo sinal
+## note_triggered que DirectionJoystick/SpecialActionPanel/BlindTouchInput.
 
 signal note_triggered(note_key: String)
 
@@ -11,6 +12,16 @@ const BLACK_KEY_HEIGHT := 100.0
 const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
 const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
+const CORNER_RADIUS := 6
+const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
+const WHITE_KEY_COLOR := Color(0.92, 0.90, 0.85)
+const BLACK_KEY_COLOR := Color(0.12, 0.12, 0.14)
+const ACTION_KEY_COLOR := Color(0.55, 0.38, 0.16)  # âmbar escuro -- as 4 teclas de ação (G#-B) se distinguem mesmo sem pista de cor
+
+var _buttons: Array[Button] = []
+var _button_notes: Array[String] = []
+# Paralelo às notas armáveis (correr/pular); atualizado por on_armed_state_changed.
+var _armed: Array[bool] = [false, false, false, false]
 
 ## Índices 1,3,6,8,10 (C#,D#,F#,G#,A#) são as teclas pretas de uma oitava --
 ## os únicos 5 "buracos" no padrão cromático de 12 semitons (não há preta
@@ -29,39 +40,25 @@ static func key_x_position(chromatic_index: int) -> float:
 	var white_index: int = WHITE_INDEX_FOR_CHROMATIC[chromatic_index]
 	return white_index * WHITE_KEY_WIDTH
 
-const BUTTON_SIZE := Vector2(56, 56)
-const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha SpecialActionPanel.NEUTRAL_BUTTON
-const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
-
-var _buttons: Array[Button] = []
-var _button_notes: Array[String] = []
-# Paralelo às notas armáveis (correr/pular); atualizado por on_armed_state_changed.
-var _armed: Array[bool] = [false, false, false, false]
-
 func _ready() -> void:
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	add_child(col)
-
-	var movement_row := GridContainer.new()
-	movement_row.columns = 8
-	movement_row.add_theme_constant_override("h_separation", 4)
-	col.add_child(movement_row)
-
-	var action_row := GridContainer.new()
-	action_row.columns = 4
-	action_row.add_theme_constant_override("h_separation", 4)
-	col.add_child(action_row)
-
-	for key in NoteMapping.NOTES.keys():
-		var note_key: String = key
-		var parent := action_row if NoteMapping.is_action_note(note_key) else movement_row
+	custom_minimum_size = Vector2(7 * WHITE_KEY_WIDTH, WHITE_KEY_HEIGHT)
+	var keys := NoteMapping.NOTES.keys()
+	for i in range(keys.size()):
+		var note_key: String = keys[i]
+		var black := is_black_key(i)
 		var btn := Button.new()
-		btn.custom_minimum_size = BUTTON_SIZE
+		btn.position = Vector2(key_x_position(i), 0)
+		btn.size = Vector2(BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT) if black else Vector2(WHITE_KEY_WIDTH - 2, WHITE_KEY_HEIGHT)
 		btn.pressed.connect(_emit_note.bind(note_key))
-		parent.add_child(btn)
+		add_child(btn)
 		_buttons.append(btn)
 		_button_notes.append(note_key)
+	# Reordena os FILHOS (não os arrays _buttons/_button_notes, que ficam na
+	# ordem cromática de NoteMapping) pra que as teclas pretas desenhem por
+	# cima das brancas -- igual a um piano de verdade.
+	for i in range(keys.size()):
+		if is_black_key(i):
+			move_child(_buttons[i], -1)
 
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	_apply_cue()
@@ -78,13 +75,36 @@ func _apply_cue() -> void:
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
 		_buttons[i].text = NoteMapping.label_for(note_key) if show_name else ""
-		var base_color: Color = NoteMapping.color_for(note_key) if show_color else NEUTRAL_BUTTON
 		var armed_idx := _armed_index_for(note_key)
-		if armed_idx >= 0 and _armed[armed_idx]:
-			base_color = Color(base_color.r * ARMED_BRIGHTNESS,
-				base_color.g * ARMED_BRIGHTNESS,
-				base_color.b * ARMED_BRIGHTNESS, base_color.a)
-		_buttons[i].modulate = base_color
+		var is_armed := armed_idx >= 0 and _armed[armed_idx]
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_bottom_left = CORNER_RADIUS
+		sb.corner_radius_bottom_right = CORNER_RADIUS
+		if show_color:
+			# Nível de pista máximo: prioriza a cor distintiva por nota (igual
+			# aos outros 3 modos de input) sobre o realismo do teclado --
+			# fundo branco puro deixa o modulate (a cor da nota) aparecer
+			# fiel, sem ficar abafado pelo tom quase-preto de uma tecla preta.
+			sb.bg_color = Color.WHITE
+			var tint := NoteMapping.color_for(note_key)
+			if is_armed:
+				tint = Color(tint.r * ARMED_BRIGHTNESS, tint.g * ARMED_BRIGHTNESS, tint.b * ARMED_BRIGHTNESS, tint.a)
+			_buttons[i].modulate = tint
+		else:
+			# Níveis de prática: teclado autêntico (branco/preto/âmbar), sem tint.
+			sb.bg_color = _key_base_color(i, note_key)
+			if is_armed:
+				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
+			_buttons[i].modulate = Color.WHITE
+		_buttons[i].add_theme_stylebox_override("normal", sb)
+		_buttons[i].add_theme_stylebox_override("hover", sb)
+		_buttons[i].add_theme_stylebox_override("pressed", sb)
+		_buttons[i].add_theme_stylebox_override("focus", sb)
+
+func _key_base_color(chromatic_index: int, note_key: String) -> Color:
+	if NoteMapping.is_action_note(note_key):
+		return ACTION_KEY_COLOR
+	return BLACK_KEY_COLOR if is_black_key(chromatic_index) else WHITE_KEY_COLOR
 
 ## As4=correr (índice 2) e B4=pular (índice 3) espelham a convenção de índice
 ## já usada em SpecialActionPanel._armed. Demais notas não são armáveis (-1).
