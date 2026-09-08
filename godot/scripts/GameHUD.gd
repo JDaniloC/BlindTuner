@@ -1,7 +1,7 @@
 extends Control
 ## HUD do loop: seletor de preset + nível de pista, progresso, painel de stats.
 
-signal start_requested(preset_id: String, cue_level: int)
+signal start_requested(preset_id: String, cue_level: int, input_mode: int)
 signal restart_requested
 
 const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
@@ -9,6 +9,7 @@ const PLAY_ICON := preload("res://assets/ui/flat/UI_Flat_ButtonPlay01a.png")
 
 var _preset_opt: OptionButton
 var _cue_opt: OptionButton
+var _mode_opt: OptionButton
 var _start_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
@@ -47,6 +48,11 @@ func _ready() -> void:
 		_cue_opt.add_item(lvl)
 	row.add_child(_cue_opt)
 
+	_mode_opt = OptionButton.new()
+	for m in ["Joystick", "Toque no Escuro", "Piano Virtual", "Scroll de Afinação"]:
+		_mode_opt.add_item(m)
+	row.add_child(_mode_opt)
+
 	_start_btn = Button.new()
 	_start_btn.text = "Começar"
 	_start_btn.icon = PLAY_ICON
@@ -78,7 +84,7 @@ func _on_start_pressed() -> void:
 	if _preset_opt.selected < 0 or _preset_opt.selected >= SequencePresets.ALL.size():
 		return
 	var pid: String = SequencePresets.ALL[_preset_opt.selected].id
-	start_requested.emit(pid, _cue_opt.selected)
+	start_requested.emit(pid, _cue_opt.selected, _mode_opt.selected)
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/Playground.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/Character.tscn" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/Conductor.gd" id="90"]
 [ext_resource type="PackedScene" path="res://scenes/GameHUD.tscn" id="91"]
 [ext_resource type="PackedScene" path="res://scenes/SpecialActionPanel.tscn" id="92"]
+[ext_resource type="PackedScene" path="res://scenes/PianoInput.tscn" id="93"]
 
 [node name="Playground" type="Node2D"]
 script = ExtResource("1")
@@ -61,3 +62,14 @@ offset_left = 32.0
 offset_top = -260.0
 offset_right = 232.0
 offset_bottom = -60.0
+
+[node name="PianoInput" parent="UI" instance=ExtResource("93")]
+visible = false
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -180.0
+offset_right = -32.0
+offset_bottom = -20.0

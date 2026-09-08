@@ -11,8 +11,12 @@ extends Node2D
 @onready var _conductor: Node = $Conductor
 @onready var _hud: Control = $UI/GameHUD
 @onready var _special_actions: Control = $UI/SpecialActionPanel
+@onready var _piano_input: Control = $UI/PianoInput
 @onready var _goal_node: Node2D = $Goal
 var _current_map_id: String = ""
+var _joystick_default_filter: int
+var _special_actions_default_filter: int
+var _piano_input_default_filter: int
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -31,6 +35,9 @@ var _shake_remaining := 0.0
 var _flash_tween: Tween
 
 func _ready() -> void:
+	_joystick_default_filter = _joystick.mouse_filter
+	_special_actions_default_filter = _special_actions.mouse_filter
+	_piano_input_default_filter = _piano_input.mouse_filter
 	# Sala inicial = primeiro mapa (quarto). Será re-buildada se o usuário
 	# selecionar outro preset com map_id diferente.
 	var first_map = MapPresets.ALL[0]
@@ -41,8 +48,10 @@ func _ready() -> void:
 	_character.position = _character.grid_to_world(first_map.start_grid)
 	_character.blocked.connect(_on_character_blocked)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
+	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
 	_joystick.note_triggered.connect(_on_note_triggered)
 	_special_actions.note_triggered.connect(_on_note_triggered)
+	_piano_input.note_triggered.connect(_on_note_triggered)
 	_conductor.preview_note.connect(_on_preview_note)
 	_conductor.call_cue.connect(_on_call_cue)
 	_conductor.replay_note.connect(_on_replay_note)
@@ -52,19 +61,21 @@ func _ready() -> void:
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
 
-func _on_start_requested(preset_id: String, cue_level: int) -> void:
-	_begin_preset(preset_id, cue_level)
+func _on_start_requested(preset_id: String, cue_level: int, input_mode: int) -> void:
+	_begin_preset(preset_id, cue_level, input_mode)
 
 func _on_restart_requested() -> void:
 	if _conductor._preset != null:
-		_begin_preset(_conductor._preset.id, CueSettings.cue_level)
+		_begin_preset(_conductor._preset.id, CueSettings.cue_level, InputModeSettings.mode)
 
-func _begin_preset(preset_id: String, cue_level: int) -> void:
+func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputModeSettings.Mode.JOYSTICK) -> void:
 	var preset = SequencePresets.by_id(preset_id)
 	if preset == null:
 		return
 	var map = MapPresets.by_id(preset.map_id)
 	CueSettings.set_level(cue_level)
+	InputModeSettings.set_mode(input_mode)
+	_apply_input_mode()
 	_hud.hide_stats()
 	if _current_map_id != map.id:
 		_current_map_id = map.id
@@ -75,6 +86,17 @@ func _begin_preset(preset_id: String, cue_level: int) -> void:
 	_conductor.load_preset(preset)
 	_conductor.start()
 	_hud.set_progress(0, preset.notes.size())
+
+func _apply_input_mode() -> void:
+	var joystick_active := InputModeSettings.mode == InputModeSettings.Mode.JOYSTICK
+	_joystick.visible = joystick_active
+	_joystick.mouse_filter = _joystick_default_filter if joystick_active else Control.MOUSE_FILTER_IGNORE
+	_special_actions.visible = joystick_active
+	_special_actions.mouse_filter = _special_actions_default_filter if joystick_active else Control.MOUSE_FILTER_IGNORE
+
+	var piano_active := InputModeSettings.mode == InputModeSettings.Mode.PIANO
+	_piano_input.visible = piano_active
+	_piano_input.mouse_filter = _piano_input_default_filter if piano_active else Control.MOUSE_FILTER_IGNORE
 
 func _on_preview_note(note_key: String, _index: int) -> void:
 	# PREVIEW: só ouvir, personagem não se move.

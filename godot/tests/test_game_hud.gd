@@ -20,8 +20,9 @@ func test_start_button_emits_selection():
 	watch_signals(h)
 	h._preset_opt.select(1)   # "medio"
 	h._cue_opt.select(2)      # nível 2
+	h._mode_opt.select(1)     # Toque no Escuro
 	h._on_start_pressed()
-	assert_signal_emitted_with_parameters(h, "start_requested", ["medio", 2])
+	assert_signal_emitted_with_parameters(h, "start_requested", ["medio", 2, 1])
 
 func test_set_progress_updates_label():
 	var h = _hud()
@@ -47,10 +48,14 @@ func test_start_button_default_selection_emits_first_preset():
 	watch_signals(h)
 	h._on_start_pressed()  # sem select() — usa defaults (índice 0 auto-selecionado)
 	assert_signal_emitted_with_parameters(h, "start_requested",
-		[SequencePresets.ALL[0].id, 0])
+		[SequencePresets.ALL[0].id, 0, 0])
 
 func test_hide_stats_conceals_panel():
 	var h = _hud()
 	h.show_stats({ "first_try_hits": 1, "total_trips": 0, "elapsed_sec": 1.0 })
 	h.hide_stats()
 	assert_false(h._stats_panel.visible)
+
+func test_mode_dropdown_has_four_options():
+	var h = _hud()
+	assert_eq(h._mode_opt.item_count, 4)

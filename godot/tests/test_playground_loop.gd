@@ -119,6 +119,20 @@ func test_restart_resets_to_preset_start():
 	assert_false(p._hud._stats_panel.visible)
 	CueSettings.set_level(0)
 
+func test_restart_preserves_active_input_mode():
+	# Regressão: restart não deve resetar o modo de input pro default (Joystick)
+	# quando o jogador estava jogando em Piano. _on_restart_requested precisa
+	# repassar InputModeSettings.mode explicitamente pro _begin_preset.
+	var p = _playground()
+	p._begin_preset("curto", 0, InputModeSettings.Mode.PIANO)
+	for i in range(7):
+		p._conductor._advance()
+	p._on_note_triggered("Cs4")  # char sai de (1,6) -> (1,5)
+	p._on_restart_requested()
+	assert_eq(InputModeSettings.mode, InputModeSettings.Mode.PIANO)
+	assert_true(p._piano_input.visible)
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
 func test_input_ignored_during_replay():
 	var p = _playground()
 	p._begin_preset("curto", 0)
@@ -207,3 +221,33 @@ func test_replay_with_action_note_triggers_action_without_moving():
 		["pegar", before, p._character._last_direction])
 	assert_eq(p._character.grid_position, before, "ação não move no REPLAY")
 	CueSettings.set_level(0)
+
+func test_begin_preset_with_piano_mode_shows_piano_hides_joystick():
+	var p = _playground()
+	p._begin_preset("curto", 0, InputModeSettings.Mode.PIANO)
+	assert_true(p._piano_input.visible)
+	assert_false(p._joystick.visible)
+	assert_false(p._special_actions.visible)
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
+func test_begin_preset_back_to_joystick_hides_piano():
+	var p = _playground()
+	p._begin_preset("curto", 0, InputModeSettings.Mode.PIANO)
+	p._begin_preset("curto", 0, InputModeSettings.Mode.JOYSTICK)
+	assert_true(p._joystick.visible)
+	assert_true(p._special_actions.visible)
+	assert_false(p._piano_input.visible)
+
+func test_piano_input_note_triggered_routes_through_playground():
+	var p = _playground()
+	# Não chama _begin_preset aqui de propósito: isso poria o Conductor em
+	# PREVIEW, e _on_note_triggered só trata movimento em IDLE ou CALL (ver
+	# Playground.gd, match _conductor.phase em _on_note_triggered) -- emitir
+	# a nota seria ignorado. Ativa o modo direto via InputModeSettings +
+	# _apply_input_mode(), mantendo o Conductor em IDLE (mesmo padrão de
+	# test_free_roam_moves_character_in_idle, que também não chama _begin_preset).
+	InputModeSettings.set_mode(InputModeSettings.Mode.PIANO)
+	p._apply_input_mode()
+	p._piano_input.note_triggered.emit("Ds4")  # dir (1,0) a partir de (1,6)
+	assert_eq(p._character.grid_position, Vector2i(2, 6))
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
