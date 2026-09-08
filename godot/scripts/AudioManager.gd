@@ -33,7 +33,17 @@ const PITCH_STOP_FADE_SEC := 0.012
 const VIBRATO_RATE_HZ := 6.0
 const VIBRATO_DEPTH_CENTS := 18.0
 const TREMOLO_DEPTH := 0.12
+# Deslocamento de fase do tremolo (amplitude) em relação ao vibrato (pitch) --
+# num instrumento real, pressão/velocidade do arco e afinação não oscilam em
+# lockstep perfeito. Com a mesma fase, pitch e volume sobem/descem juntos de
+# forma perfeitamente correlacionada -- efeito de tremor sincronizado (mais
+# "trilha de terror" que corda de verdade). 0.27 (~27% do ciclo) desacopla.
+const TREMOLO_PHASE_OFFSET := 0.27
 const BOW_NOISE_GAIN := 0.03
+# Coeficiente do filtro passa-baixa de 1 polo do ruído de arco (lerp por
+# amostra). 0.1 (corte ~740Hz) deixa agudo demais passar -- soa como estática
+# em vez de sopro. ~0.035 baixa o corte pra ~200-300Hz, mais quente/orgânico.
+const NOISE_LOWPASS_COEFF := 0.035
 # Amplitudes decrescentes dos harmônicos (fundamental + 4 acima) -- é
 # fisicamente o que a fricção do arco contra a corda produz (onda rica em
 # harmônicos, tipo dente-de-serra), diferente da senoide pura anterior.
@@ -47,7 +57,12 @@ const HARMONIC_GAIN_TOTAL := 2.1
 const VIBRATO_CONTROL_RATE_SAMPLES := 32
 
 const STRINGS_BUS_NAME := "Strings"
-const STRINGS_EQ_BOOST_DB := 6.0
+# Reduzido de 6.0: nas notas do jogo (262-494Hz), as bandas de 250/500Hz
+# reforçadas caem quase exatamente sobre a fundamental e o 2º harmônico da
+# nota tocada (não sobre formantes "genéricos" de corpo de violino) -- +6dB
+# ali deixava o timbre nasal/ressonante e empurrava o sinal perto do clipping
+# antes do chorus processar.
+const STRINGS_EQ_BOOST_DB := 2.5
 # Frequências-alvo pra reforçar (~formantes graves/médios/agudos de um corpo
 # de violino/cello) -- mapeadas pra banda mais próxima do AudioEffectEQ10 em
 # _eq10_band_index_for. Um único EQ10 evita o problema de encadear vários
@@ -82,7 +97,19 @@ func _ensure_strings_bus() -> void:
     for target_hz in STRINGS_EQ_BOOST_TARGETS_HZ:
         eq.set_band_gain_db(_eq10_band_index_for(target_hz), STRINGS_EQ_BOOST_DB)
     AudioServer.add_bus_effect(idx, eq)
-    AudioServer.add_bus_effect(idx, AudioEffectChorus.new())
+    AudioServer.add_bus_effect(idx, _make_strings_chorus())
+
+## Uma única voz, profundidade/nível baixos -- o padrão (2 vozes, profundidade
+## maior) soa metálico/tipo flanger aplicado em cima de só 5 harmônicos
+## senoidais discretos e estáticos: sem ruído/dispersão real entre as cópias
+## (como haveria numa amostra real), a modulação de delay desloca a fase de
+## cada harmônico de um jeito que gera cancelamento/reforço periódico.
+func _make_strings_chorus() -> AudioEffectChorus:
+    var chorus := AudioEffectChorus.new()
+    chorus.voice_count = 1
+    chorus.set_voice_depth_ms(0, 1.5)
+    chorus.set_voice_level_db(0, -6.0)
+    return chorus
 
 ## AudioEffectEQ10 tem 10 bandas fixas (31..16000Hz, índices 0-9). Mapeia uma
 ## frequência-alvo pra o índice da banda mais próxima.
@@ -165,7 +192,7 @@ func _fill_pitch_buffer() -> void:
             vibrato_mult = _vibrato_multiplier(_pitch_lfo_phase)
         _vibrato_sample_counter = (_vibrato_sample_counter + 1) % VIBRATO_CONTROL_RATE_SAMPLES
         var phase_inc := (_pitch_freq * vibrato_mult) / MIX_RATE
-        _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), 0.1)
+        _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), NOISE_LOWPASS_COEFF)
         var sample := _continuous_pitch_sample(_pitch_phase, _pitch_lfo_phase, _noise_lp)
         _pitch_playback.push_frame(Vector2(sample, sample))
         _pitch_phase = fposmod(_pitch_phase + phase_inc, 1.0)
@@ -184,7 +211,7 @@ func _vibrato_multiplier(lfo_phase: float) -> float:
 ## -- testável direto por amostra, sem precisar de um player real tocando.
 func _continuous_pitch_sample(phase: float, lfo_phase: float, noise_lp: float) -> float:
     var tone := _string_harmonics(phase)
-    var tremolo := 1.0 + TREMOLO_DEPTH * sin(lfo_phase * TAU)
+    var tremolo := 1.0 + TREMOLO_DEPTH * sin((lfo_phase + TREMOLO_PHASE_OFFSET) * TAU)
     return clampf((tone * tremolo * 0.5) + (noise_lp * BOW_NOISE_GAIN), -1.0, 1.0)
 
 ## Soma aditiva dos harmônicos (fundamental + 4 acima), normalizada pela soma
