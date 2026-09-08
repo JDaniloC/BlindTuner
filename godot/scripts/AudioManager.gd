@@ -38,6 +38,13 @@ const BOW_NOISE_GAIN := 0.03
 # fisicamente o que a fricção do arco contra a corda produz (onda rica em
 # harmônicos, tipo dente-de-serra), diferente da senoide pura anterior.
 const HARMONIC_GAINS := [1.0, 0.5, 0.3, 0.2, 0.1]
+# Soma pré-computada de HARMONIC_GAINS -- evita recalcular a soma toda vez que
+# _string_harmonics() roda (por AMOSTRA de áudio, milhares de vezes/segundo).
+const HARMONIC_GAIN_TOTAL := 2.1
+# LFO de vibrato é 6Hz -- recalcular o multiplicador a cada amostra (44100/s)
+# é desnecessário e inaudível a essa taxa de mudança. Recalcula só a cada N
+# amostras (ver _fill_pitch_buffer/_vibrato_sample_counter).
+const VIBRATO_CONTROL_RATE_SAMPLES := 32
 
 const STRINGS_BUS_NAME := "Strings"
 const STRINGS_EQ_BOOST_DB := 6.0
@@ -56,6 +63,7 @@ var _pitch_phase := 0.0
 var _pitch_freq := 0.0
 var _pitch_lfo_phase := 0.0
 var _noise_lp := 0.0
+var _vibrato_sample_counter := 0
 
 func _ready() -> void:
     _ensure_strings_bus()
@@ -147,8 +155,15 @@ func _process(_delta: float) -> void:
 func _fill_pitch_buffer() -> void:
     var lfo_inc := VIBRATO_RATE_HZ / MIX_RATE
     var frames := _pitch_playback.get_frames_available()
+    var vibrato_mult := _vibrato_multiplier(_pitch_lfo_phase)
     for i in range(frames):
-        var vibrato_mult := _vibrato_multiplier(_pitch_lfo_phase)
+        # O LFO de vibrato é 6Hz -- recalcular a cada amostra (44100/s) é
+        # desnecessário e inaudível a essa taxa de mudança. Recalcula só a
+        # cada VIBRATO_CONTROL_RATE_SAMPLES amostras; o valor fica válido
+        # (reaproveitado) pras amostras entre atualizações.
+        if _vibrato_sample_counter == 0:
+            vibrato_mult = _vibrato_multiplier(_pitch_lfo_phase)
+        _vibrato_sample_counter = (_vibrato_sample_counter + 1) % VIBRATO_CONTROL_RATE_SAMPLES
         var phase_inc := (_pitch_freq * vibrato_mult) / MIX_RATE
         _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), 0.1)
         var sample := _continuous_pitch_sample(_pitch_phase, _pitch_lfo_phase, _noise_lp)
@@ -158,6 +173,9 @@ func _fill_pitch_buffer() -> void:
 
 ## Multiplicador de frequência do vibrato (LFO senoidal, ~6Hz, +-18 cents).
 ## Cents pra multiplicador de frequência: mult = 2^(cents/1200).
+## Nota: GDScript 4.6 não tem uma função global exp2() (só existe em shaders) --
+## tentar usá-la aqui quebra o parse do script (autoload falha ao carregar).
+## pow(2.0, x) é o jeito correto de calcular isso em GDScript puro.
 func _vibrato_multiplier(lfo_phase: float) -> float:
     return pow(2.0, (VIBRATO_DEPTH_CENTS / 1200.0) * sin(lfo_phase * TAU))
 
@@ -170,15 +188,15 @@ func _continuous_pitch_sample(phase: float, lfo_phase: float, noise_lp: float) -
     return clampf((tone * tremolo * 0.5) + (noise_lp * BOW_NOISE_GAIN), -1.0, 1.0)
 
 ## Soma aditiva dos harmônicos (fundamental + 4 acima), normalizada pela soma
-## dos ganhos -- garante |resultado| <= 1 antes do envelope de amplitude.
+## dos ganhos (HARMONIC_GAIN_TOTAL, pré-computada) -- garante |resultado| <= 1
+## antes do envelope de amplitude. Roda por AMOSTRA de áudio, então a soma dos
+## ganhos fica pré-computada em vez de recalculada a cada chamada.
 func _string_harmonics(phase: float) -> float:
     var sum := 0.0
-    var gain_total := 0.0
     for h in range(HARMONIC_GAINS.size()):
         var harmonic_num := h + 1
         sum += HARMONIC_GAINS[h] * sin(phase * TAU * harmonic_num)
-        gain_total += HARMONIC_GAINS[h]
-    return sum / gain_total
+    return sum / HARMONIC_GAIN_TOTAL
 
 func _play_synth(freq: float, harsh: bool, duration: float) -> AudioStreamPlayer:
     _stop_current()

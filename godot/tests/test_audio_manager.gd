@@ -103,11 +103,16 @@ func test_vibrato_multiplier_stays_within_expected_cents_range():
             "vibrato multiplier fora do range esperado em lfo_phase=%f" % lfo)
 
 func test_continuous_pitch_sample_never_clips():
+    # Antes testava absf(v) <= 1.0, mas _continuous_pitch_sample() sempre
+    # termina com clampf(..., -1.0, 1.0) -- essa asserção não podia falhar,
+    # só testava o clamp. O pico real pré-clamp medido é ~0.4227; asserção
+    # bem mais apertada (< 0.9) que falharia de verdade se a amplitude subisse
+    # sem controle, sem depender do clamp pra "salvar" o teste.
     for i in range(50):
         var phase = i / 50.0
         var lfo = fmod(i * 0.13, 1.0)
         var v = AudioManager._continuous_pitch_sample(phase, lfo, 1.0)  # noise_lp no pior caso
-        assert_true(absf(v) <= 1.0, "amostra do tom contínuo não deve estourar +-1 mesmo no pior caso de ruído")
+        assert_true(absf(v) < 0.9, "amostra do tom contínuo deveria ficar bem abaixo do clamp mesmo no pior caso de ruído")
 
 func test_fill_pitch_buffer_still_preserves_phase_across_frequency_change():
     # Regressão: a síntese enriquecida não pode quebrar a garantia de fase

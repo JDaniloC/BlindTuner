@@ -82,24 +82,36 @@ func _apply_cue() -> void:
 		sb.corner_radius_bottom_right = CORNER_RADIUS
 		if show_color:
 			# Nível de pista máximo: prioriza a cor distintiva por nota (igual
-			# aos outros 3 modos de input) sobre o realismo do teclado --
-			# fundo branco puro deixa o modulate (a cor da nota) aparecer
-			# fiel, sem ficar abafado pelo tom quase-preto de uma tecla preta.
-			sb.bg_color = Color.WHITE
-			var tint := NoteMapping.color_for(note_key)
+			# aos outros 3 modos de input) sobre o realismo do teclado -- a cor
+			# vai direto no fundo da tecla (bg_color). modulate fica neutro
+			# (Color.WHITE): modulate multiplica o BOTÃO INTEIRO (fundo E o
+			# texto do label), então usá-lo pra tingir deixava o texto quase
+			# da mesma cor do fundo (contraste ~1.12, ilegível).
+			sb.bg_color = NoteMapping.color_for(note_key)
 			if is_armed:
-				tint = Color(tint.r * ARMED_BRIGHTNESS, tint.g * ARMED_BRIGHTNESS, tint.b * ARMED_BRIGHTNESS, tint.a)
-			_buttons[i].modulate = tint
+				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
+			_buttons[i].modulate = Color.WHITE
 		else:
 			# Níveis de prática: teclado autêntico (branco/preto/âmbar), sem tint.
 			sb.bg_color = _key_base_color(i, note_key)
 			if is_armed:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
 			_buttons[i].modulate = Color.WHITE
+		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
+		# escurecido) pra dar feedback visual de toque -- sem isso, apertar
+		# uma tecla não mudava nada visualmente (normal/hover/pressed
+		# compartilhavam o mesmo StyleBoxFlat).
+		var pressed_sb := StyleBoxFlat.new()
+		pressed_sb.corner_radius_bottom_left = CORNER_RADIUS
+		pressed_sb.corner_radius_bottom_right = CORNER_RADIUS
+		var base_color := sb.bg_color
+		pressed_sb.bg_color = Color(base_color.r * 0.85, base_color.g * 0.85, base_color.b * 0.85, base_color.a)
 		_buttons[i].add_theme_stylebox_override("normal", sb)
 		_buttons[i].add_theme_stylebox_override("hover", sb)
-		_buttons[i].add_theme_stylebox_override("pressed", sb)
-		_buttons[i].add_theme_stylebox_override("focus", sb)
+		_buttons[i].add_theme_stylebox_override("pressed", pressed_sb)
+		# "focus" não é sobrescrito de propósito: deixa o tema padrão do Godot
+		# desenhar o indicador de foco (navegação por teclado/acessibilidade).
+		# Sobrescrever com uma stylebox sem borda estava removendo esse indicador.
 
 func _key_base_color(chromatic_index: int, note_key: String) -> Color:
 	if NoteMapping.is_action_note(note_key):
