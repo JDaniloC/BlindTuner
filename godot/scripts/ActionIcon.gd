@@ -6,6 +6,28 @@ const ICON_COLOR := Color.WHITE
 const LINE_WIDTH := 4.0
 const RADIUS_FRAC := 0.35  # raio do ícone relativo ao menor lado do Control
 
+const ICON_DIR := "res://assets/ui/icons/"
+
+## Ícone escolhido para cada ação (validado com o usuário na maquete visual).
+const ICON_FOR_ACTION := {
+	"interagir": "priority_high",
+	"pegar": "back_hand",
+	"correr": "directions_run",
+	"pular": "keyboard_double_arrow_up",
+}
+
+## Seta direcional por vetor de direção. 0,-1 é norte (y cresce pra baixo).
+const ICON_FOR_DIRECTION := {
+	Vector2i( 0, -1): "north",
+	Vector2i( 1, -1): "north_east",
+	Vector2i( 1,  0): "east",
+	Vector2i( 1,  1): "south_east",
+	Vector2i( 0,  1): "south",
+	Vector2i(-1,  1): "south_west",
+	Vector2i(-1,  0): "west",
+	Vector2i(-1, -1): "north_west",
+}
+
 var action_id: String = ""
 
 func _ready() -> void:
@@ -14,6 +36,13 @@ func _ready() -> void:
 func set_action(id: String) -> void:
 	action_id = id
 	queue_redraw()
+
+## Nome do ícone (sem extensão) da nota: ação pelo action_id, movimento pela
+## direção. Função pura -- não depende de nó nem de textura carregada.
+static func icon_name_for_note(note_key: String) -> String:
+	if NoteMapping.is_action_note(note_key):
+		return ICON_FOR_ACTION.get(NoteMapping.action_id_for(note_key), "")
+	return ICON_FOR_DIRECTION.get(NoteMapping.direction_for(note_key), "")
 
 func _draw() -> void:
 	var c := size * 0.5
