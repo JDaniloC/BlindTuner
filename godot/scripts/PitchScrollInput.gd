@@ -6,15 +6,29 @@ extends Control
 
 signal note_triggered(note_key: String)
 
-const BOARD_SIZE := Vector2(70, 340)
+const BOARD_SIZE := Vector2(110, 400)
 const BOARD_MARGIN := Vector2(10, 10)
+const HEAD_SIZE := Vector2(58, 78)          # cravelhal no topo
+const PEG_SIZE := Vector2(20, 8)
+const NECK_WIDTH := 62.0
+const NECK_TOP := 74.0
+# 4 cordas, como violino/cello de verdade. A ativa é a que responde ao dedo.
+const STRING_OFFSETS_X: Array[float] = [-21.0, -7.0, 7.0, 18.0]
+const ACTIVE_STRING_INDEX := 1
 const BOARD_COLOR_TOP := Color(0.227, 0.165, 0.102)     # #3a2a1a
-const BOARD_COLOR_BOTTOM := Color(0.165, 0.114, 0.071)  # #2a1d12
+const BOARD_COLOR_BOTTOM := Color(0.141, 0.094, 0.063)  # #241809
+const HEAD_COLOR := Color(0.290, 0.200, 0.125)
+const PEG_COLOR := Color(0.851, 0.725, 0.541)
 const STRING_COLOR := Color(0.910, 0.886, 0.816)        # #e8e2d0
+const STRING_ACTIVE_COLOR := Color(1.0, 0.992, 0.949)
 const FINGER_FILL := Color(0.949, 0.788, 0.541)         # #f2c98a
 const FINGER_BORDER := Color(0.478, 0.290, 0.071)       # #7a4a12
 const FINGER_RADIUS := 13.0
-const GRADIENT_STRIPS := 6
+# Precisa ser alto o bastante pro passo de cor entre faixas cair abaixo do
+# limiar perceptível (~1 unidade de 8 bits). Uma borda visível em Y fixo vira
+# um marco de afinação sempre no mesmo lugar -- ou seja, funcionalmente um
+# traste, o que quebra a restrição fretless. Não reduza sem refazer essa conta.
+const GRADIENT_STRIPS := 40
 
 var _dragging := false
 var _finger_y := 0.0
@@ -22,19 +36,43 @@ var _finger_y := 0.0
 func _ready() -> void:
 	custom_minimum_size = BOARD_SIZE
 	mouse_filter = MOUSE_FILTER_STOP
-	_finger_y = BOARD_MARGIN.y
+	_finger_y = NECK_TOP + BOARD_MARGIN.y
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, BOARD_SIZE), BOARD_COLOR_TOP)
-	var strip_height := BOARD_SIZE.y / float(GRADIENT_STRIPS)
+	var cx := BOARD_SIZE.x * 0.5
+	# Cravelhal (topo) + 4 cravelhas, 2 de cada lado
+	var head_pos := Vector2(cx - HEAD_SIZE.x * 0.5, 0.0)
+	draw_rect(Rect2(head_pos, HEAD_SIZE), HEAD_COLOR)
+	for i in range(4):
+		var on_left := i < 2
+		var py := 24.0 + float(i % 2) * 20.0
+		var px := head_pos.x - PEG_SIZE.x + 4.0 if on_left else head_pos.x + HEAD_SIZE.x - 4.0
+		draw_rect(Rect2(Vector2(px, py), PEG_SIZE), PEG_COLOR)
+
+	# Braço, com gradiente simulado por faixas (sem asset de imagem)
+	var neck_h := BOARD_SIZE.y - NECK_TOP
+	var strip_h := neck_h / float(GRADIENT_STRIPS)
 	for i in range(GRADIENT_STRIPS):
 		var t := float(i) / float(GRADIENT_STRIPS - 1)
 		var c := BOARD_COLOR_TOP.lerp(BOARD_COLOR_BOTTOM, t)
-		draw_rect(Rect2(Vector2(0, strip_height * i), Vector2(BOARD_SIZE.x, strip_height + 1)), c)
-	var string_x := BOARD_SIZE.x * 0.5
-	draw_line(Vector2(string_x, BOARD_MARGIN.y), Vector2(string_x, BOARD_SIZE.y - BOARD_MARGIN.y), STRING_COLOR, 2.0, true)
-	draw_circle(Vector2(string_x, _finger_y), FINGER_RADIUS, FINGER_FILL)
-	draw_arc(Vector2(string_x, _finger_y), FINGER_RADIUS, 0, TAU, 24, FINGER_BORDER, 2.0, true)
+		draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP + strip_h * i), Vector2(NECK_WIDTH, strip_h + 1.0)), c)
+
+	# 4 cordas -- a ativa mais grossa e mais clara. Sem nenhuma marca de
+	# posição ao longo do braço: violino/cello são fretless, e marcar posição
+	# entregaria a nota que o jogador deveria achar de ouvido.
+	var top := NECK_TOP + BOARD_MARGIN.y
+	var bottom := BOARD_SIZE.y - BOARD_MARGIN.y
+	for i in range(STRING_OFFSETS_X.size()):
+		var sx: float = cx + STRING_OFFSETS_X[i]
+		var is_active := i == ACTIVE_STRING_INDEX
+		var col := STRING_ACTIVE_COLOR if is_active else STRING_COLOR
+		var w := 3.0 if is_active else 2.0
+		draw_line(Vector2(sx, top), Vector2(sx, bottom), col, w, true)
+
+	# Marcador de dedo, sempre sobre a corda ativa
+	var fx: float = cx + STRING_OFFSETS_X[ACTIVE_STRING_INDEX]
+	draw_circle(Vector2(fx, _finger_y), FINGER_RADIUS, FINGER_FILL)
+	draw_arc(Vector2(fx, _finger_y), FINGER_RADIUS, 0, TAU, 24, FINGER_BORDER, 2.0, true)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index != MOUSE_BUTTON_LEFT:
@@ -55,15 +93,16 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 
 func _move_finger_to(local_y: float) -> void:
-	_finger_y = clampf(local_y, BOARD_MARGIN.y, BOARD_SIZE.y - BOARD_MARGIN.y)
+	_finger_y = clampf(local_y, NECK_TOP + BOARD_MARGIN.y, BOARD_SIZE.y - BOARD_MARGIN.y)
 	queue_redraw()
 	AudioManager.play_continuous_pitch(_frequency_for_finger_y())
 
-## Topo do braço (perto de onde ficaria a cravelha) = nota mais aguda, igual
+## Topo do braço útil (logo abaixo do cravelhal) = nota mais aguda, igual
 ## à posição de dedo mais próxima da cravelha num instrumento de corda real.
 func _frequency_for_finger_y() -> float:
-	var usable_height := BOARD_SIZE.y - BOARD_MARGIN.y * 2.0
-	var t := (_finger_y - BOARD_MARGIN.y) / usable_height
+	var top := NECK_TOP + BOARD_MARGIN.y
+	var usable_height := (BOARD_SIZE.y - BOARD_MARGIN.y) - top
+	var t := (_finger_y - top) / usable_height
 	return lerpf(_highest_frequency(), _lowest_frequency(), t)
 
 func _lowest_frequency() -> float:
