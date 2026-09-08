@@ -120,3 +120,27 @@ func test_fill_pitch_buffer_still_preserves_phase_across_frequency_change():
     AudioManager.play_continuous_pitch(494.0)
     assert_true(AudioManager._pitch_phase != 0.0,
         "_fill_pitch_buffer não deveria resetar _pitch_phase a cada chamada")
+
+func test_strings_bus_created_on_ready():
+    assert_true(AudioServer.get_bus_index(AudioManager.STRINGS_BUS_NAME) != -1,
+        "bus Strings deveria existir (criado no _ready() do AudioManager)")
+
+func test_strings_bus_has_eq_and_chorus_effects():
+    var idx = AudioServer.get_bus_index(AudioManager.STRINGS_BUS_NAME)
+    assert_eq(AudioServer.get_bus_effect_count(idx), 2)
+    assert_true(AudioServer.get_bus_effect(idx, 0) is AudioEffectEQ10)
+    assert_true(AudioServer.get_bus_effect(idx, 1) is AudioEffectChorus)
+
+func test_continuous_pitch_player_routes_to_strings_bus():
+    var player = AudioManager.play_continuous_pitch(440.0)
+    assert_eq(player.bus, AudioManager.STRINGS_BUS_NAME)
+
+func test_ensure_strings_bus_is_idempotent():
+    var count_before = AudioServer.bus_count
+    AudioManager._ensure_strings_bus()
+    assert_eq(AudioServer.bus_count, count_before, "chamar de novo não deveria duplicar o bus")
+
+func test_eq10_band_index_for_maps_to_nearest_band():
+    assert_eq(AudioManager._eq10_band_index_for(300.0), 3)   # banda de 250Hz
+    assert_eq(AudioManager._eq10_band_index_for(700.0), 4)   # banda de 500Hz
+    assert_eq(AudioManager._eq10_band_index_for(2500.0), 6)  # banda de 2000Hz

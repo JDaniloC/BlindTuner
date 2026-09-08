@@ -39,6 +39,16 @@ const BOW_NOISE_GAIN := 0.03
 # harmônicos, tipo dente-de-serra), diferente da senoide pura anterior.
 const HARMONIC_GAINS := [1.0, 0.5, 0.3, 0.2, 0.1]
 
+const STRINGS_BUS_NAME := "Strings"
+const STRINGS_EQ_BOOST_DB := 6.0
+# Frequências-alvo pra reforçar (~formantes graves/médios/agudos de um corpo
+# de violino/cello) -- mapeadas pra banda mais próxima do AudioEffectEQ10 em
+# _eq10_band_index_for. Um único EQ10 evita o problema de encadear vários
+# AudioEffectBandPassFilter em série (cada um restringe mais o sinal que o
+# anterior -- 3 seguidos quase silenciariam o tom).
+const STRINGS_EQ_BOOST_TARGETS_HZ := [300.0, 700.0, 2500.0]
+const EQ10_BAND_FREQS := [31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0]
+
 var _current_player: AudioStreamPlayer = null
 var _pitch_player: AudioStreamPlayer = null
 var _pitch_playback: AudioStreamGeneratorPlayback = null
@@ -46,6 +56,37 @@ var _pitch_phase := 0.0
 var _pitch_freq := 0.0
 var _pitch_lfo_phase := 0.0
 var _noise_lp := 0.0
+
+func _ready() -> void:
+    _ensure_strings_bus()
+
+## Cria (se ainda não existir) o bus "Strings" com EQ + chorus, só pro tom
+## contínuo do Scroll de Afinação -- fica separado do bus Master, onde tocam
+## as notas normais e os SFX de colisão/erro, pra não colori-los também.
+func _ensure_strings_bus() -> void:
+    if AudioServer.get_bus_index(STRINGS_BUS_NAME) != -1:
+        return
+    var idx := AudioServer.bus_count
+    AudioServer.add_bus(idx)
+    AudioServer.set_bus_name(idx, STRINGS_BUS_NAME)
+    AudioServer.set_bus_send(idx, "Master")
+    var eq := AudioEffectEQ10.new()
+    for target_hz in STRINGS_EQ_BOOST_TARGETS_HZ:
+        eq.set_band_gain_db(_eq10_band_index_for(target_hz), STRINGS_EQ_BOOST_DB)
+    AudioServer.add_bus_effect(idx, eq)
+    AudioServer.add_bus_effect(idx, AudioEffectChorus.new())
+
+## AudioEffectEQ10 tem 10 bandas fixas (31..16000Hz, índices 0-9). Mapeia uma
+## frequência-alvo pra o índice da banda mais próxima.
+func _eq10_band_index_for(target_hz: float) -> int:
+    var best_idx := 0
+    var best_diff := INF
+    for i in range(EQ10_BAND_FREQS.size()):
+        var diff: float = absf(EQ10_BAND_FREQS[i] - target_hz)
+        if diff < best_diff:
+            best_diff = diff
+            best_idx = i
+    return best_idx
 
 ## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
 func play_note(note_key: String) -> AudioStreamPlayer:
@@ -72,6 +113,7 @@ func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
         gen.mix_rate = MIX_RATE
         gen.buffer_length = PITCH_BUFFER_LEN_SEC
         _pitch_player.stream = gen
+        _pitch_player.bus = STRINGS_BUS_NAME
         add_child(_pitch_player)
         _pitch_player.play()
         _pitch_playback = _pitch_player.get_stream_playback()
