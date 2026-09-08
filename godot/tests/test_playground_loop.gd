@@ -251,3 +251,23 @@ func test_piano_input_note_triggered_routes_through_playground():
 	p._piano_input.note_triggered.emit("Ds4")  # dir (1,0) a partir de (1,6)
 	assert_eq(p._character.grid_position, Vector2i(2, 6))
 	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
+func test_begin_preset_with_blind_touch_mode_shows_it_hides_joystick():
+	var p = _playground()
+	p._begin_preset("curto", 0, InputModeSettings.Mode.BLIND_TOUCH)
+	assert_true(p._blind_touch_input.visible)
+	assert_false(p._joystick.visible)
+	assert_false(p._special_actions.visible)
+	assert_false(p._piano_input.visible)
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
+func test_blind_touch_input_note_triggered_routes_through_playground():
+	var p = _playground()
+	# Sem _begin_preset (mesmo motivo documentado em
+	# test_piano_input_note_triggered_routes_through_playground): fica em
+	# IDLE de propósito.
+	InputModeSettings.set_mode(InputModeSettings.Mode.BLIND_TOUCH)
+	p._apply_input_mode()
+	p._blind_touch_input.note_triggered.emit("Ds4")  # dir (1,0) a partir de (1,6)
+	assert_eq(p._character.grid_position, Vector2i(2, 6))
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)

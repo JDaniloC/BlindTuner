@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/Playground.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/Character.tscn" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/GameHUD.tscn" id="91"]
 [ext_resource type="PackedScene" path="res://scenes/SpecialActionPanel.tscn" id="92"]
 [ext_resource type="PackedScene" path="res://scenes/PianoInput.tscn" id="93"]
+[ext_resource type="PackedScene" path="res://scenes/BlindTouchInput.tscn" id="94"]
 
 [node name="Playground" type="Node2D"]
 script = ExtResource("1")
@@ -73,3 +74,8 @@ offset_left = 32.0
 offset_top = -180.0
 offset_right = -32.0
 offset_bottom = -20.0
+
+[node name="BlindTouchInput" parent="UI" instance=ExtResource("94")]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
