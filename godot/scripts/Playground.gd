@@ -13,12 +13,14 @@ extends Node2D
 @onready var _special_actions: Control = $UI/SpecialActionPanel
 @onready var _piano_input: Control = $UI/PianoInput
 @onready var _blind_touch_input: Control = $UI/BlindTouchInput
+@onready var _pitch_scroll_input: Control = $UI/PitchScrollInput
 @onready var _goal_node: Node2D = $Goal
 var _current_map_id: String = ""
 var _joystick_default_filter: int
 var _special_actions_default_filter: int
 var _piano_input_default_filter: int
 var _blind_touch_input_default_filter: int
+var _pitch_scroll_input_default_filter: int
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -41,6 +43,7 @@ func _ready() -> void:
 	_special_actions_default_filter = _special_actions.mouse_filter
 	_piano_input_default_filter = _piano_input.mouse_filter
 	_blind_touch_input_default_filter = _blind_touch_input.mouse_filter
+	_pitch_scroll_input_default_filter = _pitch_scroll_input.mouse_filter
 	# Sala inicial = primeiro mapa (quarto). Será re-buildada se o usuário
 	# selecionar outro preset com map_id diferente.
 	var first_map = MapPresets.ALL[0]
@@ -56,6 +59,7 @@ func _ready() -> void:
 	_special_actions.note_triggered.connect(_on_note_triggered)
 	_piano_input.note_triggered.connect(_on_note_triggered)
 	_blind_touch_input.note_triggered.connect(_on_note_triggered)
+	_pitch_scroll_input.note_triggered.connect(_on_note_triggered)
 	_conductor.preview_note.connect(_on_preview_note)
 	_conductor.call_cue.connect(_on_call_cue)
 	_conductor.replay_note.connect(_on_replay_note)
@@ -105,6 +109,10 @@ func _apply_input_mode() -> void:
 	var blind_touch_active := InputModeSettings.mode == InputModeSettings.Mode.BLIND_TOUCH
 	_blind_touch_input.visible = blind_touch_active
 	_blind_touch_input.mouse_filter = _blind_touch_input_default_filter if blind_touch_active else Control.MOUSE_FILTER_IGNORE
+
+	var pitch_scroll_active := InputModeSettings.mode == InputModeSettings.Mode.PITCH_SCROLL
+	_pitch_scroll_input.visible = pitch_scroll_active
+	_pitch_scroll_input.mouse_filter = _pitch_scroll_input_default_filter if pitch_scroll_active else Control.MOUSE_FILTER_IGNORE
 
 func _on_preview_note(note_key: String, _index: int) -> void:
 	# PREVIEW: só ouvir, personagem não se move.

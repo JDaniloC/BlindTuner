@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/SpecialActionPanel.tscn" id="92"]
 [ext_resource type="PackedScene" path="res://scenes/PianoInput.tscn" id="93"]
 [ext_resource type="PackedScene" path="res://scenes/BlindTouchInput.tscn" id="94"]
+[ext_resource type="PackedScene" path="res://scenes/PitchScrollInput.tscn" id="95"]
 
 [node name="Playground" type="Node2D"]
 script = ExtResource("1")
@@ -79,3 +80,14 @@ offset_bottom = -20.0
 visible = false
 anchor_right = 1.0
 anchor_bottom = 1.0
+
+[node name="PitchScrollInput" parent="UI" instance=ExtResource("95")]
+visible = false
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -160.0
+offset_right = -16.0
+offset_bottom = 160.0
