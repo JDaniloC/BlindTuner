@@ -22,3 +22,28 @@ func test_movement_notes_map_to_directional_icons():
 func test_every_note_has_an_icon():
 	for key in NoteMapping.NOTES.keys():
 		assert_ne(ActionIconScript.icon_name_for_note(key), "", "nota %s ficou sem ícone" % key)
+
+func test_set_note_loads_texture_for_movement_note():
+	var icon = ActionIconScript.new()
+	add_child_autofree(icon)
+	icon.set_note("Cs4")
+	assert_not_null(icon._texture, "deveria ter carregado a textura da seta norte")
+	assert_true(icon._texture is Texture2D)
+
+func test_set_note_loads_texture_for_action_note():
+	var icon = ActionIconScript.new()
+	add_child_autofree(icon)
+	icon.set_note("A4")
+	assert_not_null(icon._texture)
+
+func test_set_action_still_works_for_backwards_compatibility():
+	var icon = ActionIconScript.new()
+	add_child_autofree(icon)
+	icon.set_action("pular")
+	assert_not_null(icon._texture)
+
+func test_unknown_action_leaves_texture_null_without_crashing():
+	var icon = ActionIconScript.new()
+	add_child_autofree(icon)
+	icon.set_action("inexistente")
+	assert_null(icon._texture)

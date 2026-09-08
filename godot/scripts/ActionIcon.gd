@@ -1,10 +1,11 @@
 extends Control
-## Desenha um ícone procedural representando uma ação especial.
-## Sem dependência de fonte/sprite — usa draw_line/draw_arc.
+## Desenha o ícone de uma nota -- seta direcional (movimento) ou pictograma
+## (ação). Usa os SVGs do Material Symbols importados em res://assets/ui/icons.
+## Os desenhos procedurais anteriores (draw_line/draw_arc) foram substituídos:
+## no playtest, "correr" e "pular" não liam como as ações que representavam.
 
 const ICON_COLOR := Color.WHITE
-const LINE_WIDTH := 4.0
-const RADIUS_FRAC := 0.35  # raio do ícone relativo ao menor lado do Control
+const ICON_FRAC := 0.7  # lado do ícone relativo ao menor lado do Control
 
 const ICON_DIR := "res://assets/ui/icons/"
 
@@ -29,12 +30,30 @@ const ICON_FOR_DIRECTION := {
 }
 
 var action_id: String = ""
+var _texture: Texture2D = null
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 
+## Compatibilidade: chamadores antigos passam o action_id direto.
 func set_action(id: String) -> void:
 	action_id = id
+	_set_texture_by_name(ICON_FOR_ACTION.get(id, ""))
+
+## Caminho novo: aceita qualquer uma das 12 notas (ação ou movimento).
+func set_note(note_key: String) -> void:
+	if NoteMapping.is_action_note(note_key):
+		action_id = NoteMapping.action_id_for(note_key)
+	else:
+		action_id = ""
+	_set_texture_by_name(icon_name_for_note(note_key))
+
+func _set_texture_by_name(icon_name: String) -> void:
+	if icon_name == "":
+		_texture = null
+	else:
+		var path := ICON_DIR + icon_name + ".svg"
+		_texture = load(path) if ResourceLoader.exists(path) else null
 	queue_redraw()
 
 ## Nome do ícone (sem extensão) da nota: ação pelo action_id, movimento pela
@@ -45,45 +64,10 @@ static func icon_name_for_note(note_key: String) -> String:
 	return ICON_FOR_DIRECTION.get(NoteMapping.direction_for(note_key), "")
 
 func _draw() -> void:
-	var c := size * 0.5
-	var r := minf(size.x, size.y) * RADIUS_FRAC
-	match action_id:
-		"pegar":    _draw_pegar(c, r)
-		"interagir": _draw_interagir(c, r)
-		"correr":  _draw_correr(c, r)
-		"pular":   _draw_pular(c, r)
-
-## Seta vertical apontando para baixo + linha do chão. Símbolo "pegar do chão".
-func _draw_pegar(c: Vector2, r: float) -> void:
-	var top := c + Vector2(0, -r)
-	var bottom := c + Vector2(0, r * 0.4)
-	draw_line(top, bottom, ICON_COLOR, LINE_WIDTH, true)
-	draw_line(bottom, bottom + Vector2(-r * 0.5, -r * 0.4), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(bottom, bottom + Vector2( r * 0.5, -r * 0.4), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(-r, r * 0.8), c + Vector2(r, r * 0.8), ICON_COLOR, LINE_WIDTH, true)
-
-## Símbolo "!" — exclamação para "interagir / aqui!".
-func _draw_interagir(c: Vector2, r: float) -> void:
-	# Linha vertical (corpo do !)
-	draw_line(c + Vector2(0, -r * 0.8), c + Vector2(0, r * 0.2), ICON_COLOR, LINE_WIDTH, true)
-	# Ponto (base do !) — circulo pequeno preenchido
-	draw_circle(c + Vector2(0, r * 0.6), LINE_WIDTH * 0.9, ICON_COLOR)
-
-## Três linhas horizontais (motion) + chevron » direita.
-func _draw_correr(c: Vector2, r: float) -> void:
-	var spacing := r * 0.35
-	draw_line(c + Vector2(-r,          -spacing), c + Vector2(r * 0.55, -spacing), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(-r * 0.85,    0      ), c + Vector2(r * 0.75,  0      ), ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(-r,           spacing), c + Vector2(r * 0.55,  spacing), ICON_COLOR, LINE_WIDTH, true)
-	var tip := c + Vector2(r, 0)
-	draw_line(c + Vector2(r * 0.55, -spacing - r * 0.15), tip, ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(r * 0.55,  spacing + r * 0.15), tip, ICON_COLOR, LINE_WIDTH, true)
-
-## Arco semicircular pra cima + setinha no topo + linha do chão.
-func _draw_pular(c: Vector2, r: float) -> void:
-	var arc_center := c + Vector2(0, r * 0.45)
-	draw_arc(arc_center, r, PI, TAU, 24, ICON_COLOR, LINE_WIDTH, true)
-	var top := arc_center + Vector2(0, -r)
-	draw_line(top + Vector2(-r * 0.25, r * 0.2), top, ICON_COLOR, LINE_WIDTH, true)
-	draw_line(top + Vector2( r * 0.25, r * 0.2), top, ICON_COLOR, LINE_WIDTH, true)
-	draw_line(c + Vector2(-r, r * 0.5), c + Vector2(r, r * 0.5), ICON_COLOR, LINE_WIDTH, true)
+	if _texture == null:
+		return
+	var side := minf(size.x, size.y) * ICON_FRAC
+	var rect := Rect2((size - Vector2(side, side)) * 0.5, Vector2(side, side))
+	# O SVG é branco; o 4º argumento tinge pra qualquer cor sem precisar de
+	# outra cópia do asset.
+	draw_texture_rect(_texture, rect, false, ICON_COLOR)
