@@ -79,3 +79,44 @@ func test_stop_continuous_pitch_clears_player():
     AudioManager.play_continuous_pitch(440.0)
     AudioManager.stop_continuous_pitch()
     assert_null(AudioManager._pitch_player)
+
+func test_string_harmonics_zero_at_phase_zero():
+    var v = AudioManager._string_harmonics(0.0)
+    assert_true(absf(v) < 0.0001, "fase 0 -- todos os harmônicos (senos) partem de 0")
+
+func test_string_harmonics_does_not_exceed_unity():
+    for i in range(100):
+        var phase = i / 100.0
+        var v = AudioManager._string_harmonics(phase)
+        assert_true(absf(v) <= 1.0001, "soma normalizada de harmônicos não deve estourar +-1")
+
+func test_vibrato_multiplier_is_one_at_lfo_phase_zero():
+    var m = AudioManager._vibrato_multiplier(0.0)
+    assert_true(absf(m - 1.0) < 0.0001, "vibrato multiplier deveria ser 1.0 em lfo_phase=0")
+
+func test_vibrato_multiplier_stays_within_expected_cents_range():
+    var max_mult = pow(2.0, AudioManager.VIBRATO_DEPTH_CENTS / 1200.0)
+    for i in range(20):
+        var lfo = i / 20.0
+        var m = AudioManager._vibrato_multiplier(lfo)
+        assert_true(m <= max_mult + 0.0001 and m >= (1.0 / max_mult) - 0.0001,
+            "vibrato multiplier fora do range esperado em lfo_phase=%f" % lfo)
+
+func test_continuous_pitch_sample_never_clips():
+    for i in range(50):
+        var phase = i / 50.0
+        var lfo = fmod(i * 0.13, 1.0)
+        var v = AudioManager._continuous_pitch_sample(phase, lfo, 1.0)  # noise_lp no pior caso
+        assert_true(absf(v) <= 1.0, "amostra do tom contínuo não deve estourar +-1 mesmo no pior caso de ruído")
+
+func test_fill_pitch_buffer_still_preserves_phase_across_frequency_change():
+    # Regressão: a síntese enriquecida não pode quebrar a garantia de fase
+    # contínua (glissando sem clique/salto) já pinada pelo teste homônimo sem
+    # "fill_pitch_buffer" no nome -- este exercita o caminho real (_process
+    # via _fill_pitch_buffer), não só a atribuição direta de _pitch_freq.
+    AudioManager.play_continuous_pitch(440.0)
+    AudioManager._pitch_phase = 0.37
+    AudioManager._fill_pitch_buffer()
+    AudioManager.play_continuous_pitch(494.0)
+    assert_true(AudioManager._pitch_phase != 0.0,
+        "_fill_pitch_buffer não deveria resetar _pitch_phase a cada chamada")

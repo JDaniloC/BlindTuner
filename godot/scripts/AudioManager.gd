@@ -30,12 +30,22 @@ const NOTE_MISS_DURATION_SEC := 0.2
 # slider no modo Scroll de Afinação. Curto o bastante pra não atrasar
 # perceptivelmente a resposta, longo o bastante pra evitar a descontinuidade.
 const PITCH_STOP_FADE_SEC := 0.012
+const VIBRATO_RATE_HZ := 6.0
+const VIBRATO_DEPTH_CENTS := 18.0
+const TREMOLO_DEPTH := 0.12
+const BOW_NOISE_GAIN := 0.03
+# Amplitudes decrescentes dos harmônicos (fundamental + 4 acima) -- é
+# fisicamente o que a fricção do arco contra a corda produz (onda rica em
+# harmônicos, tipo dente-de-serra), diferente da senoide pura anterior.
+const HARMONIC_GAINS := [1.0, 0.5, 0.3, 0.2, 0.1]
 
 var _current_player: AudioStreamPlayer = null
 var _pitch_player: AudioStreamPlayer = null
 var _pitch_playback: AudioStreamGeneratorPlayback = null
 var _pitch_phase := 0.0
 var _pitch_freq := 0.0
+var _pitch_lfo_phase := 0.0
+var _noise_lp := 0.0
 
 ## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
 func play_note(note_key: String) -> AudioStreamPlayer:
@@ -93,12 +103,40 @@ func _process(_delta: float) -> void:
         _fill_pitch_buffer()
 
 func _fill_pitch_buffer() -> void:
-    var phase_inc := _pitch_freq / MIX_RATE
+    var lfo_inc := VIBRATO_RATE_HZ / MIX_RATE
     var frames := _pitch_playback.get_frames_available()
     for i in range(frames):
-        var sample := sin(_pitch_phase * TAU) * 0.5
+        var vibrato_mult := _vibrato_multiplier(_pitch_lfo_phase)
+        var phase_inc := (_pitch_freq * vibrato_mult) / MIX_RATE
+        _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), 0.1)
+        var sample := _continuous_pitch_sample(_pitch_phase, _pitch_lfo_phase, _noise_lp)
         _pitch_playback.push_frame(Vector2(sample, sample))
         _pitch_phase = fposmod(_pitch_phase + phase_inc, 1.0)
+        _pitch_lfo_phase = fposmod(_pitch_lfo_phase + lfo_inc, 1.0)
+
+## Multiplicador de frequência do vibrato (LFO senoidal, ~6Hz, +-18 cents).
+## Cents pra multiplicador de frequência: mult = 2^(cents/1200).
+func _vibrato_multiplier(lfo_phase: float) -> float:
+    return pow(2.0, (VIBRATO_DEPTH_CENTS / 1200.0) * sin(lfo_phase * TAU))
+
+## Amostra completa do tom contínuo: harmônicos tipo corda + tremolo (LFO de
+## amplitude) + ruído de arco filtrado. Função pura (não toca _pitch_playback)
+## -- testável direto por amostra, sem precisar de um player real tocando.
+func _continuous_pitch_sample(phase: float, lfo_phase: float, noise_lp: float) -> float:
+    var tone := _string_harmonics(phase)
+    var tremolo := 1.0 + TREMOLO_DEPTH * sin(lfo_phase * TAU)
+    return clampf((tone * tremolo * 0.5) + (noise_lp * BOW_NOISE_GAIN), -1.0, 1.0)
+
+## Soma aditiva dos harmônicos (fundamental + 4 acima), normalizada pela soma
+## dos ganhos -- garante |resultado| <= 1 antes do envelope de amplitude.
+func _string_harmonics(phase: float) -> float:
+    var sum := 0.0
+    var gain_total := 0.0
+    for h in range(HARMONIC_GAINS.size()):
+        var harmonic_num := h + 1
+        sum += HARMONIC_GAINS[h] * sin(phase * TAU * harmonic_num)
+        gain_total += HARMONIC_GAINS[h]
+    return sum / gain_total
 
 func _play_synth(freq: float, harsh: bool, duration: float) -> AudioStreamPlayer:
     _stop_current()
