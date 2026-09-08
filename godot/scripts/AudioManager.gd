@@ -13,12 +13,25 @@ const DECAY_SEC := 0.15
 const SUSTAIN_LEVEL := 0.4
 const RELEASE_SEC := 0.3
 const COLLISION_FREQ := 80.0
+const PITCH_MIX_RATE := 44100.0
+# AudioStreamGeneratorPlayback arredonda o buffer pra cima na proxima potencia
+# de 2 (nearest_shift(mix_rate * buffer_length)). Com 44100Hz, 0.04 (1764
+# frames) vira 2048 frames (~46ms) -- ainda folgado o bastante acima do
+# consumo por frame a 60fps (~735 frames/frame) pra nao dar underrun, mas bem
+# mais responsivo que um buffer "cheio" de ~186ms (o que 0.1 geraria: 4410 ->
+# 8192 frames). Esse latencia eh o atraso entre mudar _pitch_freq e o som
+# realmente mudar, pois o buffer fica sempre cheio de amostras ja geradas.
+const PITCH_BUFFER_LEN_SEC := 0.04
 const NOTE_MISS_FREQ := 220.0
 # Precisa ser > ATTACK_SEC+DECAY_SEC (0.16s), senão o buffer termina no meio do
 # decay (nunca alcança release) e corta com um click audível em vez de esmaecer.
 const NOTE_MISS_DURATION_SEC := 0.2
 
 var _current_player: AudioStreamPlayer = null
+var _pitch_player: AudioStreamPlayer = null
+var _pitch_playback: AudioStreamGeneratorPlayback = null
+var _pitch_phase := 0.0
+var _pitch_freq := 0.0
 
 ## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
 func play_note(note_key: String) -> AudioStreamPlayer:
@@ -33,9 +46,44 @@ func play_collision_sfx() -> AudioStreamPlayer:
 func play_note_miss_sfx() -> AudioStreamPlayer:
     return _play_synth(NOTE_MISS_FREQ, false, NOTE_MISS_DURATION_SEC)
 
-## Stub para o modo cello futuro (pitch contínuo controlável em tempo real).
-func play_continuous_pitch(_freq_hz: float):
-    return null
+## Toca (ou, já tocando, apenas atualiza) um tom contínuo na frequência dada --
+## diferente de play_note, NÃO reinicia o player a cada chamada (permite glissando
+## suave). Usado pelo modo de input "Scroll de Afinação".
+func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
+    _pitch_freq = freq_hz
+    if _pitch_player == null or not is_instance_valid(_pitch_player):
+        _stop_current()
+        _pitch_player = AudioStreamPlayer.new()
+        var gen := AudioStreamGenerator.new()
+        gen.mix_rate = PITCH_MIX_RATE
+        gen.buffer_length = PITCH_BUFFER_LEN_SEC
+        _pitch_player.stream = gen
+        add_child(_pitch_player)
+        _pitch_player.play()
+        _pitch_playback = _pitch_player.get_stream_playback()
+        _pitch_phase = 0.0
+    return _pitch_player
+
+## Para o tom contínuo (ex: ao soltar o slider, trocar de modo de input, ou tocar
+## uma nota/SFX discreto -- ver _stop_current).
+func stop_continuous_pitch() -> void:
+    if _pitch_player and is_instance_valid(_pitch_player):
+        _pitch_player.stop()
+        _pitch_player.queue_free()
+    _pitch_player = null
+    _pitch_playback = null
+
+func _process(_delta: float) -> void:
+    if _pitch_playback != null:
+        _fill_pitch_buffer()
+
+func _fill_pitch_buffer() -> void:
+    var phase_inc := _pitch_freq / PITCH_MIX_RATE
+    var frames := _pitch_playback.get_frames_available()
+    for i in range(frames):
+        var sample := sin(_pitch_phase * TAU) * 0.5
+        _pitch_playback.push_frame(Vector2(sample, sample))
+        _pitch_phase = fposmod(_pitch_phase + phase_inc, 1.0)
 
 func _play_synth(freq: float, harsh: bool, duration: float) -> AudioStreamPlayer:
     _stop_current()
@@ -52,6 +100,7 @@ func _stop_current() -> void:
         _current_player.stop()
         _current_player.queue_free()
     _current_player = null
+    stop_continuous_pitch()
 
 func _on_player_finished(player: AudioStreamPlayer) -> void:
     if not is_instance_valid(player):

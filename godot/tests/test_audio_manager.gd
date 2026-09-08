@@ -35,7 +35,30 @@ func test_note_miss_envelope_fades_near_silence_by_last_sample():
     assert_lt(last_envelope, 0.05,
         "envelope deveria esmaecer perto de 0 no último sample, não cortar no meio do decay")
 
-func test_play_continuous_pitch_is_stub():
-    # API existe para uso futuro (modo cello). MVP: retornar null é OK.
-    var result = AudioManager.play_continuous_pitch(440.0)
-    assert_null(result)
+func after_each():
+    AudioManager.stop_continuous_pitch()
+
+func test_play_continuous_pitch_returns_a_player_node():
+    var player = AudioManager.play_continuous_pitch(440.0)
+    assert_not_null(player)
+    assert_true(player is AudioStreamPlayer)
+
+func test_play_continuous_pitch_reuses_same_player_on_frequency_change():
+    var p1 = AudioManager.play_continuous_pitch(440.0)
+    var p2 = AudioManager.play_continuous_pitch(494.0)
+    assert_eq(p1, p2, "mudar de frequência não deve recriar o player (glissando contínuo)")
+
+func test_play_continuous_pitch_stops_regular_note_playback():
+    var before = AudioManager.play_note("A4")
+    AudioManager.play_continuous_pitch(440.0)
+    assert_false(before.playing, "nota discreta anterior deve parar")
+
+func test_play_note_stops_continuous_pitch():
+    AudioManager.play_continuous_pitch(440.0)
+    AudioManager.play_note("A4")
+    assert_null(AudioManager._pitch_player, "pitch contínuo deve parar quando uma nota discreta toca")
+
+func test_stop_continuous_pitch_clears_player():
+    AudioManager.play_continuous_pitch(440.0)
+    AudioManager.stop_continuous_pitch()
+    assert_null(AudioManager._pitch_player)
