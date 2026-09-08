@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/PianoInput.gd" id="1"]
+
+[node name="PianoInput" type="Control"]
+custom_minimum_size = Vector2(600, 140)
+script = ExtResource("1")
