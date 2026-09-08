@@ -12,4 +12,10 @@ func test_all_expected_icons_exist_and_load():
 		assert_true(ResourceLoader.exists(path), "faltando o ícone %s" % path)
 		var tex = load(path)
 		assert_true(tex is Texture2D, "%s deveria carregar como Texture2D" % path)
-		assert_gt(tex.get_width(), 0, "%s tem largura zero" % path)
+		# 96px não é decoração: os SVGs originais do Material Symbols vêm a 24px
+		# e, rasterizados nesse tamanho, ficam borrados na tecla do modo Piano
+		# (que desenha o glifo a ~33px). A escala mora no width/height do .svg,
+		# então regravar um ícone a partir do original degrada em silêncio se
+		# ninguém trancar o valor aqui.
+		assert_eq(tex.get_width(), 96,
+			"%s precisa rasterizar a 96px -- confira width/height no .svg" % path)

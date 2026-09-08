@@ -13,6 +13,12 @@ const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
 const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
 const CORNER_RADIUS := 6
+const ICON_MAX_SIDE := 48.0
+const ICON_BOTTOM_MARGIN := 12.0
+## Luminância perceptual (Rec. 709) acima da qual o fundo conta como claro e o
+## ícone precisa ser escuro pra ter contraste.
+const ICON_DARK_ON_LIGHT := Color(0.10, 0.10, 0.12)
+const ICON_LUMA_THRESHOLD := 0.5
 const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
 const WHITE_KEY_COLOR := Color(0.92, 0.90, 0.85)
 const BLACK_KEY_COLOR := Color(0.12, 0.12, 0.14)
@@ -20,7 +26,7 @@ const ACTION_KEY_COLOR := Color(0.55, 0.38, 0.16)  # âmbar escuro -- as 4 tecla
 
 var _buttons: Array[Button] = []
 var _button_notes: Array[String] = []
-var _key_icons: Array = []
+var _key_icons: Array[Control] = []
 # Paralelo às notas armáveis (correr/pular); atualizado por on_armed_state_changed.
 var _armed: Array[bool] = [false, false, false, false]
 
@@ -53,10 +59,16 @@ func _ready() -> void:
 		btn.pressed.connect(_emit_note.bind(note_key))
 		add_child(btn)
 		var icon: Control = load("res://scripts/ActionIcon.gd").new()
-		icon.custom_minimum_size = Vector2(24, 24)
-		icon.size = Vector2(24, 24)
+		# Proporcional à tecla (com teto): um lado fixo de 24px foi dimensionado
+		# pra tecla antiga de 54x160 e deixava o glifo com ~17px numa tecla de
+		# 96x280 -- pequeno demais pro público-alvo (baixa visão).
+		# branca 94x280 -> lado 47, y=221..268 (dentro de 280);
+		# preta  60x175 -> lado 30, y=133..163 (dentro de 175).
+		var icon_side: float = minf(btn.size.x * 0.5, ICON_MAX_SIDE)
+		icon.custom_minimum_size = Vector2(icon_side, icon_side)
+		icon.size = Vector2(icon_side, icon_side)
 		# Rodapé da tecla -- não colide com o rótulo de texto, que fica no centro.
-		icon.position = Vector2((btn.size.x - 24) * 0.5, btn.size.y - 34)
+		icon.position = Vector2((btn.size.x - icon_side) * 0.5, btn.size.y - icon_side - ICON_BOTTOM_MARGIN)
 		btn.add_child(icon)
 		icon.set_note(note_key)
 		_key_icons.append(icon)
@@ -92,20 +104,33 @@ func _apply_cue() -> void:
 		if show_color:
 			# Nível de pista máximo: prioriza a cor distintiva por nota (igual
 			# aos outros 3 modos de input) sobre o realismo do teclado -- a cor
-			# vai direto no fundo da tecla (bg_color). modulate fica neutro
-			# (Color.WHITE): modulate multiplica o BOTÃO INTEIRO (fundo E o
-			# texto do label), então usá-lo pra tingir deixava o texto quase
-			# da mesma cor do fundo (contraste ~1.12, ilegível).
+			# vai direto no fundo da tecla (bg_color). O tint do nó fica neutro
+			# (Color.WHITE): tingir o botão multiplicaria também o texto do
+			# label, deixando-o quase da mesma cor do fundo (contraste ~1.12,
+			# ilegível). E é self_modulate, não modulate: modulate se PROPAGA
+			# pros filhos, e o ícone da tecla é filho do botão -- tingir por
+			# modulate deixaria o ícone da cor exata do fundo (invisível).
 			sb.bg_color = NoteMapping.color_for(note_key)
 			if is_armed:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
-			_buttons[i].modulate = Color.WHITE
+			_buttons[i].self_modulate = Color.WHITE
 		else:
 			# Níveis de prática: teclado autêntico (branco/preto/âmbar), sem tint.
 			sb.bg_color = _key_base_color(i, note_key)
 			if is_armed:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
-			_buttons[i].modulate = Color.WHITE
+			_buttons[i].self_modulate = Color.WHITE
+		# Contraste do ícone: branco fixo sumia na tecla branca (~1.25:1) e
+		# nas cores claras da paleta de notas -- todas abaixo do mínimo de
+		# 3:1 do WCAG pra elemento gráfico, o que anulava a redundância
+		# visual que o ícone existe pra dar. Escolhe o tint pela luminância
+		# perceptual (Rec. 709) do fundo efetivo da tecla; como _apply_cue()
+		# roda de novo a cada troca de nível de pista ou de estado armado,
+		# o tint acompanha a troca de fundo sozinho.
+		if i < _key_icons.size():
+			var bg: Color = sb.bg_color * _buttons[i].self_modulate
+			var luma := 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b
+			_key_icons[i].set_tint(ICON_DARK_ON_LIGHT if luma > ICON_LUMA_THRESHOLD else Color.WHITE)
 		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
 		# escurecido) pra dar feedback visual de toque -- sem isso, apertar
 		# uma tecla não mudava nada visualmente (normal/hover/pressed

@@ -37,9 +37,12 @@ func test_level_zero_shows_name_and_color():
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._buttons[idx].text, NoteMapping.label_for("C4"))
-	# A cor da nota vai no bg_color da tecla (fundo), não no modulate (que
+	# A cor da nota vai no bg_color da tecla (fundo), não num tint do nó (que
 	# multiplicaria o texto do label também, matando o contraste) -- ver I1.
-	assert_eq(p._buttons[idx].modulate, Color.WHITE)
+	# O tint neutro fica em self_modulate, não em modulate: modulate se propaga
+	# pros filhos e tingiria o ícone da tecla junto.
+	assert_eq(p._buttons[idx].self_modulate, Color.WHITE)
+	assert_eq(p._buttons[idx].modulate, Color.WHITE, "modulate tem que ficar neutro: ele se propaga pro ícone filho")
 	var sb = p._buttons[idx].get_theme_stylebox("normal")
 	assert_eq(sb.bg_color, NoteMapping.color_for("C4"))
 
@@ -49,7 +52,8 @@ func test_level_three_white_key_shows_authentic_color_no_tint():
 	CueSettings.set_level(3)
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._buttons[idx].text, "")
-	assert_eq(p._buttons[idx].modulate, Color.WHITE)
+	assert_eq(p._buttons[idx].self_modulate, Color.WHITE)
+	assert_eq(p._buttons[idx].modulate, Color.WHITE, "modulate tem que ficar neutro: ele se propaga pro ícone filho")
 	var sb = p._buttons[idx].get_theme_stylebox("normal")
 	assert_eq(sb.bg_color, p.WHITE_KEY_COLOR)
 
@@ -63,7 +67,7 @@ func test_level_three_black_key_shows_authentic_color():
 
 func test_on_armed_state_changed_brightens_correr_button():
 	# No nível 0, quem clareia com o armed é o bg_color da tecla (não mais o
-	# modulate, que agora fica fixo em Color.WHITE -- ver I1).
+	# tint do nó, que agora fica fixo em Color.WHITE -- ver I1).
 	CueSettings.set_level(0)
 	var p = _make()
 	var idx = p._button_notes.find("As4")
@@ -131,3 +135,61 @@ func test_each_key_has_an_icon():
 	assert_eq(p._key_icons.size(), 12, "um ícone por tecla")
 	for icon in p._key_icons:
 		assert_not_null(icon._texture, "tecla sem ícone")
+
+func test_key_icon_scales_with_the_key():
+	# 24px fixo foi dimensionado pra tecla antiga de 54x160: numa tecla de
+	# 96x280 o glifo ficava com ~17px, pequeno demais pro público-alvo
+	# (idoso com baixa visão) -- justo a motivação de ter ícone.
+	var p = _make()
+	var white = p._key_icons[p._button_notes.find("C4")]
+	var black = p._key_icons[p._button_notes.find("Cs4")]
+	assert_eq(white.size.x, minf((p.WHITE_KEY_WIDTH - 2.0) * 0.5, p.ICON_MAX_SIDE),
+		"ícone da tecla branca deve ser metade da largura da tecla (com teto)")
+	assert_eq(black.size.x, p.BLACK_KEY_WIDTH * 0.5,
+		"ícone da tecla preta deve ser metade da largura da tecla")
+	assert_gt(white.size.x, black.size.x, "tecla maior, ícone maior")
+
+func test_key_icons_fit_inside_their_keys():
+	# O Control da tecla não faz clip: ícone que vaza da tecla vaza pra tela.
+	var p = _make()
+	for i in range(p._buttons.size()):
+		var btn = p._buttons[i]
+		var icon = p._key_icons[i]
+		var note = p._button_notes[i]
+		assert_between(icon.position.x, 0.0, btn.size.x - icon.size.x, "ícone de %s vaza em X" % note)
+		assert_between(icon.position.y, 0.0, btn.size.y - icon.size.y, "ícone de %s vaza em Y" % note)
+
+func test_key_icon_is_below_the_label():
+	# O rótulo de texto do Button fica centrado verticalmente; o ícone mora no
+	# rodapé da tecla justamente pra não disputar espaço com ele.
+	var p = _make()
+	var idx = p._button_notes.find("C4")
+	assert_gt(p._key_icons[idx].position.y, p._buttons[idx].size.y * 0.5,
+		"ícone deve ficar abaixo do centro da tecla, onde mora o rótulo")
+
+func test_icon_tint_is_dark_on_light_key():
+	# Ícone branco sobre tecla branca dá contraste ~1.25:1 -- abaixo do mínimo
+	# 3:1 do WCAG pra elemento gráfico, ou seja, a redundância visual que o
+	# ícone existe pra dar simplesmente não acontecia.
+	CueSettings.set_level(0)
+	var p = _make()
+	CueSettings.set_level(3)
+	var idx = p._button_notes.find("C4")
+	assert_eq(p._key_icons[idx]._tint, p.ICON_DARK_ON_LIGHT, "tecla branca pede ícone escuro")
+
+func test_icon_tint_is_white_on_dark_key():
+	CueSettings.set_level(0)
+	var p = _make()
+	CueSettings.set_level(3)
+	var idx = p._button_notes.find("Cs4")
+	assert_eq(p._key_icons[idx]._tint, Color.WHITE, "tecla preta pede ícone branco")
+
+func test_icon_tint_follows_note_color_luminance():
+	# No nível 0 o fundo é a cor da nota, então o tint tem que variar nota a
+	# nota: Mi (#FBC02D) é claro, Dó (#E91E63) é escuro.
+	CueSettings.set_level(0)
+	var p = _make()
+	assert_eq(p._key_icons[p._button_notes.find("E4")]._tint, p.ICON_DARK_ON_LIGHT,
+		"fundo claro (#FBC02D) pede ícone escuro")
+	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
+		"fundo escuro (#E91E63) pede ícone branco")

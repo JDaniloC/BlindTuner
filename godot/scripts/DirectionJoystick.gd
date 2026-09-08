@@ -18,7 +18,7 @@ var _dragging := false
 var _thumb_offset := Vector2.ZERO
 var _slice_polygons: Array[Polygon2D] = []
 var _slice_note_keys: Array[String] = []  # paralelo a _slice_polygons (8 entradas)
-var _slice_icons: Array = []              # paralelo a _slice_note_keys (8 entradas)
+var _slice_icons: Array[Control] = []     # paralelo a _slice_note_keys (8 entradas)
 var _active_slice_index: int = -1         # 0..7 (índice da fatia em _slice_polygons), ou -1
 var _flash_tween: Tween
 var _backdrop_disc: Polygon2D

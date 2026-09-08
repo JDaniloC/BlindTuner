@@ -23,7 +23,17 @@ const NOTES := {
 ## Sem movement_only: usa o ângulo cromático de cada nota (12 posições a 30°).
 ## Com movement_only=true: layout direcional 8x45° (4 cardinais + 4 diagonais),
 ## ignorando notas de ação. Notas de movimento em ordem de inserção mapeiam para
-## 0°, 45°, 90°, ..., 315° — C4=NW, Cs4=N, D4=NE, Ds4=E, E4=SE, F4=S, Fs4=SW, G4=W.
+## 0°, 45°, 90°, ..., 315° na bússola de TELA (0° = para cima):
+## C4=cima, Cs4=cima-direita, D4=direita, Ds4=baixo-direita, E4=baixo,
+## F4=baixo-esquerda, Fs4=esquerda, G4=cima-esquerda.
+##
+## Cuidado ao ler o campo "direction" de cada nota: ele é um vetor de GRID
+## isométrico, NÃO uma direção de tela. Character.grid_to_world projeta
+## (x-y, x+y), então cada vetor de grid cai num octante de tela diferente do
+## que o vetor "parece" sugerir -- C4 = grid(-1,-1) desenha reto PARA CIMA na
+## tela (e não a noroeste); Ds4 = grid(1,0) desenha para baixo-direita.
+## Confundir os dois já gerou setas 45° erradas nos ícones; a tabela
+## grid -> ícone de tela vive em ActionIcon.ICON_FOR_DIRECTION.
 func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> String:
     var normalized := fposmod(angle_degrees, 360.0)
     var best_key := "C4"  # sentinela; C4 é sempre is_movement=true, válido com qualquer filtro

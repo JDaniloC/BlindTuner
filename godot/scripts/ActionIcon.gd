@@ -34,9 +34,23 @@ const ICON_FOR_DIRECTION := {
 
 var action_id: String = ""
 var _texture: Texture2D = null
+var _tint: Color = ICON_COLOR
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
+	# O projeto usa Nearest como filtro global (sprites pixel-art do
+	# personagem). Os SVGs são rasterizados a 96x96 e desenhados bem
+	# menores; com Nearest os traços finos (a barra do priority_high, os
+	# membros do directions_run) somem no downscale. Filtro local ao ícone,
+	# não afeta os sprites do jogo.
+	texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+## Cor do glifo. Quem desenha o ícone sobre um fundo claro precisa pedir um
+## tint escuro -- branco sobre tecla branca dá contraste ~1.25:1. O padrão
+## continua branco (SpecialActionPanel/DirectionJoystick têm fundo escuro).
+func set_tint(color: Color) -> void:
+	_tint = color
+	queue_redraw()
 
 ## Compatibilidade: chamadores antigos passam o action_id direto.
 func set_action(id: String) -> void:
@@ -56,7 +70,11 @@ func _set_texture_by_name(icon_name: String) -> void:
 		_texture = null
 	else:
 		var path := ICON_DIR + icon_name + ".svg"
-		_texture = load(path) if ResourceLoader.exists(path) else null
+		if ResourceLoader.exists(path):
+			_texture = load(path)
+		else:
+			_texture = null
+			push_warning("ActionIcon: asset não encontrado em %s -- o ícone vai desenhar vazio" % path)
 	queue_redraw()
 
 ## Nome do ícone (sem extensão) da nota: ação pelo action_id, movimento pela
@@ -73,4 +91,4 @@ func _draw() -> void:
 	var rect := Rect2((size - Vector2(side, side)) * 0.5, Vector2(side, side))
 	# O SVG é branco; o 4º argumento tinge pra qualquer cor sem precisar de
 	# outra cópia do asset.
-	draw_texture_rect(_texture, rect, false, ICON_COLOR)
+	draw_texture_rect(_texture, rect, false, _tint)
