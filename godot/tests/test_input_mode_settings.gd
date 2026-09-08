@@ -28,6 +28,21 @@ func test_signal_not_emitted_when_same():
 	m.set_mode(m.Mode.JOYSTICK)  # já é o padrão
 	assert_signal_not_emitted(m, "mode_changed")
 
+func test_set_mode_clamps_out_of_range_high_value():
+	# Regressão: set_mode() não clampava m, ao contrário de CueSettings.set_level()
+	# (que serve de padrão documentado). Um valor fora do range faria
+	# Playground._apply_input_mode() esconder os 4 grupos de input -- pior que
+	# o soft-lock do achado #1 (nenhum jeito de interagir).
+	var m = _fresh()
+	m.set_mode(99)
+	assert_eq(m.mode, m.Mode.PITCH_SCROLL, "valor fora do range deveria ser clampado pro máximo válido")
+
+func test_set_mode_clamps_out_of_range_negative_value():
+	var m = _fresh()
+	m.set_mode(m.Mode.PIANO)  # sai do default antes de testar o clamp pro mínimo
+	m.set_mode(-5)
+	assert_eq(m.mode, m.Mode.JOYSTICK, "valor negativo deveria ser clampado pro mínimo válido")
+
 func test_all_four_modes_distinct():
 	var m = _fresh()
 	var values = [m.Mode.JOYSTICK, m.Mode.BLIND_TOUCH, m.Mode.PIANO, m.Mode.PITCH_SCROLL]

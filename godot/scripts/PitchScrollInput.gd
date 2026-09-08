@@ -37,3 +37,9 @@ func _on_drag_ended(_value_changed: bool) -> void:
 	AudioManager.stop_continuous_pitch()
 	var note := NoteMapping.nearest_note_for_frequency(_slider.value)
 	note_triggered.emit(note)
+
+func _exit_tree() -> void:
+	# Sai da árvore (troca de cena, ou removido enquanto o tom ainda soa --
+	# ex: arrasto em progresso quando o jogo troca de preset/mapa) sem passar
+	# por _on_drag_ended: o tom contínuo não pode ficar tocando indefinidamente.
+	AudioManager.stop_continuous_pitch()

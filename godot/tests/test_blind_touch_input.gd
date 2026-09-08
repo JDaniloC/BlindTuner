@@ -75,3 +75,17 @@ func test_single_tap_confirms_as_pegar_after_window():
 	b._resolve_gesture(Vector2.ZERO)
 	await get_tree().create_timer(b.DOUBLE_TAP_WINDOW_MS / 1000.0 + 0.1).timeout
 	assert_signal_emitted_with_parameters(b, "note_triggered", ["A4"])
+
+func test_release_without_prior_press_is_ignored():
+	# Regressão: um release chegando em _gui_input sem um press correspondente
+	# antes (ex: o press começou fora deste Control) deixava _press_time_ms
+	# obsoleto/default -- _resolve_gesture calcularia um elapsed_ms enorme,
+	# misclassificado (erradamente) como long-press ("Gs4"/interagir).
+	var b = _make()
+	watch_signals(b)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	ev.position = Vector2.ZERO
+	b._gui_input(ev)
+	assert_signal_not_emitted(b, "note_triggered")

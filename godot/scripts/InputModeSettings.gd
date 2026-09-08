@@ -8,6 +8,7 @@ enum Mode { JOYSTICK, BLIND_TOUCH, PIANO, PITCH_SCROLL }
 var mode: int = Mode.JOYSTICK
 
 func set_mode(m: int) -> void:
+	m = clampi(m, Mode.JOYSTICK, Mode.PITCH_SCROLL)
 	if m == mode:
 		return
 	mode = m

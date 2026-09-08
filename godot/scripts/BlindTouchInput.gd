@@ -13,9 +13,15 @@ const DOUBLE_TAP_WINDOW_MS := 400  # espelha Character.DOUBLE_TAP_WINDOW_MS
 var _press_pos := Vector2.ZERO
 var _press_time_ms := 0
 var _had_drag := false
+var _pressing := false
 var _pending_tap_timer: SceneTreeTimer = null
 
 func _gui_input(event: InputEvent) -> void:
+	# NOTA: multi-touch (um 2º dedo tocando a tela ao mesmo tempo) não é
+	# tratado -- um segundo toque concorrente corrompe o rastreamento do gesto
+	# em andamento (_press_pos/_press_time_ms/_pressing são únicos, não por
+	# índice de toque). Limitação conhecida, deliberadamente adiada (ver seção
+	# "Diferido" da spec).
 	if event is InputEventMouseButton and event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if event is InputEventScreenTouch or event is InputEventMouseButton:
@@ -23,8 +29,15 @@ func _gui_input(event: InputEvent) -> void:
 			_press_pos = event.position
 			_press_time_ms = Time.get_ticks_msec()
 			_had_drag = false
+			_pressing = true
 			accept_event()
 		else:
+			if not _pressing:
+				# Solta sem um press correspondente aqui (ex: o press começou fora
+				# deste Control). _press_time_ms está obsoleto/default -- resolver o
+				# gesto agora classificaria (erradamente) como long-press.
+				return
+			_pressing = false
 			_resolve_gesture(event.position)
 			accept_event()
 	elif event is InputEventScreenDrag or event is InputEventMouseMotion:

@@ -53,18 +53,6 @@ offset_top = -260.0
 offset_right = -32.0
 offset_bottom = -60.0
 
-[node name="GameHUD" parent="UI" instance=ExtResource("91")]
-
-[node name="SpecialActionPanel" parent="UI" instance=ExtResource("92")]
-anchor_left = 0.0
-anchor_top = 1.0
-anchor_right = 0.0
-anchor_bottom = 1.0
-offset_left = 32.0
-offset_top = -260.0
-offset_right = 232.0
-offset_bottom = -60.0
-
 [node name="PianoInput" parent="UI" instance=ExtResource("93")]
 visible = false
 anchor_left = 0.0
@@ -91,3 +79,15 @@ offset_left = -80.0
 offset_top = -160.0
 offset_right = -16.0
 offset_bottom = 160.0
+
+[node name="GameHUD" parent="UI" instance=ExtResource("91")]
+
+[node name="SpecialActionPanel" parent="UI" instance=ExtResource("92")]
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -260.0
+offset_right = 232.0
+offset_bottom = -60.0

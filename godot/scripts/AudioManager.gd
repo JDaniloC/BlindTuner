@@ -13,7 +13,6 @@ const DECAY_SEC := 0.15
 const SUSTAIN_LEVEL := 0.4
 const RELEASE_SEC := 0.3
 const COLLISION_FREQ := 80.0
-const PITCH_MIX_RATE := 44100.0
 # AudioStreamGeneratorPlayback arredonda o buffer pra cima na proxima potencia
 # de 2 (nearest_shift(mix_rate * buffer_length)). Com 44100Hz, 0.04 (1764
 # frames) vira 2048 frames (~46ms) -- ainda folgado o bastante acima do
@@ -26,6 +25,11 @@ const NOTE_MISS_FREQ := 220.0
 # Precisa ser > ATTACK_SEC+DECAY_SEC (0.16s), senão o buffer termina no meio do
 # decay (nunca alcança release) e corta com um click audível em vez de esmaecer.
 const NOTE_MISS_DURATION_SEC := 0.2
+# Esmaece o volume antes de parar o tom contínuo, senão .stop() corta a onda
+# senoidal num ponto arbitrário do ciclo -- click audível em toda soltada do
+# slider no modo Scroll de Afinação. Curto o bastante pra não atrasar
+# perceptivelmente a resposta, longo o bastante pra evitar a descontinuidade.
+const PITCH_STOP_FADE_SEC := 0.012
 
 var _current_player: AudioStreamPlayer = null
 var _pitch_player: AudioStreamPlayer = null
@@ -55,7 +59,7 @@ func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
         _stop_current()
         _pitch_player = AudioStreamPlayer.new()
         var gen := AudioStreamGenerator.new()
-        gen.mix_rate = PITCH_MIX_RATE
+        gen.mix_rate = MIX_RATE
         gen.buffer_length = PITCH_BUFFER_LEN_SEC
         _pitch_player.stream = gen
         add_child(_pitch_player)
@@ -65,20 +69,31 @@ func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
     return _pitch_player
 
 ## Para o tom contínuo (ex: ao soltar o slider, trocar de modo de input, ou tocar
-## uma nota/SFX discreto -- ver _stop_current).
+## uma nota/SFX discreto -- ver _stop_current). As referências (_pitch_player/
+## _pitch_playback) somem já-já (síncrono, testável); o player em si esmaece o
+## volume por PITCH_STOP_FADE_SEC antes de parar de fato, pra não cortar a
+## onda senoidal no meio do ciclo (click audível).
 func stop_continuous_pitch() -> void:
     if _pitch_player and is_instance_valid(_pitch_player):
-        _pitch_player.stop()
-        _pitch_player.queue_free()
+        _fade_out_and_free(_pitch_player)
     _pitch_player = null
     _pitch_playback = null
+
+func _fade_out_and_free(player: AudioStreamPlayer) -> void:
+    var tw := create_tween()
+    tw.tween_property(player, "volume_db", -80.0, PITCH_STOP_FADE_SEC)
+    tw.tween_callback(func():
+        if is_instance_valid(player):
+            player.stop()
+            player.queue_free()
+    )
 
 func _process(_delta: float) -> void:
     if _pitch_playback != null:
         _fill_pitch_buffer()
 
 func _fill_pitch_buffer() -> void:
-    var phase_inc := _pitch_freq / PITCH_MIX_RATE
+    var phase_inc := _pitch_freq / MIX_RATE
     var frames := _pitch_playback.get_frames_available()
     for i in range(frames):
         var sample := sin(_pitch_phase * TAU) * 0.5

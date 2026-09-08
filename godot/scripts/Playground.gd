@@ -68,6 +68,10 @@ func _ready() -> void:
 	_conductor.sequence_complete.connect(_on_sequence_complete)
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
+	# Garante a invariante de _apply_input_mode() (só um grupo visível+clicável)
+	# desde o frame zero, em vez de depender "por coincidência" dos defaults do
+	# .tscn até a 1ª chamada de _begin_preset().
+	_apply_input_mode()
 
 func _on_start_requested(preset_id: String, cue_level: int, input_mode: int) -> void:
 	_begin_preset(preset_id, cue_level, input_mode)
@@ -113,6 +117,12 @@ func _apply_input_mode() -> void:
 	var pitch_scroll_active := InputModeSettings.mode == InputModeSettings.Mode.PITCH_SCROLL
 	_pitch_scroll_input.visible = pitch_scroll_active
 	_pitch_scroll_input.mouse_filter = _pitch_scroll_input_default_filter if pitch_scroll_active else Control.MOUSE_FILTER_IGNORE
+	if not pitch_scroll_active:
+		# Sair do modo Scroll de Afinação com o tom ainda soando (dedo levantado
+		# fora do slider, ou troca de modo via HUD a meio-arrasto) não deve deixar
+		# o tom contínuo tocando pra sempre. stop_continuous_pitch() já é no-op
+		# seguro se nada estiver tocando.
+		AudioManager.stop_continuous_pitch()
 
 func _on_preview_note(note_key: String, _index: int) -> void:
 	# PREVIEW: só ouvir, personagem não se move.

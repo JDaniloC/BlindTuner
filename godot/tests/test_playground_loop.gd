@@ -7,6 +7,13 @@ func _playground() -> Node:
 	add_child_autofree(p)
 	return p
 
+func after_each():
+	# Vários testes deste arquivo trocam InputModeSettings.mode e resetam pro
+	# JOYSTICK manualmente na última linha; se um assert anterior falhar, esse
+	# reset nunca roda e o modo vaza pro próximo teste (cascata de falhas
+	# confusas). Segue o mesmo padrão de test_piano_input.gd com CueSettings.
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
 func test_start_positions_character_at_preset_start():
 	var p = _playground()
 	p._begin_preset("curto", 0)
@@ -292,3 +299,77 @@ func test_pitch_scroll_input_note_triggered_routes_through_playground():
 	p._pitch_scroll_input.note_triggered.emit("Ds4")  # dir (1,0) a partir de (1,6)
 	assert_eq(p._character.grid_position, Vector2i(2, 6))
 	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
+func test_hud_is_hit_tested_before_alternate_input_mode_components():
+	# Regressão (revisão final, achado CRÍTICO): Controls irmãos sob um
+	# CanvasLayer são hit-testados em ordem REVERSA da lista de filhos -- o
+	# ÚLTIMO filho é testado PRIMEIRO e consome o clique se estiver visível e
+	# mouse_filter != IGNORE. PianoInput/BlindTouchInput/PitchScrollInput
+	# cobrem áreas grandes (BlindTouchInput cobre a tela inteira) com
+	# mouse_filter=STOP quando ativos; se qualquer um deles vier DEPOIS do
+	# GameHUD na árvore, ele intercepta todo clique destinado aos botões e
+	# dropdowns do HUD -- soft-lock total (sem como trocar de modo, reiniciar,
+	# ou trocar de preset). get_index() maior = mais tarde na lista de filhos
+	# = testado primeiro. GameHUD precisa ter índice MAIOR que os 3 componentes
+	# de modo alternativo pra ser testado (e poder consumir o clique) antes deles.
+	var p = _playground()
+	var hud_index: int = p._hud.get_index()
+	assert_gt(hud_index, p._piano_input.get_index(),
+		"GameHUD deve vir depois (índice maior) do PianoInput em UI, senão o Piano bloqueia o HUD")
+	assert_gt(hud_index, p._blind_touch_input.get_index(),
+		"GameHUD deve vir depois (índice maior) do BlindTouchInput em UI, senão ele bloqueia o HUD")
+	assert_gt(hud_index, p._pitch_scroll_input.get_index(),
+		"GameHUD deve vir depois (índice maior) do PitchScrollInput em UI, senão ele bloqueia o HUD")
+
+func test_apply_input_mode_switching_away_from_pitch_scroll_stops_tone():
+	# Regressão (achado #2A da revisão final): o tom contínuo do Scroll de
+	# Afinação só parava ao soltar o slider -- trocar de modo de input com o
+	# tom ainda soando (ex: dropdown do HUD, ou restart) deixava tocando pra
+	# sempre. _apply_input_mode() agora para o tom quando o modo deixa de ser
+	# PITCH_SCROLL.
+	var p = _playground()
+	InputModeSettings.set_mode(InputModeSettings.Mode.PITCH_SCROLL)
+	p._apply_input_mode()
+	AudioManager.play_continuous_pitch(440.0)
+	assert_not_null(AudioManager._pitch_player)
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+	p._apply_input_mode()
+	assert_null(AudioManager._pitch_player)
+
+func test_ready_applies_input_mode_invariant_without_begin_preset():
+	# Regressão (achado #6): antes, o mouse_filter dos 3 componentes de modo
+	# alternativo só ficava correto "por coincidência" dos defaults do .tscn
+	# até a 1ª chamada de _begin_preset(). _ready() agora chama
+	# _apply_input_mode() diretamente -- este teste NÃO chama _begin_preset()
+	# nem _apply_input_mode() manualmente, só instancia e verifica.
+	var p = _playground()
+	assert_eq(p._piano_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(p._blind_touch_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(p._pitch_scroll_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_ne(p._joystick.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+func test_apply_input_mode_mouse_filter_invariant_across_all_modes():
+	# Regressão (revisão final, achado IMPORTANTE #3): pra cada um dos 4 modos,
+	# o(s) nó(s) do grupo ATIVO precisam continuar clicáveis (mouse_filter !=
+	# IGNORE) e TODOS os outros grupos precisam estar mouse_filter == IGNORE.
+	# Essa é exatamente a invariante "só um grupo visível E interativo" que
+	# _apply_input_mode() promete -- e cuja quebra (achado #1) nenhum teste
+	# detectava antes desta.
+	var p = _playground()
+	var groups := {
+		InputModeSettings.Mode.JOYSTICK: [p._joystick, p._special_actions],
+		InputModeSettings.Mode.PIANO: [p._piano_input],
+		InputModeSettings.Mode.BLIND_TOUCH: [p._blind_touch_input],
+		InputModeSettings.Mode.PITCH_SCROLL: [p._pitch_scroll_input],
+	}
+	for active_mode in groups.keys():
+		InputModeSettings.set_mode(active_mode)
+		p._apply_input_mode()
+		for mode in groups.keys():
+			for node in groups[mode]:
+				if mode == active_mode:
+					assert_ne(node.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+						"%s deveria ser clicável no modo %d" % [node.name, active_mode])
+				else:
+					assert_eq(node.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+						"%s deveria estar mouse_filter=IGNORE fora do modo %d (ativo: %d)" % [node.name, mode, active_mode])
