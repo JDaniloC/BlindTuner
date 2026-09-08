@@ -5,10 +5,10 @@ extends Control
 
 signal note_triggered(note_key: String)
 
-const WHITE_KEY_WIDTH := 54.0
-const WHITE_KEY_HEIGHT := 160.0
-const BLACK_KEY_WIDTH := 34.0
-const BLACK_KEY_HEIGHT := 100.0
+const WHITE_KEY_WIDTH := 96.0
+const WHITE_KEY_HEIGHT := 280.0
+const BLACK_KEY_WIDTH := 60.0
+const BLACK_KEY_HEIGHT := 175.0
 const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
 const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}

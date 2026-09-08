@@ -115,8 +115,8 @@ func test_key_positions_match_real_keyboard_layout():
 	var idx_d4 = p._button_notes.find("D4")
 	var idx_cs4 = p._button_notes.find("Cs4")
 	assert_eq(p._buttons[idx_c4].position.x, 0.0)
-	assert_eq(p._buttons[idx_d4].position.x, 54.0)
-	assert_eq(p._buttons[idx_cs4].position.x, 37.0)
+	assert_eq(p._buttons[idx_d4].position.x, 96.0)
+	assert_eq(p._buttons[idx_cs4].position.x, 66.0)
 
 func test_black_keys_drawn_on_top_of_white_keys():
 	var p = _make()

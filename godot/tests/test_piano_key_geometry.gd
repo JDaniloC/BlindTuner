@@ -11,11 +11,13 @@ func test_black_keys_identified():
 		assert_true(PianoInputScript.is_black_key(i), "index %d deveria ser tecla preta" % i)
 
 func test_white_key_x_positions():
-	var expected = {0: 0.0, 2: 54.0, 4: 108.0, 5: 162.0, 7: 216.0, 9: 270.0, 11: 324.0}
+	# 7 brancas de 96px = 672px, cabe nos 720px de largura do retrato com folga
+	var expected = {0: 0.0, 2: 96.0, 4: 192.0, 5: 288.0, 7: 384.0, 9: 480.0, 11: 576.0}
 	for chromatic_index in expected:
 		assert_eq(PianoInputScript.key_x_position(chromatic_index), expected[chromatic_index])
 
 func test_black_key_x_positions():
-	var expected = {1: 37.0, 3: 91.0, 6: 199.0, 8: 253.0, 10: 307.0}
+	# (branca_à_esquerda + 1) * 96 - 60/2
+	var expected = {1: 66.0, 3: 162.0, 6: 354.0, 8: 450.0, 10: 546.0}
 	for chromatic_index in expected:
 		assert_eq(PianoInputScript.key_x_position(chromatic_index), expected[chromatic_index])
