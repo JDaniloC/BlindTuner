@@ -119,3 +119,25 @@ func test_action_notes_are_contiguous_at_top_of_chromatic():
 	for i in range(8, 12):
 		assert_true(NoteMapping.is_action_note(keys[i]),
 			"%s (índice %d) deveria ser ação (topo)" % [keys[i], i])
+
+func test_nearest_note_for_frequency_exact_match():
+	assert_eq(NoteMapping.nearest_note_for_frequency(440.0), "A4")
+
+func test_nearest_note_for_frequency_rounds_to_closer_note():
+	# C4=262, Cs4=277. 270 está mais perto de Cs4 (7 away) que C4 (8 away).
+	assert_eq(NoteMapping.nearest_note_for_frequency(270.0), "Cs4")
+
+func test_nearest_note_for_frequency_below_range_clamps_to_lowest():
+	assert_eq(NoteMapping.nearest_note_for_frequency(50.0), "C4")
+
+func test_nearest_note_for_frequency_above_range_clamps_to_highest():
+	assert_eq(NoteMapping.nearest_note_for_frequency(1000.0), "B4")
+
+func test_nearest_note_for_frequency_exact_midpoint_breaks_to_lower():
+	# C4=262, Cs4=277. Midpoint=269.5, equidistante (7.5 cada); ordem de inserção: C4 ganha.
+	assert_eq(NoteMapping.nearest_note_for_frequency(269.5), "C4")
+
+func test_nearest_note_for_frequency_covers_all_twelve():
+	for key in NoteMapping.NOTES:
+		var freq = float(NoteMapping.NOTES[key]["freq"])
+		assert_eq(NoteMapping.nearest_note_for_frequency(freq), key)

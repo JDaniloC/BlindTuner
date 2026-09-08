@@ -70,3 +70,16 @@ func is_action_note(note_key: String) -> bool:
 
 func action_id_for(note_key: String) -> String:
     return NOTES[note_key]["action_id"]
+
+## Retorna a chave da nota cuja frequência (Hz) é a mais próxima da informada.
+## Empates são desempatados pela ordem de inserção do dicionário (primeira nota ganha),
+## mesmo critério de desempate de snap_angle_to_note.
+func nearest_note_for_frequency(freq_hz: float) -> String:
+    var best_key := "C4"
+    var best_distance := INF
+    for key in NOTES:
+        var distance: float = absf(freq_hz - float(NOTES[key]["freq"]))
+        if distance < best_distance:
+            best_distance = distance
+            best_key = key
+    return best_key
