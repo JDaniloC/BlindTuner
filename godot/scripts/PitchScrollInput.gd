@@ -68,6 +68,12 @@ const GRADIENT_STRIPS := 64
 ## de fita deixam ~33px de madeira entre duas vizinhas: lê como marca e não como
 ## traste largo, e é grossa o bastante pro público de baixa visão. Não é alvo de
 ## toque -- quem recebe o dedo é o braço inteiro, em qualquer altura.
+##
+## Não cresce sem olhar BOARD_MARGIN.y: a fita é desenhada inteira e centrada na
+## nota, então as das pontas (Dó e Si) invadem a margem entre o trecho útil e o
+## fim do braço -- meia fita precisa caber nela, senão a marca vaza pra fora da
+## madeira. test_tapes_stay_on_the_drawn_neck_and_never_bleed_over_the_background
+## reprova quando não cabe.
 const TAPE_HEIGHT := 12.0
 ## Moldura clara em volta da fitinha, em pixels de cada lado.
 ##
@@ -75,9 +81,13 @@ const TAPE_HEIGHT := 12.0
 ## sustenta contra a madeira: medido nos três esquemas, 9 das 36 combinações
 ## fitinha x esquema ficam abaixo dos 3:1 do WCAG para elemento gráfico -- e as
 ## piores são as duas primeiras posições, que é o que um professor de violino
-## cola PRIMEIRO (Dó 1,59:1 e Dó# 2,74:1 no esquema de fábrica; Dó 1,48:1 e Dó#
+## cola PRIMEIRO (Dó 1,58:1 e Dó# 2,74:1 no esquema de fábrica; Dó 1,47:1 e Dó#
 ## 2,17:1 no Alto Contraste, que existe justamente para baixa visão). É o mesmo
 ## modo de falha que já mordeu o glifo do botão e o nome da placa.
+##
+## 2px de cada lado, e não 1: a 720x1280 uma linha de 1px não se acha com baixa
+## visão, e a asserção de contraste só conta faixa de 2px pra cima -- com moldura
+## de 1px as mesmas 9 combinações reprovam, mesmo a moldura estando em 14:1.
 ##
 ## Moldura, e não fita mais clara: mexer na COR quebraria o código de cores que o
 ## piano e o joystick usam para a MESMA nota, que é o sistema didático inteiro do
@@ -135,12 +145,13 @@ func _draw() -> void:
 	# z-index que existe aqui: elas entram DEPOIS do braço e ANTES das cordas e
 	# do dedo, que é onde a fita fica num instrumento de verdade.
 	#
-	# Duas passadas por fita: a moldura ocupa o retângulo inteiro e o miolo
-	# colorido entra por cima, recuado. É a moldura que garante que a fita é
-	# achável contra a madeira em qualquer esquema (ver TAPE_EDGE).
+	# O laço é CEGO ao significado das camadas -- ele pinta o que _tapes() listar,
+	# na ordem em que listar. É de propósito: enquanto _draw() sabia que a camada
+	# de baixo era "a moldura", dava pra apagar essa linha e a medição continuava
+	# vendo uma moldura que a tela não tinha mais.
 	for tape in _tapes():
-		draw_rect(tape["rect"], tape["edge"])
-		draw_rect(tape["core"], tape["color"])
+		for layer in tape["layers"]:
+			draw_rect(layer["rect"], layer["color"])
 
 	# 4 cordas -- a ativa mais grossa e mais clara, e desenhadas por cima das
 	# fitinhas. Vão de ponta a ponta do trecho que o dedo alcança: a corda que
@@ -225,18 +236,26 @@ func _y_for_frequency(freq: float) -> float:
 	var t := (1.0 - low / freq) / _neck_span_ratio()
 	return _neck_usable_top() + t * (_neck_usable_bottom() - _neck_usable_top())
 
-## As fitinhas a desenhar AGORA: uma por nota, com retângulo e cor. Devolve os
-## dados em vez de desenhar direto pra posição de cada fita ser verificável sem
-## passe de render -- e pra que o teste vigie o que o _draw() realmente usa, e
+## As fitinhas a desenhar AGORA: uma por nota. Devolve os dados em vez de
+## desenhar direto pra posição e a tinta de cada fita serem verificáveis sem
+## passe de render -- e pra que o teste vigie o que o _draw() realmente pinta, e
 ## não uma segunda régua paralela.
 ##
 ## Lista VAZIA com o interruptor de pistas desligado: aí sobra o braço liso.
 ##
-## Cada fita vem com o retângulo EXTERNO ("rect", que é a moldura), o retângulo
-## do miolo colorido ("core"), a cor da nota ("color"), a tinta da moldura
-## ("edge") e a madeira que está por baixo ("wood"). A madeira sai daqui e não da
-## conta refeita no teste pelo mesmo motivo da posição: o contraste tem que ser
-## medido contra o fundo que o _draw() REALMENTE pinta, senão a régua duplica.
+## Cada fita vem com a madeira que está por baixo ("wood") e as CAMADAS que ela
+## pinta ("layers"), na ordem de desenho -- cada camada cobre a anterior, como no
+## _draw(). Hoje são duas: a moldura clara ocupando o retângulo inteiro e o miolo
+## colorido por cima, recuado de TAPE_EDGE.
+##
+## A lista de camadas existe pra que "a fita é achável contra a madeira" seja
+## medível sobre a tinta que sobra VISÍVEL: com "moldura" e "miolo" como campos
+## separados, apagar o desenho da moldura deixava o campo intacto e o teste de
+## contraste seguia verde medindo uma moldura que ninguém mais via.
+##
+## A madeira sai daqui e não de uma conta refeita no teste pelo mesmo motivo da
+## posição: o contraste tem que ser medido contra o fundo que o _draw() REALMENTE
+## pinta, senão a régua duplica.
 func _tapes() -> Array[Dictionary]:
 	var tapes: Array[Dictionary] = []
 	if not ColorSchemeSettings.shows_control_cues():
@@ -247,30 +266,34 @@ func _tapes() -> Array[Dictionary]:
 	var x := BOARD_SIZE.x * 0.5 - NECK_WIDTH * 0.5
 	for key in NoteMapping.NOTES:
 		var cy := _y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
-		# APARAR, não recuar. As notas dos extremos moram exatamente nas bordas da
-		# faixa alcançável, então metade da fita mais grave e metade da mais aguda
-		# cairiam fora do braço útil. Aparado, o centro da fita continua verdadeiro
-		# (marca onde a nota realmente soa) e só se perde desenho; empurrar a fita
-		# pra dentro deixaria a marca mentindo sobre a posição da nota, que é a
-		# única coisa que ela existe pra dizer.
-		var y0 := maxf(cy - TAPE_HEIGHT * 0.5, _neck_usable_top())
-		var y1 := minf(cy + TAPE_HEIGHT * 0.5, _neck_usable_bottom())
-		var rect := Rect2(Vector2(x, y0), Vector2(NECK_WIDTH, y1 - y0))
-		# maxf porque as fitas dos extremos são aparadas: a de Dó fica com 6px de
-		# altura, e um recuo de 2px de cada lado não pode virar altura negativa se
-		# um dia a aparação apertar mais que isso.
-		var core := Rect2(
-			rect.position + Vector2(TAPE_EDGE, TAPE_EDGE),
-			Vector2(maxf(rect.size.x - TAPE_EDGE * 2.0, 0.0), maxf(rect.size.y - TAPE_EDGE * 2.0, 0.0)))
-		var wood := _wood_color_at(rect.get_center().y)
+		# Fita INTEIRA e centrada na nota, sempre -- inclusive nos extremos.
+		#
+		# Cabe porque a faixa em que a fita pode ser pintada é o braço DESENHADO
+		# (NECK_TOP..BOARD_SIZE.y) e não o trecho que o dedo percorre
+		# (_neck_usable_top..bottom): sobra BOARD_MARGIN.y = 10px de madeira além de
+		# cada ponta, e meia fita são 6px.
+		#
+		# Antes o retângulo era aparado contra o trecho útil. Como Dó e Si moram
+		# exatamente nas bordas dele, as duas fitas que um professor de violino cola
+		# PRIMEIRO ficavam com 6px de altura -- 2px de cor contra os 8px das outras
+		# dez -- e com o centro 3px fora da nota. A aparação existia pra proteger o
+		# centro e era justamente ela que movia o centro, porque metade do retângulo
+		# sumia de um lado só.
+		#
+		# Sem aparação nenhuma aqui, de propósito: um maxf/minf que a geometria de
+		# hoje nunca dispara é código que nenhum teste distingue. Quem cobra a
+		# premissa é test_tapes_stay_on_the_drawn_neck_and_never_bleed_over_the_background,
+		# que reprova se a fita passar do braço -- alto, em vez de aparar baixinho.
+		var rect := Rect2(Vector2(x, cy - TAPE_HEIGHT * 0.5), Vector2(NECK_WIDTH, TAPE_HEIGHT))
+		var wood := _wood_color_at(cy)
 		# Cor da nota no esquema ATIVO: assim as fitas herdam de graça os três
 		# esquemas fixos e o editor de paleta livre.
 		tapes.append({
-			"rect": rect,
-			"core": core,
-			"color": NoteMapping.color_for(key),
-			"edge": ColorDistance.icon_tint_for(wood),
 			"wood": wood,
+			"layers": [
+				{"rect": rect, "color": ColorDistance.icon_tint_for(wood)},
+				{"rect": rect.grow(-TAPE_EDGE), "color": NoteMapping.color_for(key)},
+			],
 		})
 	return tapes
 

@@ -17,7 +17,9 @@ theme_override_constants/margin_bottom = 8
 [node name="HBox" type="HBoxContainer" parent="Margin"]
 theme_override_constants/separation = 12
 
-[node name="ColorChip" type="ColorRect" parent="Margin/HBox"]
+[node name="ChipFrame" type="PanelContainer" parent="Margin/HBox"]
+
+[node name="ColorChip" type="ColorRect" parent="Margin/HBox/ChipFrame"]
 custom_minimum_size = Vector2(28, 28)
 color = Color(0.3, 0.3, 0.3, 1)
 

@@ -5,6 +5,9 @@ const PianoInputScript := preload("res://scripts/PianoInput.gd")
 # A regra de tint do ícone saiu do PianoInput e virou compartilhada; ColorDistance
 # é RefCounted, não autoload, então precisa de preload.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
+# O glifo é ICON_FRAC do menor lado do rect do ícone, não o rect inteiro -- a
+# geometria do anel de foco precisa da tinta, não da caixa.
+const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 
 func _make() -> Node:
 	var p = PianoScene.instantiate()
@@ -153,14 +156,129 @@ func test_pressed_stylebox_moves_away_from_the_ink_never_toward_it():
 				ColorDistance.contrast_ratio(normal_color, tinta),
 				"%s: apertar a tecla %s PIORA o contraste do glifo" % [esquema, p._button_notes[i]])
 
-func test_focus_stylebox_override_is_not_set():
-	# O indicador de foco (navegação por teclado/acessibilidade) some se a
-	# gente sobrescrever "focus" com uma stylebox sem borda -- não sobrescrever
-	# deixa o tema padrão do Godot desenhar o indicador. Ver I3.
+## Todo estado em que uma tecla pode ser desenhada: os dois lados do interruptor
+## de pistas, os 3 esquemas, armado/desarmado e os 2 fundos que o anel pode ter
+## embaixo. 12 teclas x 2 x 3 x 2 x 2.
+const ESTADOS_DE_TECLA := 12 * 2 * 3 * 2 * 2
+
+func test_focus_ring_is_visible_against_the_key_it_marks():
+	# O teste que morava aqui afirmava o CONTRÁRIO: que "focus" não podia ter
+	# override, "pra deixar o tema padrão do Godot desenhar o indicador". O tema
+	# padrão desenha mesmo -- uma borda #CCCCCC de 2px, feita pra skin escura, que
+	# dá 1,28:1 sobre a tecla branca autêntica e 1,37:1 sobre o Mi #FFF200 do
+	# Pedagógico. O indicador existia e era invisível, que é pior do que não
+	# existir: ninguém procura o que acha que já tem.
+	#
+	# E o foco não é transitório aqui: com emulate_mouse_from_touch (ligado por
+	# padrão) tocar uma tecla dá foco a ela e o foco FICA até outro controle
+	# tomá-lo. Para o público-alvo este é o "você está aqui" da tela.
+	#
+	# A barra é a de elemento gráfico do WCAG (1.4.11), lida de ColorDistance em
+	# vez de redigitada. Mede contra os DOIS fundos que podem ficar embaixo do
+	# anel: o Godot desenha `focus` POR CIMA da stylebox do estado, então numa
+	# tecla focada e apertada o anel cai sobre o fundo do pressed.
 	var p = _make()
-	var idx = p._button_notes.find("C4")
-	assert_false(p._buttons[idx].has_theme_stylebox_override("focus"),
-		"focus não deveria ter override -- deixa o tema padrão desenhar o indicador de foco")
+	var piores: Array[String] = []
+	var medidas := 0
+	for pistas in [true, false]:
+		ColorSchemeSettings.set_control_cues(pistas)
+		for esquema in ["classico", "pedagogico", "alto_contraste"]:
+			ColorSchemeSettings.set_scheme(esquema)
+			for armado in [false, true]:
+				p.on_armed_state_changed(armado, armado)
+				for i in range(p._buttons.size()):
+					var btn: Button = p._buttons[i]
+					var anel := btn.get_theme_stylebox("focus") as StyleBoxFlat
+					assert_not_null(anel, "tecla %s sem anel de foco próprio" % p._button_notes[i])
+					if anel == null:
+						continue
+					assert_false(anel.draw_center,
+						"tecla %s: o anel pinta o miolo e tapa glifo e nome" % p._button_notes[i])
+					assert_gte(anel.border_width_top, 2,
+						"tecla %s: borda de %dpx não é anel, é serrilhado" % [
+							p._button_notes[i], anel.border_width_top])
+					for estado in ["normal", "pressed"]:
+						var fundo: Color = btn.get_theme_stylebox(estado).bg_color
+						var razao := ColorDistance.contrast_ratio(anel.border_color, fundo)
+						medidas += 1
+						if razao < ColorDistance.GRAPHIC_MIN:
+							piores.append("%s/%s %s armado=%s %s: %.2f:1" % [
+								esquema, "pistas" if pistas else "autêntico",
+								p._button_notes[i], str(armado), estado, razao])
+	p.on_armed_state_changed(false, false)
+	assert_eq(piores.size(), 0, "anel de foco abaixo de %.1f:1 em: %s" % [
+		ColorDistance.GRAPHIC_MIN, ", ".join(piores)])
+	# Sem esta linha a varredura aprova de graça se algum laço deixar de iterar --
+	# uma lista de esquemas vazia, um _buttons vazio, um `continue` mal posto.
+	assert_eq(medidas, ESTADOS_DE_TECLA,
+		"a varredura mediu %d fundos, e a tecla tem %d estados de desenho" % [medidas, ESTADOS_DE_TECLA])
+
+func test_focus_ring_does_not_cover_the_glyph_or_the_name():
+	# O anel é a única coisa desenhada DEPOIS do glifo e do nome, e por cima
+	# deles. Duas coisas o mantêm fora do caminho: o miolo transparente e a
+	# espessura, que tem que caber na folga até a TINTA -- não até a caixa. O
+	# ActionIcon desenha ICON_FRAC do menor lado do próprio rect, então o glifo é
+	# bem menor que o Control dele; e o contorno do nome é desenhado FORA da caixa
+	# do texto, por isso entra na conta.
+	#
+	# Folga medida hoje: 16,5px na base da tecla preta (o menor caso das 12) e
+	# 19,1px na base da branca, contra um anel de 4px.
+	var p = _make()
+	await wait_frames(2)
+	for i in range(p._buttons.size()):
+		var btn: Button = p._buttons[i]
+		var nota: String = p._button_notes[i]
+		var anel := btn.get_theme_stylebox("focus") as StyleBoxFlat
+		assert_not_null(anel, "tecla %s sem anel de foco próprio" % nota)
+		if anel == null:
+			continue
+		assert_false(anel.draw_center, "tecla %s: miolo pintado tapa glifo e nome" % nota)
+		var banda := float(maxi(maxi(anel.border_width_left, anel.border_width_right),
+			maxi(anel.border_width_top, anel.border_width_bottom)))
+		var icone: Control = p._key_icons[i]
+		var lado: float = minf(icone.size.x, icone.size.y) * ActionIconScript.ICON_FRAC
+		var gx: float = icone.position.x + (icone.size.x - lado) * 0.5
+		var gy: float = icone.position.y + (icone.size.y - lado) * 0.5
+		var folga_glifo: float = minf(minf(gx, btn.size.x - (gx + lado)),
+			minf(gy, btn.size.y - (gy + lado)))
+		assert_gt(folga_glifo, banda,
+			"tecla %s: anel de %.0fpx sobre um glifo que começa a %.1fpx da borda" % [nota, banda, folga_glifo])
+		var fonte: Font = btn.get_theme_font("font")
+		var tam: Vector2 = fonte.get_string_size(btn.text, HORIZONTAL_ALIGNMENT_CENTER, -1,
+			btn.get_theme_font_size("font_size"))
+		var folga_nome: float = minf((btn.size.x - tam.x) * 0.5, (btn.size.y - tam.y) * 0.5) \
+			- float(btn.get_theme_constant("outline_size"))
+		assert_gt(folga_nome, banda,
+			"tecla %s: anel de %.0fpx sobre um nome que começa a %.1fpx da borda" % [nota, banda, folga_nome])
+
+func test_the_armed_key_never_leaves_the_gamut():
+	# A tela pinta qualquer canal acima de 1,0 como 1,0, mas icon_tint_for,
+	# text_outline_px_for, pressed_shade_for e contrast_ratio calculam sobre o
+	# número. Sem o clamp de armed_shade() o Si autêntico (o branco #EBE6D9)
+	# armado ia a (1,472 / 1,440 / 1,360): a régua lia o glifo a 39,22:1 e o olho
+	# via 17,42:1. Nenhuma decisão de tinta ou de halo virava -- mas todas eram
+	# tomadas sobre uma cor que a tela nunca chegou a pintar.
+	var p = _make()
+	var fora: Array[String] = []
+	var medidas := 0
+	for pistas in [true, false]:
+		ColorSchemeSettings.set_control_cues(pistas)
+		for esquema in ["classico", "pedagogico", "alto_contraste"]:
+			ColorSchemeSettings.set_scheme(esquema)
+			p.on_armed_state_changed(true, true)
+			for i in range(p._buttons.size()):
+				for estado in ["normal", "pressed", "disabled"]:
+					var c: Color = p._buttons[i].get_theme_stylebox(estado).bg_color
+					medidas += 1
+					if maxf(maxf(c.r, c.g), maxf(c.b, c.a)) > 1.0:
+						fora.append("%s/%s %s %s: (%.3f, %.3f, %.3f)" % [
+							esquema, "pistas" if pistas else "autêntico",
+							p._button_notes[i], estado, c.r, c.g, c.b])
+	p.on_armed_state_changed(false, false)
+	assert_eq(fora.size(), 0,
+		"a tela pinta 1,0 e a régua lê outra coisa em: %s" % ", ".join(fora))
+	assert_eq(medidas, 12 * 2 * 3 * 3,
+		"a varredura de gamut mediu %d styleboxes, e há %d" % [medidas, 12 * 2 * 3 * 3])
 
 func test_key_positions_match_real_keyboard_layout():
 	var p = _make()
@@ -267,11 +385,19 @@ func _pior_contraste_do_rotulo(btn: Button) -> float:
 			var sb := btn.get_theme_stylebox(estado)
 			if sb is StyleBoxFlat:
 				fundos.append((sb as StyleBoxFlat).bg_color * btn.self_modulate)
-	var pior := 99.0
+	# O acumulador começa em INF porque é o neutro do minf -- e não em 99.0, que era
+	# o que tinha antes e o que criava o defeito: com `fundos` vazia (nenhuma
+	# stylebox normal/pressed sendo StyleBoxFlat) ou BUTTON_FONT_COLORS vazia, o
+	# laço não roda, e o 99.0 saía INTACTO. A função aprovava justamente quando não
+	# tinha o que medir. Agora quem não mediu nada reprova alto: devolve 0,0, que é
+	# menor que qualquer razão de contraste possível (o mínimo real é 1,0).
+	var pior := INF
+	var medidas := 0
 	for nome in PianoInputScript.BUTTON_FONT_COLORS:
 		for fundo in fundos:
 			pior = minf(pior, ColorDistance.contrast_ratio(btn.get_theme_color(nome), fundo))
-	return pior
+			medidas += 1
+	return pior if medidas > 0 else 0.0
 
 func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
 	# Mesmo defeito que o SpecialActionPanel tinha: a cor mora no bg_color da
@@ -300,6 +426,22 @@ func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
 			assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.5,
 				"%s: o nome da tecla %s dá %.2f:1 contra o próprio contorno" % [
 					esquema, p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
+
+func test_the_label_ruler_fails_loud_when_it_has_nothing_to_measure():
+	# A régua acima é quem decide se o nome da tecla é legível, e ela escolhe o
+	# fundo por ramo: com halo mede contra o halo, sem halo mede contra a tecla.
+	# Se nenhum dos dois ramos produzir fundo -- basta "normal" e "pressed"
+	# deixarem de ser StyleBoxFlat -- o laço interno não roda. Até aqui ela
+	# devolvia o sentinela 99.0 nesse caso, ou seja, APROVAVA o rótulo sem ter
+	# medido nada. É a mesma família de defeito que a revisão achou nas fitas do
+	# braço, e o motivo de a régua reprovar alto agora.
+	var btn := Button.new()
+	add_child_autofree(btn)
+	btn.add_theme_constant_override("outline_size", 0)
+	btn.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	btn.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	assert_lt(_pior_contraste_do_rotulo(btn), ColorDistance.TEXT_MIN,
+		"sem fundo medível a régua tem que reprovar, não aprovar por vacuidade")
 
 func test_the_authentic_keyboard_has_no_names_and_keeps_the_glyphs_legible():
 	# Com o interruptor único, "teclado autêntico" e "sem nome" viraram o MESMO

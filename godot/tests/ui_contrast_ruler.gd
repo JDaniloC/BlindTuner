@@ -20,6 +20,19 @@ extends RefCounted
 ##    lido contra o contorno, não contra o fundo -- é assim que o rótulo do
 ##    joystick sobrevive a cair sobre o cenário. Sem isso a régua reprovaria a
 ##    única solução que já funciona no projeto.
+##
+## Texto e glifo não são tudo o que carrega informação. Duas classes inteiras
+## entraram depois, cada uma porque um defeito passou por baixo da régua:
+##
+## 4. SUPERFÍCIE DE COR (ColorRect/Polygon2D). O chip do NotePanel é o único
+##    portador de informação da tela na pista 2, e ficou em 1,06:1 contra o painel
+##    em 28 das 36 combinações nota x esquema sem que nada acusasse -- a régua não
+##    tinha ramo para quem informa pela cor da própria superfície, que é
+##    exatamente o que o WCAG 1.4.11 cobre.
+## 5. ANEL DE FOCO. button_fill() compõe o MIOLO da stylebox de foco, que é vazio
+##    numa caixa draw_center=false: a linha "focus" media o mesmo fundo da linha
+##    "normal" e o anel nunca era sujeito de medição nenhuma. Num aparelho de
+##    toque o foco fica onde o dedo passou, então é indicador de repouso.
 
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
@@ -28,6 +41,17 @@ const TEXT_MIN := 4.5
 const GLYPH_MIN := 3.0
 ## Contorno mais fino que isto não é halo, é serrilhado: não conta como fundo.
 const MIN_OUTLINE_PX := 2
+## Borda mais fina que isto não é anel de foco, é fio: não conta como indicador.
+## Mesmo piso que o tema já exige de Button/focus.
+const MIN_RING_PX := 2
+## Quanto um ancestral precisa transbordar da superfície para APARECER em volta
+## dela, e quanto pode transbordar para ainda ser MOLDURA dela em vez de painel.
+## As três molduras do jogo (swatch da tela de esquemas, preview do modal, chip do
+## NotePanel) usam 3px de cada lado: 2 é o mesmo piso do contorno de fonte (abaixo
+## disso é serrilhado, não borda) e 8 dá espaço para uma quarta moldura sem deixar
+## passar por moldura o que é PAINEL com a amostra solta dentro.
+const FRAME_MIN_PX := 2.0
+const FRAME_HUG_PX := 8.0
 
 ## Os 6 estados de desenho de um BaseButton, com o item de cor de fonte, o item
 ## de cor de ícone e a stylebox de fundo que o Godot usa em cada um.
@@ -61,7 +85,28 @@ const POPUP_DRAW_STATES := [
 ## o conhecimento no controle, que é quem realmente sabe o que pintou.
 const BACKDROP_HOOK := "contrast_backdrop_for"
 
-static var _image_cache := {}
+## Leituras de pixel de textura, uma entrada por TEXTURA -- não por RID.
+##
+## A chave era `tex.get_rid().get_id()` para o pixel central e o NEGATIVO do mesmo
+## id para as faixas do ícone, num dicionário só. Duas coisas quebram nisso:
+##
+## (1) chave numérica não segura referência nenhuma, então a entrada sobrevive à
+##     textura que mediu e passa a descrever um objeto que não existe mais;
+## (2) uma Texture2D sem RID próprio -- Resource.get_rid() devolve RID vazio, id 0
+##     -- faz 0 e -0 caírem na MESMA entrada, e icon_buckets() lê o Color que
+##     _texture_center() gravou.
+##
+## O (2) foi reproduzido aqui antes da correção: "Trying to return value of type
+## Color from a function whose return type is Array", erro que o GDScript engole
+## devolvendo array VAZIO -- e array vazio era justamente o "nada desenhado, nada a
+## cobrar" que aprovava a medição em silêncio. Já o id REPETIDO por reciclagem, que
+## seria o pior caso do (1), não foi reproduzido: no Godot 4.6 o id carrega um
+## contador que só cresce, então RID livre devolve o índice mas não o mesmo id.
+##
+## Chaveado pelo objeto: identidade em vez de número, as duas leituras em campos
+## separados da mesma entrada (não há mais dois espaços de chave para colidir), e a
+## chave mantém a textura viva enquanto a medição durar.
+static var _leituras := {}
 
 # --------------------------------------------------------------------------
 # Composição de cor
@@ -102,18 +147,49 @@ static func stylebox_fill(sb: StyleBox) -> Color:
 	# StyleBoxEmpty, StyleBoxLine: não pintam miolo.
 	return Color(0, 0, 0, 0)
 
-static func _texture_center(tex: Texture2D) -> Color:
-	var key := tex.get_rid().get_id()
-	if _image_cache.has(key):
-		return _image_cache[key]
-	var img := tex.get_image()
-	var c := Color(0, 0, 0, 0)
+## Pixel central e faixas de cor de uma textura: {"ok", "centro", "faixas"}.
+##
+## `ok` é false quando get_image() não devolveu imagem. Não é hipótese de
+## laboratório: godot/**/*.import é gitignored e nenhum CI roda esta suíte, então
+## clone frio é o caso real. Quem chama tem que ACUSAR isso -- medir contra um
+## transparente inventado faz o texto de botão cair para as cores do cenário e a
+## suíte fica verde com a superfície do botão nunca medida.
+static func _read(tex: Texture2D) -> Dictionary:
+	if tex == null:
+		return {"ok": false, "centro": Color(0, 0, 0, 0), "faixas": []}
+	if _leituras.has(tex):
+		return _leituras[tex]
+	var img: Image = tex.get_image()
+	var out := {"ok": img != null, "centro": Color(0, 0, 0, 0), "faixas": []}
 	if img != null:
 		if img.is_compressed():
 			img.decompress()
-		c = img.get_pixel(int(img.get_width() / 2), int(img.get_height() / 2))
-	_image_cache[key] = c
-	return c
+		out["centro"] = img.get_pixel(int(img.get_width() / 2), int(img.get_height() / 2))
+		out["faixas"] = _buckets_of(img)
+	_leituras[tex] = out
+	return out
+
+## O cache vale por teste, não pelo run: textura gerada em código (o trilho de
+## matiz do modal) é recriada com outro conteúdo, e servir a leitura da anterior
+## seria a mesma falha dependente de ordem que a chave por RID tinha.
+static func forget_reads() -> void:
+	_leituras.clear()
+
+static func texture_is_readable(tex: Texture2D) -> bool:
+	return _read(tex).ok
+
+## Descrição das texturas que a régua TENTOU ler e não conseguiu. Quem varre
+## acrescenta isto às reprovações: é pré-condição da medição, não detalhe.
+static func unreadable_textures() -> Array[String]:
+	var out: Array[String] = []
+	for tex in _leituras:
+		if not _leituras[tex].ok:
+			var t: Texture2D = tex
+			out.append(t.resource_path if t.resource_path != "" else str(t))
+	return out
+
+static func _texture_center(tex: Texture2D) -> Color:
+	return _read(tex).centro
 
 ## Fração da área opaca do ícone que precisa alcançar o piso de contraste.
 ##
@@ -127,34 +203,34 @@ const ICON_COVERAGE := 0.20
 
 ## [[cor, peso], ...] dos pixels opacos da textura, agrupados por cor.
 static func icon_buckets(tex: Texture2D) -> Array:
-	var key := -tex.get_rid().get_id()
-	if _image_cache.has(key):
-		return _image_cache[key]
-	var img := tex.get_image()
+	return _read(tex).faixas
+
+static func _buckets_of(img: Image) -> Array:
 	var contagem := {}
 	var total := 0
-	if img != null:
-		if img.is_compressed():
-			img.decompress()
-		for y in range(img.get_height()):
-			for x in range(img.get_width()):
-				var p := img.get_pixel(x, y)
-				if p.a < 0.5:
-					continue
-				var k := p.to_rgba32()
-				contagem[k] = contagem.get(k, 0) + 1
-				total += 1
+	for y in range(img.get_height()):
+		for x in range(img.get_width()):
+			var p := img.get_pixel(x, y)
+			if p.a < 0.5:
+				continue
+			var k := p.to_rgba32()
+			contagem[k] = contagem.get(k, 0) + 1
+			total += 1
 	var out: Array = []
 	if total > 0:
 		for k in contagem:
 			out.append([Color.hex(k), float(contagem[k]) / float(total)])
-	_image_cache[key] = out
 	return out
 
 ## Contraste que pelo menos ICON_COVERAGE da área do ícone alcança contra `bg`,
 ## já com o modulate do estado aplicado. INF quando não há pixel opaco nenhum
 ## (nada desenhado, nada a cobrar).
 static func icon_ratio(tex: Texture2D, modulate: Color, bg: Color) -> float:
+	# Textura ilegível não é "nada a cobrar", é medição que não aconteceu: devolve
+	# o PIOR valor possível para reprovar alto. Enquanto isto era INF, um ícone que
+	# falhasse ao carregar passava com nota máxima.
+	if not _read(tex).ok:
+		return 0.0
 	var buckets := icon_buckets(tex)
 	if buckets.is_empty():
 		return INF
@@ -237,6 +313,114 @@ static func owning_button(node: Node) -> BaseButton:
 			return walker
 		walker = walker.get_parent()
 	return null
+
+# --------------------------------------------------------------------------
+# Superfície de cor
+# --------------------------------------------------------------------------
+
+## O que `node` PINTA de si mesmo e o que fica atrás: {"fill", "bg"}.
+static func painted_fill(node: CanvasItem, base: Color, state: Dictionary) -> Dictionary:
+	var ch := chain_of(node, base, state)
+	return {"fill": _own_fill(node, state) * ch.tint, "bg": ch.bg}
+
+## O quanto `fora` transborda de `dentro`, pelo lado mais apertado dos quatro.
+## Negativo quando `fora` não circunda `dentro`.
+static func _folga(fora: Rect2, dentro: Rect2) -> float:
+	return minf(
+		minf(dentro.position.x - fora.position.x, dentro.position.y - fora.position.y),
+		minf(fora.end.x - dentro.end.x, fora.end.y - dentro.end.y))
+
+## Cores que APARECEM em volta de uma superfície de cor, dela para fora:
+## [{"cor", "folga", "quem"}, ...].
+##
+## Existe porque uma amostra de cor não é achável só por si mesma. O chip do
+## NotePanel em #0D4A74 fica a 1,87:1 da própria moldura escura, e isso não é
+## defeito: moldura escura colada em chip escuro é UM BLOCO escuro, e um bloco
+## escuro é exatamente o que se acha num painel claro. O que precisa existir é uma
+## borda visível em algum lugar entre a cor e o que a cerca -- medir só a
+## superfície contra o fundo imediato reprovaria a solução que o projeto já usa em
+## três telas.
+##
+## Dois cuidados, e os dois vêm de mutação que passava sem eles:
+##
+## - APARECER é ter área própria. Um ancestral do mesmo tamanho da amostra pinta
+##   atrás dela e não se vê; contá-lo como fundo mediria a amostra contra uma cor
+##   que o olho nunca encontra. Por isso a folga mínima -- e ela é a mesma do
+##   contorno de fonte: abaixo de 2px não é borda, é serrilhado.
+## - MOLDURA não é PAINEL. A borda de um painel largo é visível e não diz nada
+##   sobre onde a amostra começa. Quem decide isso é surface_edge, que para de
+##   subir depois do primeiro anel que transborda mais que FRAME_HUG_PX.
+static func visible_rings(node: CanvasItem, base: Color, state: Dictionary) -> Array:
+	var p := painted_fill(node, base, state)
+	var out: Array = [{"cor": over(p.fill, p.bg), "folga": 0.0, "quem": "superfície"}]
+	if not (node is Control):
+		return out
+	var dentro: Control = node as Control
+	var walker: Node = node.get_parent()
+	while walker is Control:
+		var c := walker as Control
+		var pf := painted_fill(c, base, state)
+		if pf.fill.a > 0.0:
+			var folga := _folga(c.get_global_rect(), dentro.get_global_rect())
+			if folga >= FRAME_MIN_PX:
+				out.append({"cor": over(pf.fill, pf.bg), "folga": folga, "quem": "moldura"})
+				dentro = c
+		walker = c.get_parent()
+	return out
+
+## Melhor borda visível entre dois anéis CONSECUTIVOS -- e qual delas.
+##
+## Só conta par cujas duas cores fecham opacas: contra fundo que a régua não
+## enxerga não há medição, e inventar uma é pior que não medir. `ratio` = -1.0
+## quando nenhum par é mensurável; quem varre trata isso como "não medido", não
+## como aprovado -- o que segura essa fronteira é o censo por tipo.
+static func surface_edge(rings: Array) -> Dictionary:
+	var melhor := -1.0
+	var quem := ""
+	var fill := Color(0, 0, 0, 0)
+	var bg := Color(0, 0, 0, 0)
+	for i in range(rings.size() - 1):
+		var dentro: Dictionary = rings[i]
+		var fora: Dictionary = rings[i + 1]
+		if dentro.cor.a < 0.999 or fora.cor.a < 0.999:
+			break
+		var r: float = ColorDistance.contrast_ratio(dentro.cor, fora.cor)
+		if r > melhor:
+			melhor = r
+			quem = "superfície" if i == 0 else "moldura"
+			fill = dentro.cor
+			bg = fora.cor
+		# Daqui pra fora quem cerca a amostra é PAINEL, não moldura dela: a borda
+		# de um painel largo é visível e não diz onde o quadrado começa.
+		if fora.folga > FRAME_HUG_PX:
+			break
+	return {"ratio": melhor, "quem": quem, "fill": fill, "bg": bg}
+
+# --------------------------------------------------------------------------
+# Anel de foco
+# --------------------------------------------------------------------------
+
+## Espessura e cor do anel de foco de um botão: {"px", "color", "tipo"}.
+##
+## button_fill() NÃO serve para isto: ela compõe o MIOLO da stylebox de foco, que é
+## vazio numa caixa draw_center=false. O anel é só borda, e borda não entra em
+## nenhuma composição de fundo -- por isso a linha "focus" da varredura media
+## exatamente o mesmo fundo da linha "normal" e o anel nunca era medido.
+##
+## px = a MENOR das quatro bordas: anel que só existe de um lado não circunda nada.
+static func focus_ring(btn: BaseButton, tint: Color) -> Dictionary:
+	if not btn.has_theme_stylebox("focus"):
+		return {"px": 0, "color": Color(0, 0, 0, 0), "tipo": "sem stylebox de foco"}
+	var sb := btn.get_theme_stylebox("focus")
+	if sb is StyleBoxFlat:
+		var f := sb as StyleBoxFlat
+		var px: int = mini(mini(f.border_width_left, f.border_width_top),
+			mini(f.border_width_right, f.border_width_bottom))
+		return {"px": px, "color": f.border_color * tint, "tipo": "borda"}
+	# StyleBoxTexture/Empty/Line: a régua não sabe dizer que cor tem a borda. Devolve
+	# espessura zero de propósito -- quem varre reprova, em vez de aprovar por não
+	# ter conseguido medir.
+	return {"px": 0, "color": Color(0, 0, 0, 0), "tipo": sb.get_class()}
 
 # --------------------------------------------------------------------------
 # Veredito

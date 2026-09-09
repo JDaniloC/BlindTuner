@@ -23,6 +23,11 @@ const CORNER_RADIUS := 8
 ## define o tamanho do símbolo (44 * 0.7 = ~31px).
 const ICON_MIN_HEIGHT := 44.0
 const ICON_TEXT_GAP := 8
+## Espessura do anel de foco. Mesma escala do piano (a placa tem 116px de lado; o
+## botão do HUD tem ~64 de altura e usa 3). O teto é a folga até o desenho: o
+## glifo começa a 26,6px do topo e o nome termina a 21px da base, então o anel só
+## encostaria em algum dos dois a partir de ~21px.
+const FOCUS_RING_PX := 4
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 # ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
@@ -109,9 +114,7 @@ func _apply_cue() -> void:
 		_labels[i].visible = show_cues
 		var base_color: Color = NoteMapping.color_for(note_key) if show_cues else NEUTRAL_BUTTON
 		if _armed[i]:
-			base_color = Color(base_color.r * ARMED_BRIGHTNESS,
-				base_color.g * ARMED_BRIGHTNESS,
-				base_color.b * ARMED_BRIGHTNESS, base_color.a)
+			base_color = armed_shade(base_color)
 		# A cor vai no fundo da placa, não no modulate: modulate se PROPAGA pros
 		# filhos, e o ícone é filho do botão -- tingir por modulate deixava o
 		# glifo exatamente da cor do fundo, ou seja, invisível. Mesma receita já
@@ -171,6 +174,49 @@ func _apply_cue() -> void:
 		# regra decide por placa, testando repouso e apertado.
 		_labels[i].add_theme_constant_override("outline_size", ColorDistance.text_outline_px_for(base_color))
 		_icons[i].set_tint(ink)
+		# Anel de foco DESENHADO AQUI, e não herdado. Este painel é irmão do
+		# GameHUD na CanvasLayer, logo não vê blindtuner_theme.tres, e sem override
+		# as 4 placas caíam no `focus` do tema padrão do Godot -- uma borda #CCCCCC
+		# de 2px, feita pra skin escura. É o mesmo defeito medido nas teclas do
+		# piano (1,28:1 sobre a tecla branca, 1,37:1 sobre o amarelo do Mi), contra
+		# um piso de 3:1. Nas 4 placas x 3 esquemas x armado/desarmado o anel fica
+		# em 3,87:1 no pior caso (o Lá# armado do Clássico) e 5,24:1 na placa
+		# neutra, que é o que o interruptor de pistas desligado mostra.
+		#
+		# E o foco não é transitório num aparelho de toque: com
+		# emulate_mouse_from_touch (ligado por padrão) tocar uma placa dá foco a ela
+		# e o foco FICA até outro controle tomá-lo. É o indicador de "você está
+		# aqui", em estado de repouso.
+		#
+		# A cor é a MESMA tinta do glifo e do nome, decidida contra a placa em que o
+		# anel cai -- inclusive na placa ARMADA, que é outra cor.
+		var anel := StyleBoxFlat.new()
+		# Miolo transparente: quem pinta o fundo continua sendo a stylebox do
+		# estado, e o anel só acrescenta a borda -- é o que garante que ele não
+		# tape o glifo nem o nome, que moram no centro da placa.
+		anel.draw_center = false
+		anel.set_border_width_all(FOCUS_RING_PX)
+		anel.border_color = ink
+		anel.set_corner_radius_all(CORNER_RADIUS)
+		_buttons[i].add_theme_stylebox_override("focus", anel)
+
+## Cor da placa com a ação ARMADA -- clareada, mas dentro do gamut.
+##
+## O clamp não é zelo. Sem ele o azul #3949AB do Clássico armado virava
+## (0,358 / 0,458 / 1,073): a tela pinta o azul em 1,0 e icon_tint_for /
+## text_outline_px_for / pressed_shade_for / contrast_ratio calculavam sobre
+## 1,073 -- a única superfície do jogo onde a régua e o pixel liam cores
+## DIFERENTES. Medido nesse caso: o nome dá 3,70:1 na conta antiga e 3,87:1 no que
+## o olho vê. Nas 6 combinações embarcadas (3 esquemas x correr e pular) a cor
+## armada estourava o gamut e NENHUMA decisão de tinta ou de halo vira com o
+## clamp -- todas elas é que estavam sendo tomadas sobre uma cor não pintada.
+##
+## Espelha PianoInput.armed_shade(): as duas superfícies armam as mesmas duas
+## notas (correr/pular) e têm que clarear igual.
+static func armed_shade(base: Color) -> Color:
+	return Color(minf(base.r * ARMED_BRIGHTNESS, 1.0),
+		minf(base.g * ARMED_BRIGHTNESS, 1.0),
+		minf(base.b * ARMED_BRIGHTNESS, 1.0), base.a)
 
 ## Conectado pelo Playground ao sinal armed_state_changed do Character.
 ## Atualiza brilho dos botões correspondentes a correr (índice 2) e pular (índice 3).

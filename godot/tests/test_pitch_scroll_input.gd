@@ -180,11 +180,67 @@ func test_still_has_no_fret_markers():
 	assert_false(src.to_lower().contains("fret_dot"), "não pode ter marcador de traste")
 	assert_false(src.to_lower().contains("marker_positions"), "não pode ter marcação de posição")
 
+## Espessura mínima, em px, pra uma faixa de tinta CONTAR como achável no braço.
+## Uma linha de 1px a 720x1280 não se acha com baixa visão -- é o mesmo motivo
+## pelo qual o contorno do marcador de dedo tem 2px e não 1.
+const MIN_INK_PX := 2.0
+
 ## A fitinha de uma nota. _tapes() devolve na ordem cromática de NoteMapping.
 func _tape_for(p, note_key: String) -> Dictionary:
 	var tapes: Array = p._tapes()
 	var idx: int = NoteMapping.NOTES.keys().find(note_key)
 	return tapes[idx]
+
+## Retângulo que a fita ocupa na tela: a UNIÃO do que as camadas pintam, e não a
+## primeira delas -- assim a medida continua sendo a fita inteira mesmo se um dia
+## uma camada passar da outra.
+func _tape_rect(t: Dictionary) -> Rect2:
+	var r: Rect2 = t["layers"][0]["rect"]
+	for l in t["layers"]:
+		r = r.merge(l["rect"])
+	return r
+
+## As faixas de tinta que a fita deixa VISÍVEL, de cima pra baixo, como
+## [{"color", "thickness"}] em px. Cada camada cobre a anterior, então o que
+## chega ao olho numa linha de pixel é a cor da ÚLTIMA camada que a contém; onde
+## nenhuma contém, o que se vê é a madeira.
+##
+## Amostra linha a linha, no centro do pixel, em vez de subtrair alturas de
+## retângulo: a subtração daria a espessura certa por acidente enquanto as
+## camadas forem duas e concêntricas, e mentiria em qualquer outro arranjo.
+##
+## É esta função, e não a lista de camadas crua, que o teste de contraste mede:
+## camada que não sobra visível não ajuda o jogador a achar a fita.
+func _visible_bands(t: Dictionary) -> Array:
+	var caixa := _tape_rect(t)
+	var bands: Array = []
+	var y := floorf(caixa.position.y) + 0.5
+	if y < caixa.position.y:
+		y += 1.0
+	while y < caixa.end.y:
+		var visivel: Color = t["wood"]
+		for l in t["layers"]:
+			var r: Rect2 = l["rect"]
+			if y >= r.position.y and y < r.end.y:
+				visivel = l["color"]
+		var ultima: int = bands.size() - 1
+		if ultima >= 0 and bands[ultima]["color"] == visivel:
+			bands[ultima]["thickness"] += 1.0
+		else:
+			bands.append({"color": visivel, "thickness": 1.0})
+		y += 1.0
+	return bands
+
+## A cor que DOMINA a fita: a faixa visível mais grossa. É ela que o jogador
+## associa à nota; a moldura é contorno, não é a marca.
+func _tape_main_color(t: Dictionary) -> Color:
+	var maior := 0.0
+	var cor: Color = t["wood"]
+	for b in _visible_bands(t):
+		if b["thickness"] > maior:
+			maior = b["thickness"]
+			cor = b["color"]
+	return cor
 
 func test_one_tape_per_note_marks_where_the_note_sounds():
 	# A fita só serve se marcar o lugar onde a nota REALMENTE soa: tem que sair da
@@ -192,44 +248,83 @@ func test_one_tape_per_note_marks_where_the_note_sounds():
 	var p = _make()
 	assert_eq(p._tapes().size(), 12, "uma fitinha por nota")
 	for key in NoteMapping.NOTES:
-		var r: Rect2 = _tape_for(p, key)["rect"]
+		var r := _tape_rect(_tape_for(p, key))
 		var y: float = p._y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
 		assert_between(y, r.position.y, r.end.y, "a fita de %s tem que conter o y da nota" % key)
 
-func test_tape_center_is_the_note_position():
+func test_every_tape_is_a_full_tape_centred_on_its_note():
+	# As 12 iguais, e o centro de cada uma EM CIMA da frequência da nota.
+	#
+	# Antes o retângulo era aparado contra o trecho útil do braço, e Dó e Si moram
+	# exatamente nas bordas dele: as duas fitas ficavam com 6px de altura em vez de
+	# 12 e com o centro 3px fora da nota (medido). Justo as duas pontas, que são as
+	# posições que o jogador usa como referência pra achar o resto do braço.
+	#
+	# É esta asserção que segura a decisão nova: a fita cabe inteira porque é
+	# desenhada contra o braço DESENHADO, que sobra BOARD_MARGIN.y além de cada
+	# ponta do trecho útil. Se essa margem encolher abaixo de meia fita, a fita
+	# passa a vazar do braço -- e quem reprova é
+	# test_tapes_stay_on_the_drawn_neck_and_never_bleed_over_the_background.
 	var p = _make()
-	for key in ["Cs4", "E4", "G4", "As4"]:
-		var r: Rect2 = _tape_for(p, key)["rect"]
-		var y: float = p._y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
-		assert_almost_eq(r.size.y, p.TAPE_HEIGHT, 0.001, key)
-		assert_almost_eq(r.get_center().y, y, 0.001, key)
+	var tapes: Array = p._tapes()
+	assert_eq(tapes.size(), 12, "uma fitinha por nota")
+	var keys: Array = NoteMapping.NOTES.keys()
+	for i in range(tapes.size()):
+		var r := _tape_rect(tapes[i])
+		var y: float = p._y_for_frequency(float(NoteMapping.NOTES[keys[i]]["freq"]))
+		assert_almost_eq(r.size.y, p.TAPE_HEIGHT, 0.001,
+			"a fita de %s tem %.1fpx de altura" % [keys[i], r.size.y])
+		assert_almost_eq(r.get_center().y, y, 0.001,
+			"o centro da fita de %s está %.2fpx fora da nota" % [keys[i], r.get_center().y - y])
 
-func test_extreme_tapes_are_trimmed_instead_of_pushed_inwards():
-	# Dó e Si caem EXATAMENTE nas bordas da faixa alcançável, então metade de cada
-	# fita extrema cairia fora do braço útil. Aparar o retângulo mantém o centro
-	# verdadeiro e perde só desenho; recuar a fita pra dentro a faria mentir sobre
-	# onde a nota está, que é pior.
+func test_every_tape_shows_the_same_thickness_of_note_colour():
+	# O que o jogador precisa enxergar na fita é a COR DA NOTA -- é ela que o
+	# piano, o joystick e o braço compartilham, e é o sistema didático inteiro do
+	# jogo. Antes da correção, Dó e Si mostravam 2px de cor contra os 8px das
+	# outras dez: a associação cor<->nota praticamente sumia nas duas posições
+	# mais importantes.
+	#
+	# Duas asserções, e as duas precisam existir: "todas iguais" sozinha passaria
+	# com uma moldura que engolisse a cor nas 12; "mais da metade da fita" sozinha
+	# passaria com fitas desiguais. A moldura existe pra ACHAR a marca, não pra
+	# substituí-la.
 	var p = _make()
-	var grave: Rect2 = _tape_for(p, "C4")["rect"]
-	var agudo: Rect2 = _tape_for(p, "B4")["rect"]
-	assert_almost_eq(grave.position.y, p._neck_usable_top(), 0.001,
-		"a fita mais grave não pode passar do topo do braço útil")
-	assert_almost_eq(grave.end.y, p._y_for_frequency(p._lowest_frequency()) + p.TAPE_HEIGHT * 0.5, 0.001,
-		"só a metade de cima é aparada -- a de baixo fica onde estava")
-	assert_almost_eq(agudo.end.y, p._neck_usable_bottom(), 0.001,
-		"a fita mais aguda não pode passar da base do braço útil")
-	assert_almost_eq(agudo.position.y, p._y_for_frequency(p._highest_frequency()) - p.TAPE_HEIGHT * 0.5, 0.001,
-		"só a metade de baixo é aparada")
+	var tapes: Array = p._tapes()
+	assert_eq(tapes.size(), 12, "uma fitinha por nota")
+	var keys: Array = NoteMapping.NOTES.keys()
+	var espessuras: Array = []
+	for i in range(tapes.size()):
+		var cor := NoteMapping.color_for(keys[i])
+		var visivel := 0.0
+		for b in _visible_bands(tapes[i]):
+			if b["color"] == cor:
+				visivel += b["thickness"]
+		assert_gt(visivel, p.TAPE_HEIGHT * 0.5,
+			"a fita de %s mostra só %.0fpx de cor da nota numa fita de %.0fpx" % [keys[i], visivel, p.TAPE_HEIGHT])
+		espessuras.append(visivel)
+	assert_eq(espessuras.min(), espessuras.max(),
+		"as 12 fitas têm que mostrar a mesma espessura de cor (medido: %s)" % [espessuras])
 
-func test_tapes_span_the_neck_and_never_bleed_over_the_background():
-	# O nó não tem clip_contents: usar a largura do board (150px) em vez da do
-	# braço (84px) pintaria 33px de cor de cada lado, sobre fundo transparente.
+func test_tapes_stay_on_the_drawn_neck_and_never_bleed_over_the_background():
+	# O nó não tem clip_contents, então tudo que a fita pintar fora do braço cai
+	# sobre fundo transparente ou sobre o cravelhal. Em x: usar a largura do board
+	# (150px) em vez da do braço (84px) pintaria 33px de cor de cada lado. Em y: a
+	# fita passou a poder invadir a margem entre o trecho útil e a ponta do braço
+	# (é o que dá lugar às fitas inteiras de Dó e Si), e a margem tem que continuar
+	# dando conta -- fita meio na madeira, meio no vazio é pior que fita aparada.
 	var p = _make()
 	var esquerda: float = p.BOARD_SIZE.x * 0.5 - p.NECK_WIDTH * 0.5
-	for t in p._tapes():
-		var r: Rect2 = t["rect"]
+	var keys: Array = NoteMapping.NOTES.keys()
+	var tapes: Array = p._tapes()
+	assert_eq(tapes.size(), 12, "uma fitinha por nota")
+	for i in range(tapes.size()):
+		var r := _tape_rect(tapes[i])
 		assert_almost_eq(r.position.x, esquerda, 0.001, "a fita começa na borda esquerda do braço")
 		assert_almost_eq(r.size.x, p.NECK_WIDTH, 0.001, "a fita tem a largura do braço, não a do board")
+		assert_gte(r.position.y, p.NECK_TOP,
+			"a fita de %s começa %.1fpx acima do braço desenhado" % [keys[i], p.NECK_TOP - r.position.y])
+		assert_lte(r.end.y, p.BOARD_SIZE.y,
+			"a fita de %s termina %.1fpx abaixo do braço desenhado" % [keys[i], r.end.y - p.BOARD_SIZE.y])
 
 func test_tapes_vanish_when_control_cues_are_off():
 	# É a opcionalidade que reconcilia a fita com o braço fretless: desligado o
@@ -256,9 +351,9 @@ func test_tape_color_follows_the_active_scheme():
 	var p = _make()
 	assert_true(ColorSchemeSettings.scheme_changed.is_connected(p._on_scheme_changed),
 		"o braço tem que escutar a troca de esquema")
-	var antes: Color = _tape_for(p, "C4")["color"]
+	var antes := _tape_main_color(_tape_for(p, "C4"))
 	ColorSchemeSettings.set_scheme("alto_contraste")
-	var depois: Color = _tape_for(p, "C4")["color"]
+	var depois := _tape_main_color(_tape_for(p, "C4"))
 	assert_eq(depois, NoteMapping.color_for("C4"), "a fita usa a cor da nota no esquema ativo")
 	assert_ne(depois, antes, "trocar de esquema tem que repintar as fitas")
 
@@ -279,55 +374,83 @@ func test_every_tape_stands_out_from_the_wood_in_every_scheme():
 	# do botão e o nome da placa): elemento colorido do esquema pintado direto
 	# sobre fundo escuro, sem ninguém medir o contraste.
 	#
-	# Medido ANTES da moldura, com a fita chapada na cor da nota: 9 das 36
-	# combinações fitinha x esquema abaixo dos 3:1 do WCAG pra elemento gráfico --
-	# Dó 1,59:1 e Dó# 2,74:1 no esquema de FÁBRICA (as duas primeiras posições, as
-	# que um professor de violino cola primeiro), Dó 1,48:1 / Dó# 2,17:1 / Ré
-	# 2,26:1 no Alto Contraste (que existe justamente pra baixa visão), e Dó#
-	# 1,81:1 / Fá 1,91:1 / Lá# 2,20:1 / Sol 2,49:1 no Clássico. E as piores caem no
-	# TOPO do braço, onde a madeira é mais clara.
+	# Medido com a fita chapada na cor da nota, sem moldura: 9 das 36 combinações
+	# fitinha x esquema abaixo dos 3:1 do WCAG pra elemento gráfico -- Dó 1,58:1 e
+	# Dó# 2,74:1 no esquema de FÁBRICA (as duas primeiras posições, as que um
+	# professor de violino cola primeiro), Dó 1,47:1 / Dó# 2,17:1 / Ré 2,26:1 no
+	# Alto Contraste (que existe justamente pra baixa visão), e Dó# 1,81:1 / Fá
+	# 1,91:1 / Sol 2,48:1 / Lá# 2,20:1 no Clássico. E as piores caem no TOPO do
+	# braço, onde a madeira é mais clara.
 	#
-	# A asserção é sobre a fita inteira (moldura OU miolo), não só sobre a
-	# moldura: é assim que ela continua reprovando se alguém tirar a moldura, e é
-	# a pergunta que importa -- "dá pra achar esta fita no braço?".
+	# A pergunta é "dá pra ACHAR esta fita no braço?", então a asserção é sobre a
+	# tinta que sobra VISÍVEL depois de uma camada cobrir a outra, e exige que ela
+	# venha numa faixa contígua grossa o bastante pra ser vista.
+	#
+	# A versão anterior media o campo "edge" do dicionário, que é
+	# icon_tint_for(madeira) -- derivado da madeira, contrastante com a madeira por
+	# construção, portanto aprovado antes de rodar. Passava até com a moldura
+	# apagada do _draw(). Mutações conferidas nesta rodada, as três reprovando as
+	# mesmas 9 combinações: tirar a camada da moldura, zerar TAPE_EDGE, e baixar
+	# TAPE_EDGE pra 1 (moldura em 14:1, mas fina demais pra contar).
 	var p = _make()
 	var keys: Array = NoteMapping.NOTES.keys()
+	assert_eq(ColorSchemes.SCHEME_IDS.size(), 3, "a varredura precisa dos três esquemas embarcados")
 	for esquema in ColorSchemes.SCHEME_IDS:
 		ColorSchemeSettings.set_scheme(esquema)
 		var tapes: Array = p._tapes()
 		assert_eq(tapes.size(), 12, esquema)
 		for i in range(tapes.size()):
 			var madeira: Color = tapes[i]["wood"]
-			var miolo: float = ColorDistance.contrast_ratio(tapes[i]["color"], madeira)
-			var moldura: float = ColorDistance.contrast_ratio(tapes[i]["edge"], madeira)
-			assert_gte(maxf(miolo, moldura), 3.0,
-				"a fita de %s no esquema %s dá %.2f:1 contra a madeira (miolo %.2f:1)"
-					% [keys[i], esquema, maxf(miolo, moldura), miolo])
+			var achavel := false
+			var laudo: Array = []
+			for b in _visible_bands(tapes[i]):
+				var razao := ColorDistance.contrast_ratio(b["color"], madeira)
+				laudo.append("%.0fpx a %.2f:1" % [b["thickness"], razao])
+				if b["thickness"] >= MIN_INK_PX and razao >= ColorDistance.GRAPHIC_MIN:
+					achavel = true
+			assert_true(achavel,
+				"a fita de %s no esquema %s não tem nenhuma faixa visível de %.0fpx ou mais acima de %.1f:1 contra a madeira -- faixas: %s"
+					% [keys[i], esquema, MIN_INK_PX, ColorDistance.GRAPHIC_MIN, ", ".join(laudo)])
 
 func test_the_tape_edge_ink_is_picked_by_the_wood_under_it():
 	# Mesma regra do glifo do piano e do nome da placa, e pela mesma razão: a
 	# tinta sai da LUMINÂNCIA do fundo, não de uma constante escrita à mão. Se a
 	# madeira do braço clarear um dia, a moldura vira escura sozinha em vez de
 	# reabrir o buraco em silêncio.
-	var p = _make()
-	for t in p._tapes():
-		assert_eq(t["edge"], ColorDistance.icon_tint_for(t["wood"]),
-			"a moldura tem que sair da regra compartilhada de tinta")
-
-func test_the_tape_core_keeps_the_note_colour_centred_inside_the_edge():
-	# A moldura não pode mover nem estreitar a marca: o miolo colorido continua
-	# centrado no mesmo y, e o retângulo externo (que é o que os outros testes
-	# medem) continua sendo a fita inteira.
+	#
+	# Olha a primeira faixa VISÍVEL da fita (a borda de cima), não um campo do
+	# dicionário: tinta que não sobra na tela não protege ninguém.
 	var p = _make()
 	var keys: Array = NoteMapping.NOTES.keys()
 	var tapes: Array = p._tapes()
+	assert_eq(tapes.size(), 12, "uma fitinha por nota")
 	for i in range(tapes.size()):
-		var fora: Rect2 = tapes[i]["rect"]
-		var miolo: Rect2 = tapes[i]["core"]
-		assert_true(fora.encloses(miolo), "o miolo de %s tem que caber na moldura" % keys[i])
-		assert_almost_eq(miolo.get_center().y, fora.get_center().y, 0.001, keys[i])
-		assert_gt(miolo.size.y, 0.0, "o miolo de %s não pode sumir" % keys[i])
-		assert_almost_eq(miolo.size.x, p.NECK_WIDTH - p.TAPE_EDGE * 2.0, 0.001, keys[i])
+		var faixas: Array = _visible_bands(tapes[i])
+		assert_gte(faixas.size(), 2, "a fita de %s tem que ter moldura e miolo" % keys[i])
+		if faixas.size() < 2:
+			continue
+		assert_eq(faixas[0]["color"], ColorDistance.icon_tint_for(tapes[i]["wood"]),
+			"a moldura de %s tem que sair da regra compartilhada de tinta" % keys[i])
+
+func test_the_note_colour_sits_centred_inside_the_frame():
+	# A moldura não pode mover nem estreitar a marca: mesma espessura de tinta
+	# acima e abaixo, e a cor da nota no meio. Medido sobre o que fica visível,
+	# então some junto com a moldura se alguém tirar a camada.
+	var p = _make()
+	var keys: Array = NoteMapping.NOTES.keys()
+	var tapes: Array = p._tapes()
+	assert_eq(tapes.size(), 12, "uma fitinha por nota")
+	for i in range(tapes.size()):
+		var faixas: Array = _visible_bands(tapes[i])
+		assert_eq(faixas.size(), 3, "a fita de %s tem que ler como moldura/cor/moldura" % keys[i])
+		if faixas.size() != 3:
+			continue
+		assert_eq(faixas[0]["color"], faixas[2]["color"], "as duas bordas de %s têm que ser da mesma tinta" % keys[i])
+		assert_eq(faixas[0]["thickness"], faixas[2]["thickness"],
+			"moldura desigual em %s (%.0fpx em cima, %.0fpx embaixo) desloca a marca"
+				% [keys[i], faixas[0]["thickness"], faixas[2]["thickness"]])
+		assert_eq(faixas[1]["color"], NoteMapping.color_for(keys[i]),
+			"o miolo de %s tem que ser a cor da nota" % keys[i])
 
 func test_the_cue_level_does_not_touch_the_tapes():
 	# A mesma consequência deliberada do piano e do joystick: no nível "só som",

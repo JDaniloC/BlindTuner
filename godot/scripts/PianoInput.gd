@@ -23,6 +23,12 @@ const BUTTON_FONT_COLORS := ["font_color", "font_hover_color", "font_pressed_col
 	"font_hover_pressed_color", "font_focus_color", "font_disabled_color"]
 const ICON_MAX_SIDE := 48.0
 const ICON_BOTTOM_MARGIN := 12.0
+## Espessura do anel de foco. O tema usa 3 nos botões do HUD; aqui vai 4 porque a
+## tecla é muito maior (96x280 contra ~64 de altura no HUD) e um traço de 3px lê
+## como serrilhado nessa escala. O teto é a folga até o glifo: o desenho do ícone
+## começa a 16,5px da base numa tecla preta (o menor caso das 12), então o anel
+## só encostaria nele passando de 16px.
+const FOCUS_RING_PX := 4
 ## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
 const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
@@ -130,7 +136,7 @@ func _apply_cue() -> void:
 			# modulate deixaria o ícone da cor exata do fundo (invisível).
 			sb.bg_color = NoteMapping.color_for(note_key)
 			if is_armed:
-				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
+				sb.bg_color = armed_shade(sb.bg_color)
 			_buttons[i].self_modulate = Color.WHITE
 		else:
 			# Pistas desligadas: teclado autêntico, branco e preto pela posição
@@ -138,7 +144,7 @@ func _apply_cue() -> void:
 			# não teriam cor especial. O que as distingue é o ícone.
 			sb.bg_color = _key_base_color(i, note_key)
 			if is_armed:
-				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
+				sb.bg_color = armed_shade(sb.bg_color)
 			_buttons[i].self_modulate = Color.WHITE
 		# Contraste do ícone: branco fixo sumia na tecla branca (~1.25:1) e
 		# nas cores claras da paleta de notas -- todas abaixo do mínimo de
@@ -190,9 +196,52 @@ func _apply_cue() -> void:
 		# que fosse desabilitada cairia na caixa cinza escura do tema padrão do
 		# Godot com a tinta calculada pra cor da NOTA -- 1,00:1.
 		_buttons[i].add_theme_stylebox_override("disabled", sb)
-		# "focus" não é sobrescrito de propósito: deixa o tema padrão do Godot
-		# desenhar o indicador de foco (navegação por teclado/acessibilidade).
-		# Sobrescrever com uma stylebox sem borda estava removendo esse indicador.
+		# Anel de foco DESENHADO AQUI, e não herdado. Estas 12 teclas são irmãs do
+		# GameHUD na CanvasLayer, logo não veem blindtuner_theme.tres, e sem override
+		# caíam no `focus` do tema padrão do Godot -- uma borda #CCCCCC de 2px,
+		# feita pra skin escura. Medido: 1,28:1 sobre a tecla branca autêntica
+		# (#EBE6D9) e 1,37:1 sobre o Mi #FFF200 do Pedagógico, contra um piso de
+		# 3:1 de elemento gráfico. Nas 12 teclas x 3 esquemas o anel novo fica em
+		# 3,87:1 no pior caso (o Lá# armado do Clássico).
+		#
+		# A versão anterior deste comentário dizia que NÃO sobrescrever era a
+		# escolha certa ("deixa o padrão desenhar o indicador"). Era o defeito: o
+		# padrão desenha, só que numa cor que ninguém enxerga sobre estas teclas.
+		#
+		# E o foco não é transitório num aparelho de toque: com
+		# emulate_mouse_from_touch (ligado por padrão) tocar uma tecla dá foco a ela
+		# e o foco FICA até outro controle tomá-lo. É o indicador de "você está
+		# aqui", em estado de repouso.
+		#
+		# A cor sai da MESMA decisão que tinge o glifo, tomada contra a tecla em que
+		# o anel cai -- o tema faz isso nos botões do HUD com uma cor fixa porque lá
+		# o botão é sempre #FFFDF5; aqui o fundo muda por nota, por esquema e por
+		# estado armado.
+		var anel := StyleBoxFlat.new()
+		# Miolo transparente: quem pinta o fundo continua sendo a stylebox do
+		# estado, e o anel só acrescenta a borda -- é o que garante que ele não
+		# tape o glifo nem o nome, que moram no centro da tecla.
+		anel.draw_center = false
+		anel.set_border_width_all(FOCUS_RING_PX)
+		anel.border_color = ink
+		anel.corner_radius_bottom_left = CORNER_RADIUS
+		anel.corner_radius_bottom_right = CORNER_RADIUS
+		_buttons[i].add_theme_stylebox_override("focus", anel)
+
+## Cor da tecla com a ação ARMADA -- clareada, mas dentro do gamut.
+##
+## O clamp não é zelo: sem ele o Si autêntico (branco 0,92/0,90/0,85) armado ia a
+## (1,47 / 1,44 / 1,36). A tela pinta 1,0, e icon_tint_for / text_outline_px_for /
+## pressed_shade_for / contrast_ratio calculavam sobre 1,47 -- a régua e o pixel
+## sobre cores DIFERENTES. Medido nesse caso: 39,2:1 na conta contra 17,4:1 no
+## que o olho vê.
+##
+## Espelha SpecialActionPanel.armed_shade(): as duas superfícies armam as mesmas
+## duas notas (correr/pular) e têm que clarear igual.
+static func armed_shade(base: Color) -> Color:
+	return Color(minf(base.r * ARMED_BRIGHTNESS, 1.0),
+		minf(base.g * ARMED_BRIGHTNESS, 1.0),
+		minf(base.b * ARMED_BRIGHTNESS, 1.0), base.a)
 
 ## Um piano de verdade não tem tecla de cor especial: as 4 notas de ação
 ## (Sol#-Si) recebem branco ou preto pela própria posição cromática, como

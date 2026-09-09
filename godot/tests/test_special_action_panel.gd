@@ -227,11 +227,15 @@ func test_note_name_contrasts_with_its_own_plate():
 					esquema, i, res[0], res[1]])
 
 func test_note_name_stays_legible_while_the_action_is_armed():
-	# A placa armada é a MESMA cor multiplicada por 1.6, e o corte de luminância
-	# pode virar a tinta do rótulo do claro pro escuro no meio do caminho. Aqui a
-	# barra é a de elemento gráfico (3:1) e não a de texto (4,5:1): o pior caso
-	# medido é o azul #3949ab do Clássico clareado, que dá 3,70:1, e o estado é
-	# transitório -- some assim que a ação dispara.
+	# A placa armada é a MESMA cor multiplicada por 1.6 e CLAMPADA, e o corte de
+	# luminância pode virar a tinta do rótulo do claro pro escuro no meio do
+	# caminho. Aqui a barra é a de elemento gráfico (3:1) e não a de texto
+	# (4,5:1): o pior caso medido é o azul #3949AB do Clássico clareado, que dá
+	# 3,87:1, e o estado é transitório -- some assim que a ação dispara.
+	#
+	# Eram 3,70:1 enquanto a conta rodava sem clamp, sobre um azul de canal 1,073
+	# que a tela nunca pintou. O número subiu porque passou a ser medido na cor
+	# que o olho recebe, não porque alguma cor mudou de propósito.
 	var p = _make()
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
@@ -272,6 +276,135 @@ func test_children_do_not_swallow_the_press():
 		assert_eq(p._labels[i].mouse_filter, Control.MOUSE_FILTER_IGNORE)
 		assert_eq(p._icons[i].mouse_filter, Control.MOUSE_FILTER_IGNORE)
 		assert_eq(p._labels[i].get_parent().mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+## Todo estado em que uma placa pode ser desenhada: os dois lados do interruptor
+## de pistas, os 3 esquemas, armado/desarmado e os 2 fundos que o anel pode ter
+## embaixo. 4 placas x 2 x 3 x 2 x 2.
+const ESTADOS_DE_PLACA := 4 * 2 * 3 * 2 * 2
+
+func test_focus_ring_is_visible_against_the_plate_it_marks():
+	# As 4 placas são irmãs do GameHUD na CanvasLayer e não veem
+	# blindtuner_theme.tres, então o `focus` delas era o do tema padrão do Godot:
+	# uma borda #CCCCCC feita pra skin escura -- 1,28:1 sobre a tecla branca do
+	# piano, 1,37:1 sobre o amarelo do Mi, e nenhum teste olhava pra cá (o do tema
+	# só confere Button/focus e OptionButton/focus, que nenhuma placa usa).
+	#
+	# Com emulate_mouse_from_touch, tocar uma placa dá foco a ela e o foco FICA:
+	# não é indicador transitório de navegação por teclado, é o "você está aqui"
+	# de quem acabou de tocar.
+	#
+	# Mede contra os dois fundos possíveis embaixo do anel -- o Godot desenha
+	# `focus` POR CIMA da stylebox do estado, então numa placa focada e apertada o
+	# anel cai sobre o fundo do pressed.
+	var p = _make()
+	var piores: Array[String] = []
+	var medidas := 0
+	for pistas in [true, false]:
+		ColorSchemeSettings.set_control_cues(pistas)
+		for esquema in ["classico", "pedagogico", "alto_contraste"]:
+			ColorSchemeSettings.set_scheme(esquema)
+			for armado in [false, true]:
+				p.on_armed_state_changed(armado, armado)
+				for i in range(p._buttons.size()):
+					var btn: Button = p._buttons[i]
+					var anel := btn.get_theme_stylebox("focus") as StyleBoxFlat
+					assert_not_null(anel, "placa %s sem anel de foco próprio" % p._button_notes[i])
+					if anel == null:
+						continue
+					assert_false(anel.draw_center,
+						"placa %s: o anel pinta o miolo e tapa glifo e nome" % p._button_notes[i])
+					assert_gte(anel.border_width_top, 2,
+						"placa %s: borda de %dpx não é anel, é serrilhado" % [
+							p._button_notes[i], anel.border_width_top])
+					for estado in ["normal", "pressed"]:
+						var fundo: Color = btn.get_theme_stylebox(estado).bg_color
+						var razao := ColorDistance.contrast_ratio(anel.border_color, fundo)
+						medidas += 1
+						if razao < ColorDistance.GRAPHIC_MIN:
+							piores.append("%s/%s %s armado=%s %s: %.2f:1" % [
+								esquema, "pistas" if pistas else "neutro",
+								p._button_notes[i], str(armado), estado, razao])
+	p.on_armed_state_changed(false, false)
+	assert_eq(piores.size(), 0, "anel de foco abaixo de %.1f:1 em: %s" % [
+		ColorDistance.GRAPHIC_MIN, ", ".join(piores)])
+	# Sem esta linha a varredura aprova de graça se algum laço deixar de iterar --
+	# uma lista de esquemas vazia, um _buttons vazio, um `continue` mal posto.
+	assert_eq(medidas, ESTADOS_DE_PLACA,
+		"a varredura mediu %d fundos, e a placa tem %d estados de desenho" % [medidas, ESTADOS_DE_PLACA])
+
+func test_focus_ring_does_not_cover_the_glyph_or_the_name():
+	# O anel é a única coisa desenhada DEPOIS do glifo e do nome, e por cima
+	# deles. Duas coisas o mantêm fora do caminho: o miolo transparente e a
+	# espessura, que tem que caber na folga até a TINTA -- não até a caixa. O
+	# ActionIcon desenha ICON_FRAC do menor lado do próprio rect (o Control ocupa a
+	# largura inteira da VBox, o glifo não), e o contorno do nome é desenhado FORA
+	# da caixa do texto, por isso entra na conta.
+	#
+	# Folga medida hoje: 26,6px até o topo do glifo e 21px até a base do nome,
+	# contra um anel de 4px.
+	var p = _make()
+	await wait_frames(2)
+	for i in range(p._buttons.size()):
+		var btn: Button = p._buttons[i]
+		var nota: String = p._button_notes[i]
+		var anel := btn.get_theme_stylebox("focus") as StyleBoxFlat
+		assert_not_null(anel, "placa %s sem anel de foco próprio" % nota)
+		if anel == null:
+			continue
+		assert_false(anel.draw_center, "placa %s: miolo pintado tapa glifo e nome" % nota)
+		var banda := float(maxi(maxi(anel.border_width_left, anel.border_width_right),
+			maxi(anel.border_width_top, anel.border_width_bottom)))
+		var icone: Control = p._icons[i]
+		var lado: float = minf(icone.size.x, icone.size.y) * ActionIconScript.ICON_FRAC
+		var gx: float = icone.position.x + (icone.size.x - lado) * 0.5
+		var gy: float = icone.position.y + (icone.size.y - lado) * 0.5
+		var folga_glifo: float = minf(minf(gx, btn.size.x - (gx + lado)),
+			minf(gy, btn.size.y - (gy + lado)))
+		assert_gt(folga_glifo, banda,
+			"placa %s: anel de %.0fpx sobre um glifo que começa a %.1fpx da borda" % [nota, banda, folga_glifo])
+		var lbl: Label = p._labels[i]
+		var fonte: Font = lbl.get_theme_font("font")
+		var tam: Vector2 = fonte.get_string_size(lbl.text, HORIZONTAL_ALIGNMENT_CENTER, -1,
+			lbl.get_theme_font_size("font_size"))
+		var contorno := float(lbl.get_theme_constant("outline_size"))
+		var esq: float = lbl.position.x + (lbl.size.x - tam.x) * 0.5 - contorno
+		var folga_nome: float = minf(minf(esq, btn.size.x - (esq + tam.x + 2.0 * contorno)),
+			minf(lbl.position.y - contorno, btn.size.y - (lbl.position.y + lbl.size.y + contorno)))
+		assert_gt(folga_nome, banda,
+			"placa %s: anel de %.0fpx sobre um nome que começa a %.1fpx da borda" % [nota, banda, folga_nome])
+
+func test_the_armed_plate_never_leaves_the_gamut():
+	# A tela pinta qualquer canal acima de 1,0 como 1,0, mas icon_tint_for,
+	# text_outline_px_for, pressed_shade_for e contrast_ratio calculam sobre o
+	# número. Sem o clamp de armed_shade() o azul #3949AB do Clássico armado ia a
+	# (0,358 / 0,458 / 1,073) -- a única superfície do jogo onde a régua e o pixel
+	# liam cores diferentes. As 6 combinações embarcadas (3 esquemas x correr e
+	# pular) estouravam o gamut, e a mais distante era o #A5EEFE do Alto Contraste,
+	# lido a 37,94:1 quando o olho via 17,42:1.
+	#
+	# Nenhuma decisão de tinta ou de halo virava com o clamp -- é justamente por
+	# isso que só um teste de gamut pega a regressão: medir contraste não pega.
+	var p = _make()
+	var fora: Array[String] = []
+	var medidas := 0
+	for pistas in [true, false]:
+		ColorSchemeSettings.set_control_cues(pistas)
+		for esquema in ["classico", "pedagogico", "alto_contraste"]:
+			ColorSchemeSettings.set_scheme(esquema)
+			p.on_armed_state_changed(true, true)
+			for i in range(p._buttons.size()):
+				for estado in ["normal", "pressed", "disabled"]:
+					var c: Color = p._buttons[i].get_theme_stylebox(estado).bg_color
+					medidas += 1
+					if maxf(maxf(c.r, c.g), maxf(c.b, c.a)) > 1.0:
+						fora.append("%s/%s %s %s: (%.3f, %.3f, %.3f)" % [
+							esquema, "pistas" if pistas else "neutro",
+							p._button_notes[i], estado, c.r, c.g, c.b])
+	p.on_armed_state_changed(false, false)
+	assert_eq(fora.size(), 0,
+		"a tela pinta 1,0 e a régua lê outra coisa em: %s" % ", ".join(fora))
+	assert_eq(medidas, 4 * 2 * 3 * 3,
+		"a varredura de gamut mediu %d styleboxes, e há %d" % [medidas, 4 * 2 * 3 * 3])
 
 func test_label_is_hidden_when_the_control_cues_are_off():
 	# Escondida, não só vazia: uma Label vazia ainda reserva a altura da linha

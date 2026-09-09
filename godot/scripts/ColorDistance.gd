@@ -75,7 +75,10 @@ static func relative_luminance(c: Color) -> float:
 ##     tinta branca vence por pouco. As 4 placas do SpecialActionPanel, que são
 ##     as únicas que exibem nome em TODOS os esquemas, ficam em 4,52:1 ou mais.
 ##   - placa ARMADA (bg x1.6, só correr/pular, e só enquanto a ação está armada):
-##     3,70:1 no pior caso (o azul #3949ab do Clássico clareado).
+##     3,87:1 no pior caso (o azul #3949ab do Clássico clareado). Era 3,70 até o
+##     brilho do armado ganhar clamp por canal: sem ele o produto estourava o
+##     gamut (o azul virava 1,073) e ESTA conta rodava sobre um número que a tela
+##     nunca pintou -- a única superfície do jogo onde régua e pixel discordavam.
 ## Ou seja: acima dos 3:1 do WCAG para elemento gráfico em qualquer estado. É uma
 ## melhora de uma ordem de grandeza sobre o que havia (1,03:1 a 2,32:1 com o
 ## rótulo no cinza do tema padrão do Godot) e a alternativa -- escolher a tinta
