@@ -56,6 +56,111 @@ const HARMONIC_GAIN_TOTAL := 2.1
 # amostras (ver _fill_pitch_buffer/_vibrato_sample_counter).
 const VIBRATO_CONTROL_RATE_SAMPLES := 32
 
+## Os dois algoritmos de síntese do tom contínuo do Scroll, alternáveis AO VIVO
+## (no meio do arrasto) para o jogador comparar os dois de ouvido:
+##   ADDITIVE  -- soma de 5 harmônicos senoidais, o timbre que o jogo já tinha.
+##   WAVEGUIDE -- guia de onda: corda friccionada físico-modelada, com o
+##                movimento de fricção que a soma de senos não tem.
+## Qual dos dois vira o padrão é decisão do jogador DEPOIS de ouvir os dois --
+## por isso o padrão continua sendo o timbre antigo.
+enum Timbre { ADDITIVE, WAVEGUIDE }
+
+# --- Guia de onda ------------------------------------------------------------
+# Duas linhas de delay (a onda que vai até o cavalete e a que volta até a
+# pestana) com reflexão INVERSORA nas duas pontas. Um laço ÚNICO de
+# Karplus-Strong, que é a leitura óbvia da receita, foi implementado e medido:
+# NÃO oscila -- converge para uma constante (DC 0,2786), porque o filtro de
+# perdas tem ganho 1 em DC e nada no laço troca o sinal do que volta. Com as
+# duas reflexões inversoras a componente contínua das duas linhas se cancela na
+# leitura do cavalete e o que sobra é a ressonância da corda.
+#
+# 256 amostras por linha cobrem com folga a oitava do jogo (a nota mais grave,
+# 262Hz, pede 83,5 e a mais aguda 44,0) e o tamanho NUNCA muda. Redimensionar as
+# linhas a cada frequência nova é a alternativa óbvia e joga fora toda a energia
+# já guardada nelas -- a corda recomeçaria do zero a cada evento de arrasto, que
+# é o oposto do glissando.
+const WG_LINE_SAMPLES := 256
+# Filtro de perdas de 1 polo no cavalete: é ele que faz os harmônicos agudos
+# morrerem antes do fundamental, como numa corda de verdade.
+const WG_LOSS_COEFF := 0.3774
+# Ganho de cada reflexão. Ao quadrado (são duas por volta) dá o decaimento da
+# corda; perto demais de 1 a corda vira um sino que nunca cala, longe demais e
+# o ruído do arco não chega a virar nota.
+#
+# Com o arco correndo, esta constante também governa quanto tempo a corda leva
+# pra ALCANÇAR o volume dela, e é por isso que ela não é 0,998 (o valor "sino",
+# tentado primeiro). A 0,998 o ganho por volta é 0,996 e a constante de tempo de
+# subida vira ~250 voltas -- 0,95s no Dó, 0,5s no Si: a corda ainda está subindo
+# quando o jogador já soltou o dedo. Medido nas 12 notas x 1,5s, com o mesmo
+# procedimento nas duas configurações:
+#   0,998 -- RMS dos primeiros 200ms 0,0728 contra 0,1009 do resto (-2,8dB: a
+#            corda entra fraca), e as janelas de 100ms de todas as notas variando
+#            de 0,0348 a 0,2279, ou seja 16,3dB de passeio de envoltória.
+#   0,98  -- RMS dos primeiros 200ms 0,1314 contra 0,1432 (-0,7dB: já nasce no
+#            volume dela), passeio de 100ms em 9,3dB.
+# O passeio que sobra é o que uma corda excitada por RUÍDO tem de nascença; o que
+# a mudança tirou foi a subida lenta por cima dele.
+#
+# 0,98 são 0,9604 por volta, constante de tempo de 94ms no Dó e 50ms no Si. A
+# afinação não depende disto: o erro nas 12 notas fica em 0,62 cent, contra 0,55
+# a 0,998.
+const WG_REFLECTION_GAIN := 0.98
+# O filtro de perdas ATRASA o sinal, e esse atraso entra no comprimento do laço
+# tanto quanto as linhas de delay. Sem descontá-lo o tom sai BAIXO: zerando esta
+# constante, a suíte mede de 16 cents na nota mais grave a 31 na mais aguda --
+# inaudível como bug de código e fatal num jogo cuja mecânica inteira é
+# reconhecer qual nota soou. 1,65 é o atraso de fase do filtro de 1 polo acima
+# (que é (1-a)/a amostras); com ele o erro nas 12 notas cai para 0,5 cent.
+const WG_LOSS_DELAY_COMP := 1.65
+# O dedo é amostrado por FRAME e o áudio por AMOSTRA, então a frequência nova
+# chega como degrau. Aplicar o degrau direto no comprimento da linha estala:
+# pulo máximo amostra-a-amostra medido em 0,239, contra 0,030 do mesmo tom
+# parado. Com este slew, 0,030 -- indistinguível do tom parado, e ainda assim
+# rápido o bastante pra a corda alcançar o comprimento novo (resíduo de 0,4
+# amostra meio segundo depois de um salto de oitava inteira).
+const WG_DELAY_SLEW := 0.02
+# Ruído de arco -- aqui ele é a EXCITAÇÃO da corda (entra na linha de delay),
+# não uma camada somada por cima como no timbre aditivo. Nada do ruído cru
+# chega à saída: tudo passa pela corda antes.
+const WG_BOW_DRIVE := 0.03
+# Bloqueio de DC na SAÍDA (não dentro do laço: lá dentro ele adianta a fase de
+# 3,4 amostras nas notas do jogo e desafinaria tudo o que WG_LOSS_DELAY_COMP
+# acabou de acertar). O arco é ruído aleatório, então a corda acumula um
+# deslocamento lento que não é som -- só come margem antes do clipping.
+const WG_DC_BLOCK_COEFF := 0.995
+# Trocar de timbre não pode virar uma mudança de VOLUME, senão a comparação de
+# ouvido -- que é a razão de o interruptor existir -- sai enviesada pelo mais
+# alto dos dois. Calibrado por RMS, e não por pico como na primeira versão: o
+# pico do aditivo é o estado permanente de uma onda periódica e o do guia de onda
+# é uma excursão rara de uma envoltória de ruído, e sonoridade segue RMS. Com os
+# dois PICOS casados (ganho 9, pico 0,438) o guia de onda saía 9,7dB abaixo no
+# RMS dos primeiros 200ms e 6,9dB no resto -- ou seja, a calibração antiga
+# entregava exatamente o viés que este comentário promete impedir.
+#
+# Quanto dá pra subir quem decide é a MARGEM DE CLIPPING, e ela é apertada porque
+# a corda é excitada por RUÍDO: medido nas 12 notas x 1,5s, o fator de crista do
+# guia de onda é ~4,7 contra 1,8 do aditivo, que é uma onda periódica (RMS 0,222,
+# pico 0,40). Casar o RMS exatamente pediria ganho ~40 e poria o pico em ~1,19 --
+# clipping, e o clampf() aqui embaixo esconderia a distorção em vez de deixá-la
+# aparecer, que é o modo de falha que o teste de pico existe pra evitar.
+#
+# 25 é onde as duas restrições se encontram, medido em quatro rodadas: RMS médio
+# dos primeiros 200ms entre 0,131 e 0,142 (-3,9 a -4,5dB do aditivo, contra os
+# -9,7dB de antes) com pico entre 0,62 e 0,74, que ainda precisa sobreviver ao
+# +2,5dB do EQ do bus Strings. Os ~4dB que sobram NÃO fecham por calibração:
+# fechá-los pede trocar a excitação de ruído por um dente-de-serra de stick-slip
+# (que é o que um arco faz de verdade, e tem crista de onda periódica). É
+# redesenho de síntese, e faz sentido depois de o jogador dizer se quer este
+# timbre -- que é a pergunta que o interruptor existe pra responder.
+const WG_OUTPUT_GAIN := 25.0
+
+# Trocar de algoritmo no meio de um arrasto pula a amostra do valor de uma
+# síntese pro da outra num único frame de áudio -- estalo garantido, e bem na
+# hora em que o jogador está prestando atenção na diferença. 20ms de crossfade
+# custam só as amostras da transição (fora dela roda um algoritmo só).
+const TIMBRE_CROSSFADE_SEC := 0.02
+const TIMBRE_FADE_PER_SAMPLE := 1.0 / (MIX_RATE * TIMBRE_CROSSFADE_SEC)
+
 const STRINGS_BUS_NAME := "Strings"
 # Reduzido de 6.0: nas notas do jogo (262-494Hz), as bandas de 250/500Hz
 # reforçadas caem quase exatamente sobre a fundamental e o 2º harmônico da
@@ -80,8 +185,40 @@ var _pitch_lfo_phase := 0.0
 var _noise_lp := 0.0
 var _vibrato_sample_counter := 0
 
+## Qual síntese está soando AGORA. Mora aqui, no autoload de áudio, e não em
+## ColorSchemeSettings: aquele guarda paleta e pistas visuais, e enfiar uma
+## escolha de som lá só porque ele já tem ConfigFile pronto misturaria dois
+## domínios que nada mais compartilha.
+##
+## Deliberadamente NÃO persiste em disco, ao contrário do interruptor de pistas.
+## Este é um comparador: existe para o jogador ouvir os dois lado a lado e
+## decidir qual vira o padrão do jogo -- e essa decisão vira uma linha de código,
+## não uma preferência gravada por sessão.
+var pitch_timbre: int = Timbre.ADDITIVE
+
+# Corda do guia de onda: as duas linhas de delay, o cursor de escrita, o
+# comprimento atual (fracionário, escorregando em direção ao alvo), o estado do
+# filtro de perdas e o do bloqueio de DC.
+var _wg_right := PackedFloat32Array()
+var _wg_left := PackedFloat32Array()
+var _wg_write := 0
+var _wg_delay := 0.0
+var _wg_loss := 0.0
+var _wg_dc_in := 0.0
+var _wg_dc_out := 0.0
+
+# Crossfade de troca de timbre: quanto ainda resta do timbre ANTERIOR (1 = só
+# ele, 0 = crossfade terminado e só o novo roda).
+var _timbre_fade := 0.0
+var _timbre_fade_from: int = Timbre.ADDITIVE
+
 func _ready() -> void:
     _ensure_strings_bus()
+    # Só pra as duas linhas de delay existirem antes de qualquer coisa poder
+    # chamar _waveguide_step(): sem isso o primeiro passo indexaria um array
+    # vazio. A frequência aqui não significa nada -- play_continuous_pitch()
+    # reafina a corda no começo de cada arrasto.
+    _reset_waveguide(NOTE_MISS_FREQ)
 
 ## Cria (se ainda não existir) o bus "Strings" com EQ + chorus, só pro tom
 ## contínuo do Scroll de Afinação -- fica separado do bus Master, onde tocam
@@ -153,7 +290,37 @@ func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
         _pitch_player.play()
         _pitch_playback = _pitch_player.get_stream_playback()
         _pitch_phase = 0.0
+        # Corda nova a cada arrasto novo, pelo mesmo motivo de _pitch_phase: sem
+        # isso o toque começaria com o rabo de ressonância do arrasto anterior, e
+        # o comprimento da linha ainda estaria escorregando da nota antiga pra
+        # esta -- um glissando fantasma de meio segundo que ninguém pediu.
+        _reset_waveguide(freq_hz)
+        # E o crossfade de timbre morre aqui pelo mesmo motivo dos dois acima.
+        # _timbre_fade só decai dentro de _pitch_step(), que só roda enquanto há
+        # tom no ar: apertar o interruptor de timbre SEM nada tocando -- que é o
+        # fluxo mais provável do recurso, aperta e só então arrasta -- deixa o
+        # fade armado em 1,0 indefinidamente. Sem esta linha os primeiros 20ms do
+        # arrasto seguinte sairiam com 100% do timbre ANTERIOR por cima do novo:
+        # medido, RMS 0,142 na primeira janela de 20ms contra 0,093 na seguinte,
+        # um transiente estranho decaindo bem no ataque da nota.
+        _timbre_fade = 0.0
     return _pitch_player
+
+## Escolhe qual síntese sai pelo alto-falante, com crossfade. Aplica NA HORA,
+## inclusive no meio de um arrasto: o pedido era ouvir os dois enquanto o dedo
+## desliza, e um controle que só valesse no próximo "Começar" (como os dropdowns
+## de pista e de modo) não responderia a isso.
+func set_pitch_timbre(timbre: int) -> void:
+    if timbre != Timbre.ADDITIVE and timbre != Timbre.WAVEGUIDE:
+        return
+    # Sem esta guarda, reafirmar o timbre atual abriria um crossfade do timbre
+    # CONSIGO MESMO -- e aí _pitch_step() chamaria o mesmo passo duas vezes por
+    # amostra, avançando a fase em dobro e tocando uma oitava acima.
+    if timbre == pitch_timbre:
+        return
+    _timbre_fade_from = pitch_timbre
+    _timbre_fade = 1.0
+    pitch_timbre = timbre
 
 ## Para o tom contínuo (ex: ao soltar o slider, trocar de modo de input, ou tocar
 ## uma nota/SFX discreto -- ver _stop_current). As referências (_pitch_player/
@@ -187,16 +354,106 @@ func _fill_pitch_buffer() -> void:
         # O LFO de vibrato é 6Hz -- recalcular a cada amostra (44100/s) é
         # desnecessário e inaudível a essa taxa de mudança. Recalcula só a
         # cada VIBRATO_CONTROL_RATE_SAMPLES amostras; o valor fica válido
-        # (reaproveitado) pras amostras entre atualizações.
+        # (reaproveitado) pras amostras entre atualizações. A taxa continua
+        # segura no guia de onda, onde o mesmo multiplicador vira modulação do
+        # COMPRIMENTO da corda: o degrau de comprimento a cada 32 amostras é
+        # ordens de grandeza menor que o que o slew abaixo já absorve sem
+        # estalar.
         if _vibrato_sample_counter == 0:
             vibrato_mult = _vibrato_multiplier(_pitch_lfo_phase)
         _vibrato_sample_counter = (_vibrato_sample_counter + 1) % VIBRATO_CONTROL_RATE_SAMPLES
-        var phase_inc := (_pitch_freq * vibrato_mult) / MIX_RATE
-        _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), NOISE_LOWPASS_COEFF)
-        var sample := _continuous_pitch_sample(_pitch_phase, _pitch_lfo_phase, _noise_lp)
+        var sample := _pitch_step(_pitch_freq * vibrato_mult)
         _pitch_playback.push_frame(Vector2(sample, sample))
-        _pitch_phase = fposmod(_pitch_phase + phase_inc, 1.0)
         _pitch_lfo_phase = fposmod(_pitch_lfo_phase + lfo_inc, 1.0)
+
+## Uma amostra do tom contínuo: dada a frequência AGORA, devolve o valor e
+## avança o estado da síntese.
+##
+## É aqui que os dois timbres são despachados, e não em _continuous_pitch_sample:
+## aquela é uma função pura que recebe a fase de fora, e o guia de onda não tem
+## "a fase" nenhuma -- o estado dele são duas linhas de delay que precisam
+## avançar exatamente uma vez por amostra. Emendar o segundo algoritmo lá dentro
+## obrigaria a espalhar o avanço de estado pelo laço de _fill_pitch_buffer().
+func _pitch_step(freq_hz: float) -> float:
+    _noise_lp = lerpf(_noise_lp, randf_range(-1.0, 1.0), NOISE_LOWPASS_COEFF)
+    var sample := _timbre_step(pitch_timbre, freq_hz)
+    if _timbre_fade > 0.0:
+        # Os dois passos avançam estados DIFERENTES (set_pitch_timbre garante que
+        # os timbres não são o mesmo), então cada um roda uma vez por amostra.
+        sample = lerpf(sample, _timbre_step(_timbre_fade_from, freq_hz), _timbre_fade)
+        _timbre_fade = maxf(0.0, _timbre_fade - TIMBRE_FADE_PER_SAMPLE)
+    return sample
+
+func _timbre_step(timbre: int, freq_hz: float) -> float:
+    if timbre == Timbre.WAVEGUIDE:
+        return _waveguide_step(freq_hz)
+    return _additive_step(freq_hz)
+
+## Timbre aditivo: a amostra é função pura da fase, e só o avanço da fase mora
+## aqui.
+func _additive_step(freq_hz: float) -> float:
+    var sample := _continuous_pitch_sample(_pitch_phase, _pitch_lfo_phase, _noise_lp)
+    _pitch_phase = fposmod(_pitch_phase + freq_hz / MIX_RATE, 1.0)
+    return sample
+
+## Meio comprimento do laço (o que cabe em CADA uma das duas linhas), já
+## descontado o atraso do filtro de perdas. Clampado porque play_continuous_pitch
+## aceita qualquer frequência: um valor absurdo não pode ler fora do array.
+func _wg_target_delay(freq_hz: float) -> float:
+    var round_trip := MIX_RATE / maxf(freq_hz, 1.0) - WG_LOSS_DELAY_COMP
+    return clampf(round_trip * 0.5, 2.0, float(WG_LINE_SAMPLES - 2))
+
+func _reset_waveguide(freq_hz: float) -> void:
+    _wg_right.resize(WG_LINE_SAMPLES)
+    _wg_left.resize(WG_LINE_SAMPLES)
+    _wg_right.fill(0.0)
+    _wg_left.fill(0.0)
+    _wg_write = 0
+    _wg_loss = 0.0
+    _wg_dc_in = 0.0
+    _wg_dc_out = 0.0
+    # Direto no alvo, sem passar pelo slew: só a MUDANÇA de nota durante um
+    # arrasto precisa ser suave. Começar do comprimento anterior faria toda nota
+    # nova entrar deslizando a partir da última.
+    _wg_delay = _wg_target_delay(freq_hz)
+
+## Timbre de guia de onda, um passo. A onda percorre a linha da direita até o
+## cavalete, reflete invertida e filtrada para a linha da esquerda, volta até a
+## pestana e reflete invertida de novo. A saída é o que chega ao cavalete, que é
+## também o que num instrumento de verdade empurra o corpo e vira som.
+func _waveguide_step(freq_hz: float) -> float:
+    _wg_delay += clampf(_wg_target_delay(freq_hz) - _wg_delay, -WG_DELAY_SLEW, WG_DELAY_SLEW)
+    var at_bridge := _wg_read(_wg_right, _wg_delay)
+    var at_nut := _wg_read(_wg_left, _wg_delay)
+    _wg_loss += WG_LOSS_COEFF * (at_bridge - _wg_loss)
+    # Os dois sinais de menos são as reflexões inversoras, e são o que faz esta
+    # estrutura soar onde o laço único converge para DC. O arco entra na pestana.
+    _wg_right[_wg_write] = -at_nut * WG_REFLECTION_GAIN + _noise_lp * WG_BOW_DRIVE
+    _wg_left[_wg_write] = -_wg_loss * WG_REFLECTION_GAIN
+    _wg_write = (_wg_write + 1) % WG_LINE_SAMPLES
+    _wg_dc_out = at_bridge - _wg_dc_in + WG_DC_BLOCK_COEFF * _wg_dc_out
+    _wg_dc_in = at_bridge
+    # Mesmo tremolo do timbre aditivo: a pressão do arco varia nos dois, e sem
+    # ele a diferença entre os timbres viria misturada com uma diferença de
+    # articulação que não é do algoritmo.
+    var tremolo := 1.0 + TREMOLO_DEPTH * sin((_pitch_lfo_phase + TREMOLO_PHASE_OFFSET) * TAU)
+    return clampf(_wg_dc_out * WG_OUTPUT_GAIN * tremolo, -1.0, 1.0)
+
+## Leitura FRACIONÁRIA da linha de delay (interpolação linear entre as duas
+## amostras vizinhas). Arredondar o comprimento para inteiro é o atalho óbvio e
+## foi medido: o pulo máximo amostra-a-amostra sobe de 0,030 para 0,040 durante
+## um arrasto, porque a corda dá um pulinho de comprimento toda vez que cruza a
+## fronteira de uma amostra -- uma aspereza contínua enquanto o dedo desliza,
+## que é justamente quando este modo de input está em uso.
+func _wg_read(line: PackedFloat32Array, delay: float) -> float:
+    var pos := float(_wg_write) - delay
+    if pos < 0.0:
+        pos += float(WG_LINE_SAMPLES)
+    var i0 := int(pos)
+    var frac := pos - float(i0)
+    i0 = i0 % WG_LINE_SAMPLES
+    var i1 := (i0 + 1) % WG_LINE_SAMPLES
+    return lerpf(line[i0], line[i1], frac)
 
 ## Multiplicador de frequência do vibrato (LFO senoidal, ~6Hz, +-18 cents).
 ## Cents pra multiplicador de frequência: mult = 2^(cents/1200).
@@ -206,9 +463,10 @@ func _fill_pitch_buffer() -> void:
 func _vibrato_multiplier(lfo_phase: float) -> float:
     return pow(2.0, (VIBRATO_DEPTH_CENTS / 1200.0) * sin(lfo_phase * TAU))
 
-## Amostra completa do tom contínuo: harmônicos tipo corda + tremolo (LFO de
-## amplitude) + ruído de arco filtrado. Função pura (não toca _pitch_playback)
-## -- testável direto por amostra, sem precisar de um player real tocando.
+## Amostra completa do tom contínuo no timbre ADITIVO: harmônicos tipo corda +
+## tremolo (LFO de amplitude) + ruído de arco filtrado. Função pura (não toca
+## _pitch_playback nem estado nenhum) -- testável direto por amostra, sem
+## precisar de um player real tocando. Quem avança a fase é _additive_step().
 func _continuous_pitch_sample(phase: float, lfo_phase: float, noise_lp: float) -> float:
     var tone := _string_harmonics(phase)
     var tremolo := 1.0 + TREMOLO_DEPTH * sin((lfo_phase + TREMOLO_PHASE_OFFSET) * TAU)

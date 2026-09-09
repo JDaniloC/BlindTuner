@@ -19,6 +19,10 @@ func after_each():
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CUES_TEST_PATH))
 	ColorSchemeSettings.config_path = ColorSchemeSettings.CONFIG_PATH
 	ColorSchemeSettings.reset_to_defaults()
+	# O timbre mora num autoload e o interruptor do HUD escreve nele: sem
+	# devolver ao padrão, o próximo HUD montado nasceria com o botão apertado.
+	AudioManager.set_pitch_timbre(AudioManager.Timbre.ADDITIVE)
+	AudioManager._timbre_fade = 0.0
 
 func test_preset_dropdown_filled_from_presets():
 	var h = _hud()
@@ -150,6 +154,43 @@ func test_reflecting_an_external_change_does_not_write_to_disk():
 	ColorSchemeSettings.set_control_cues(true)
 	assert_false(FileAccess.file_exists(CUES_TEST_PATH),
 		"refletir uma mudança externa não é o jogador tocando no interruptor")
+
+# --- Botão "Corda friccionada" (timbre do Scroll) ------------------------------
+
+func test_timbre_toggle_starts_in_sync_with_the_audio_manager():
+	var h = _hud()
+	assert_not_null(h._timbre_btn)
+	assert_true(h._timbre_btn.toggle_mode, "é um interruptor, não um botão de ação")
+	assert_false(h._timbre_btn.button_pressed,
+		"solto = o timbre que o jogo já tinha, que é o padrão até o jogador decidir")
+
+func test_timbre_toggle_switches_the_timbre_on_the_spot():
+	var h = _hud()
+	h._timbre_btn.button_pressed = true   # o setter do Button já emite toggled
+	assert_eq(AudioManager.pitch_timbre, AudioManager.Timbre.WAVEGUIDE)
+	h._timbre_btn.button_pressed = false
+	assert_eq(AudioManager.pitch_timbre, AudioManager.Timbre.ADDITIVE)
+
+func test_timbre_toggle_applies_without_restarting_the_tone():
+	# ISTO é o ponto do interruptor. Os dropdowns _cue_opt/_mode_opt só têm
+	# efeito quando "Começar" é apertado (Playground._begin_preset), e o pedido
+	# do usuário foi ouvir os dois timbres ENQUANTO arrasta o dedo. Um controle
+	# que exigisse recomeçar a fase não responderia ao pedido.
+	var h = _hud()
+	var player = AudioManager.play_continuous_pitch(440.0)
+	h._timbre_btn.button_pressed = true
+	assert_eq(AudioManager.pitch_timbre, AudioManager.Timbre.WAVEGUIDE)
+	assert_eq(AudioManager._pitch_player, player,
+		"trocar de timbre no meio do arrasto não pode recriar o player")
+	AudioManager.stop_continuous_pitch()
+
+func test_timbre_toggle_sits_before_the_progress_label():
+	# Mesma razão do botão de pistas: _progress tem SIZE_EXPAND_FILL e come toda
+	# a sobra da linha, então um controle depois dele iria pra borda da tela.
+	var h = _hud()
+	assert_eq(h._timbre_btn.get_parent(), h._progress.get_parent(),
+		"o botão mora na segunda linha -- uma terceira cobriria o NotePanel")
+	assert_lt(h._timbre_btn.get_index(), h._progress.get_index())
 
 # --- Layout na largura de projeto (720px) --------------------------------------
 

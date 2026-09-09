@@ -1,6 +1,7 @@
 extends GutTest
 
 const PitchScrollScene := preload("res://scenes/PitchScrollInput.tscn")
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
 func _make() -> Node:
 	var p = PitchScrollScene.instantiate()
@@ -260,6 +261,73 @@ func test_tape_color_follows_the_active_scheme():
 	var depois: Color = _tape_for(p, "C4")["color"]
 	assert_eq(depois, NoteMapping.color_for("C4"), "a fita usa a cor da nota no esquema ativo")
 	assert_ne(depois, antes, "trocar de esquema tem que repintar as fitas")
+
+func test_the_wood_colour_comes_from_the_same_gradient_the_neck_draws():
+	# A fita é medida contra a madeira, então a madeira precisa vir da MESMA conta
+	# que o _draw() usa pra pintar as faixas -- senão o teste de contraste abaixo
+	# mede contra um braço imaginário.
+	var p = _make()
+	assert_eq(p._wood_color_at(p.NECK_TOP), p.BOARD_COLOR_TOP,
+		"no topo do braço a madeira é a cor de cima do gradiente")
+	assert_eq(p._wood_color_at(p.BOARD_SIZE.y - 1.0), p.BOARD_COLOR_BOTTOM,
+		"na base é a de baixo")
+	assert_eq(p._wood_color_at(p.NECK_TOP - 999.0), p.BOARD_COLOR_TOP,
+		"acima do braço o índice satura em vez de estourar o array")
+
+func test_every_tape_stands_out_from_the_wood_in_every_scheme():
+	# Terceira ocorrência do mesmo modo de falha (as duas primeiras foram o glifo
+	# do botão e o nome da placa): elemento colorido do esquema pintado direto
+	# sobre fundo escuro, sem ninguém medir o contraste.
+	#
+	# Medido ANTES da moldura, com a fita chapada na cor da nota: 9 das 36
+	# combinações fitinha x esquema abaixo dos 3:1 do WCAG pra elemento gráfico --
+	# Dó 1,59:1 e Dó# 2,74:1 no esquema de FÁBRICA (as duas primeiras posições, as
+	# que um professor de violino cola primeiro), Dó 1,48:1 / Dó# 2,17:1 / Ré
+	# 2,26:1 no Alto Contraste (que existe justamente pra baixa visão), e Dó#
+	# 1,81:1 / Fá 1,91:1 / Lá# 2,20:1 / Sol 2,49:1 no Clássico. E as piores caem no
+	# TOPO do braço, onde a madeira é mais clara.
+	#
+	# A asserção é sobre a fita inteira (moldura OU miolo), não só sobre a
+	# moldura: é assim que ela continua reprovando se alguém tirar a moldura, e é
+	# a pergunta que importa -- "dá pra achar esta fita no braço?".
+	var p = _make()
+	var keys: Array = NoteMapping.NOTES.keys()
+	for esquema in ColorSchemes.SCHEME_IDS:
+		ColorSchemeSettings.set_scheme(esquema)
+		var tapes: Array = p._tapes()
+		assert_eq(tapes.size(), 12, esquema)
+		for i in range(tapes.size()):
+			var madeira: Color = tapes[i]["wood"]
+			var miolo: float = ColorDistance.contrast_ratio(tapes[i]["color"], madeira)
+			var moldura: float = ColorDistance.contrast_ratio(tapes[i]["edge"], madeira)
+			assert_gte(maxf(miolo, moldura), 3.0,
+				"a fita de %s no esquema %s dá %.2f:1 contra a madeira (miolo %.2f:1)"
+					% [keys[i], esquema, maxf(miolo, moldura), miolo])
+
+func test_the_tape_edge_ink_is_picked_by_the_wood_under_it():
+	# Mesma regra do glifo do piano e do nome da placa, e pela mesma razão: a
+	# tinta sai da LUMINÂNCIA do fundo, não de uma constante escrita à mão. Se a
+	# madeira do braço clarear um dia, a moldura vira escura sozinha em vez de
+	# reabrir o buraco em silêncio.
+	var p = _make()
+	for t in p._tapes():
+		assert_eq(t["edge"], ColorDistance.icon_tint_for(t["wood"]),
+			"a moldura tem que sair da regra compartilhada de tinta")
+
+func test_the_tape_core_keeps_the_note_colour_centred_inside_the_edge():
+	# A moldura não pode mover nem estreitar a marca: o miolo colorido continua
+	# centrado no mesmo y, e o retângulo externo (que é o que os outros testes
+	# medem) continua sendo a fita inteira.
+	var p = _make()
+	var keys: Array = NoteMapping.NOTES.keys()
+	var tapes: Array = p._tapes()
+	for i in range(tapes.size()):
+		var fora: Rect2 = tapes[i]["rect"]
+		var miolo: Rect2 = tapes[i]["core"]
+		assert_true(fora.encloses(miolo), "o miolo de %s tem que caber na moldura" % keys[i])
+		assert_almost_eq(miolo.get_center().y, fora.get_center().y, 0.001, keys[i])
+		assert_gt(miolo.size.y, 0.0, "o miolo de %s não pode sumir" % keys[i])
+		assert_almost_eq(miolo.size.x, p.NECK_WIDTH - p.TAPE_EDGE * 2.0, 0.001, keys[i])
 
 func test_the_cue_level_does_not_touch_the_tapes():
 	# A mesma consequência deliberada do piano e do joystick: no nível "só som",

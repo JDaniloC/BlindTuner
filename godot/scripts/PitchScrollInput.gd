@@ -13,6 +13,8 @@ extends Control
 
 signal note_triggered(note_key: String)
 
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
+
 # O braço ocupa o corredor livre abaixo do NotePanel (medido no viewport de
 # projeto 720x1280: y=240 até y=1280). As medidas de SEÇÃO -- cravelhal,
 # cravelhas, largura do braço, cordas, dedo -- cresceram pelo fator horizontal
@@ -61,6 +63,27 @@ const GRADIENT_STRIPS := 64
 ## traste largo, e é grossa o bastante pro público de baixa visão. Não é alvo de
 ## toque -- quem recebe o dedo é o braço inteiro, em qualquer altura.
 const TAPE_HEIGHT := 12.0
+## Moldura clara em volta da fitinha, em pixels de cada lado.
+##
+## A fita é o único elemento colorido do braço, e a cor da nota SOZINHA não se
+## sustenta contra a madeira: medido nos três esquemas, 9 das 36 combinações
+## fitinha x esquema ficam abaixo dos 3:1 do WCAG para elemento gráfico -- e as
+## piores são as duas primeiras posições, que é o que um professor de violino
+## cola PRIMEIRO (Dó 1,59:1 e Dó# 2,74:1 no esquema de fábrica; Dó 1,48:1 e Dó#
+## 2,17:1 no Alto Contraste, que existe justamente para baixa visão). É o mesmo
+## modo de falha que já mordeu o glifo do botão e o nome da placa.
+##
+## Moldura, e não fita mais clara: mexer na COR quebraria o código de cores que o
+## piano e o joystick usam para a MESMA nota, que é o sistema didático inteiro do
+## jogo. A tinta da moldura sai de ColorDistance.icon_tint_for(), a mesma regra
+## das outras duas correções -- então se a madeira clarear um dia, a moldura vira
+## escura sozinha em vez de reabrir o buraco em silêncio.
+##
+## 2px de cada lado deixam 8px de miolo colorido: a corda, desenhada por cima,
+## continua visível contra o miolo em vez de sumir dentro de uma faixa clara
+## sólida. O tamanho EXTERNO da fita não muda, então a folga de madeira entre
+## duas vizinhas continua sendo os ~33px de sempre.
+const TAPE_EDGE := 2.0
 
 var _dragging := false
 var _finger_y := 0.0
@@ -98,18 +121,20 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2(px, py), PEG_SIZE), PEG_COLOR)
 
 	# Braço, com gradiente simulado por faixas (sem asset de imagem)
-	var neck_h := BOARD_SIZE.y - NECK_TOP
-	var strip_h := neck_h / float(GRADIENT_STRIPS)
+	var strip_h := _strip_height()
 	for i in range(GRADIENT_STRIPS):
-		var t := float(i) / float(GRADIENT_STRIPS - 1)
-		var c := BOARD_COLOR_TOP.lerp(BOARD_COLOR_BOTTOM, t)
-		draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP + strip_h * i), Vector2(NECK_WIDTH, strip_h + 1.0)), c)
+		draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP + strip_h * i), Vector2(NECK_WIDTH, strip_h + 1.0)), _wood_color_at_strip(i))
 
 	# Fitinhas de posição. A ordem de chamada dentro de _draw() é o único
 	# z-index que existe aqui: elas entram DEPOIS do braço e ANTES das cordas e
 	# do dedo, que é onde a fita fica num instrumento de verdade.
+	#
+	# Duas passadas por fita: a moldura ocupa o retângulo inteiro e o miolo
+	# colorido entra por cima, recuado. É a moldura que garante que a fita é
+	# achável contra a madeira em qualquer esquema (ver TAPE_EDGE).
 	for tape in _tapes():
-		draw_rect(tape["rect"], tape["color"])
+		draw_rect(tape["rect"], tape["edge"])
+		draw_rect(tape["core"], tape["color"])
 
 	# 4 cordas -- a ativa mais grossa e mais clara, e desenhadas por cima das
 	# fitinhas. Vão de ponta a ponta do trecho que o dedo alcança: a corda que
@@ -192,6 +217,12 @@ func _y_for_frequency(freq: float) -> float:
 ## não uma segunda régua paralela.
 ##
 ## Lista VAZIA com o interruptor de pistas desligado: aí sobra o braço liso.
+##
+## Cada fita vem com o retângulo EXTERNO ("rect", que é a moldura), o retângulo
+## do miolo colorido ("core"), a cor da nota ("color"), a tinta da moldura
+## ("edge") e a madeira que está por baixo ("wood"). A madeira sai daqui e não da
+## conta refeita no teste pelo mesmo motivo da posição: o contraste tem que ser
+## medido contra o fundo que o _draw() REALMENTE pinta, senão a régua duplica.
 func _tapes() -> Array[Dictionary]:
 	var tapes: Array[Dictionary] = []
 	if not ColorSchemeSettings.shows_control_cues():
@@ -210,13 +241,39 @@ func _tapes() -> Array[Dictionary]:
 		# única coisa que ela existe pra dizer.
 		var y0 := maxf(cy - TAPE_HEIGHT * 0.5, _neck_usable_top())
 		var y1 := minf(cy + TAPE_HEIGHT * 0.5, _neck_usable_bottom())
+		var rect := Rect2(Vector2(x, y0), Vector2(NECK_WIDTH, y1 - y0))
+		# maxf porque as fitas dos extremos são aparadas: a de Dó fica com 6px de
+		# altura, e um recuo de 2px de cada lado não pode virar altura negativa se
+		# um dia a aparação apertar mais que isso.
+		var core := Rect2(
+			rect.position + Vector2(TAPE_EDGE, TAPE_EDGE),
+			Vector2(maxf(rect.size.x - TAPE_EDGE * 2.0, 0.0), maxf(rect.size.y - TAPE_EDGE * 2.0, 0.0)))
+		var wood := _wood_color_at(rect.get_center().y)
 		# Cor da nota no esquema ATIVO: assim as fitas herdam de graça os três
 		# esquemas fixos e o editor de paleta livre.
 		tapes.append({
-			"rect": Rect2(Vector2(x, y0), Vector2(NECK_WIDTH, y1 - y0)),
+			"rect": rect,
+			"core": core,
 			"color": NoteMapping.color_for(key),
+			"edge": ColorDistance.icon_tint_for(wood),
+			"wood": wood,
 		})
 	return tapes
+
+## Altura de uma faixa do gradiente do braço.
+func _strip_height() -> float:
+	return (BOARD_SIZE.y - NECK_TOP) / float(GRADIENT_STRIPS)
+
+## Cor da faixa `i` do gradiente. Fonte única da madeira: quem desenha o braço e
+## quem precisa saber contra o que a fita está contrastando chamam daqui, senão a
+## conta duplica e o teste de contraste passa a medir contra uma madeira que não
+## é a desenhada.
+func _wood_color_at_strip(i: int) -> Color:
+	return BOARD_COLOR_TOP.lerp(BOARD_COLOR_BOTTOM, float(i) / float(GRADIENT_STRIPS - 1))
+
+## Cor da madeira numa altura y qualquer do braço.
+func _wood_color_at(y: float) -> Color:
+	return _wood_color_at_strip(clampi(int((y - NECK_TOP) / _strip_height()), 0, GRADIENT_STRIPS - 1))
 
 ## Fração do comprimento da corda que a oitava consome; é ela que estica a
 ## conta pra oitava caber justa no braço útil.
