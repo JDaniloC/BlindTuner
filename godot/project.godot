@@ -27,8 +27,10 @@ AudioManager="*res://scripts/AudioManager.gd"
 SceneryThemes="*res://scripts/SceneryThemes.gd"
 MapPresets="*res://scripts/MapPresets.gd"
 SequencePresets="*res://scripts/SequencePresets.gd"
+ColorSchemes="*res://scripts/ColorSchemes.gd"
 CueSettings="*res://scripts/CueSettings.gd"
 InputModeSettings="*res://scripts/InputModeSettings.gd"
+ColorSchemeSettings="*res://scripts/ColorSchemeSettings.gd"
 
 [display]
 

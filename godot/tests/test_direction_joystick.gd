@@ -7,6 +7,12 @@ func _make_joystick():
 	add_child_autofree(j)
 	return j
 
+func before_each():
+	ColorSchemeSettings.reset_to_defaults()
+
+func after_each():
+	ColorSchemeSettings.reset_to_defaults()
+
 func test_vector_to_note_snaps_to_north():
 	# No Godot 2D, Y aponta pra baixo. "Norte" no joystick = thumb pra cima = y negativo.
 	var note = _make_joystick().vector_to_note(Vector2(0, -50))

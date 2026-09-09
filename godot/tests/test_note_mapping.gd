@@ -141,3 +141,34 @@ func test_nearest_note_for_frequency_covers_all_twelve():
 	for key in NoteMapping.NOTES:
 		var freq = float(NoteMapping.NOTES[key]["freq"])
 		assert_eq(NoteMapping.nearest_note_for_frequency(freq), key)
+
+func before_each():
+	ColorSchemeSettings.reset_to_defaults()
+
+func after_each():
+	ColorSchemeSettings.reset_to_defaults()
+
+func test_chromatic_index_round_trip():
+	var keys = NoteMapping.NOTES.keys()
+	for i in range(keys.size()):
+		assert_eq(NoteMapping.chromatic_index_for(keys[i]), i)
+		assert_eq(NoteMapping.note_key_at(i), keys[i])
+
+func test_chromatic_index_for_unknown_note_is_minus_one():
+	assert_eq(NoteMapping.chromatic_index_for("Z9"), -1)
+
+func test_note_key_at_out_of_range_is_empty():
+	assert_eq(NoteMapping.note_key_at(99), "")
+	assert_eq(NoteMapping.note_key_at(-1), "")
+
+func test_default_color_for_ignores_active_scheme():
+	# Âncora: a cor de fábrica não muda quando o esquema ativo muda.
+	var antes = NoteMapping.default_color_for("C4")
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	assert_eq(NoteMapping.default_color_for("C4"), antes)
+
+func test_color_for_follows_active_scheme():
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	assert_eq(NoteMapping.color_for("C4"), Color("#0D4A74"))
+	ColorSchemeSettings.set_scheme("classico")
+	assert_eq(NoteMapping.color_for("C4"), NoteMapping.default_color_for("C4"))

@@ -7,8 +7,12 @@ func _make() -> Node:
 	add_child_autofree(p)
 	return p
 
+func before_each():
+	ColorSchemeSettings.reset_to_defaults()
+
 func after_each():
 	CueSettings.set_level(0)
+	ColorSchemeSettings.reset_to_defaults()
 
 func test_four_buttons_created():
 	var p = _make()
@@ -111,7 +115,7 @@ func test_on_armed_state_changed_brightens_correr_button():
 	var p = _make()
 	var base = p._buttons[2].modulate  # As4 = correr (índice 2)
 	p.on_armed_state_changed(true, false)
-	assert_gt(p._buttons[2].modulate.r, base.r, "armed brighten R")
+	assert_gt(p._buttons[2].modulate.get_luminance(), base.get_luminance(), "armed brighten")
 	assert_eq(p._armed, [false, false, true, false])
 
 func test_on_armed_state_changed_brightens_pular_button():
@@ -119,7 +123,7 @@ func test_on_armed_state_changed_brightens_pular_button():
 	var p = _make()
 	var base = p._buttons[3].modulate  # B4 = pular (índice 3)
 	p.on_armed_state_changed(false, true)
-	assert_gt(p._buttons[3].modulate.r, base.r, "armed brighten R")
+	assert_gt(p._buttons[3].modulate.get_luminance(), base.get_luminance(), "armed brighten")
 	assert_eq(p._armed, [false, false, false, true])
 
 func test_disarm_restores_modulate_to_cue_base():

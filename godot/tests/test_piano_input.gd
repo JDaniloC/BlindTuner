@@ -7,8 +7,12 @@ func _make() -> Node:
 	add_child_autofree(p)
 	return p
 
+func before_each():
+	ColorSchemeSettings.reset_to_defaults()
+
 func after_each():
 	CueSettings.set_level(0)
+	ColorSchemeSettings.reset_to_defaults()
 
 func test_twelve_buttons_created():
 	var p = _make()
@@ -73,7 +77,7 @@ func test_on_armed_state_changed_brightens_correr_button():
 	var idx = p._button_notes.find("As4")
 	var base = p._buttons[idx].get_theme_stylebox("normal").bg_color
 	p.on_armed_state_changed(true, false)
-	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.r, base.r, "armed brighten R")
+	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.get_luminance(), base.get_luminance(), "armed brighten")
 
 func test_on_armed_state_changed_brightens_pular_button():
 	CueSettings.set_level(0)
@@ -81,7 +85,7 @@ func test_on_armed_state_changed_brightens_pular_button():
 	var idx = p._button_notes.find("B4")
 	var base = p._buttons[idx].get_theme_stylebox("normal").bg_color
 	p.on_armed_state_changed(false, true)
-	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.r, base.r, "armed brighten R")
+	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.get_luminance(), base.get_luminance(), "armed brighten")
 
 func test_disarm_restores_modulate_to_cue_base():
 	CueSettings.set_level(0)
@@ -100,9 +104,11 @@ func test_pressed_stylebox_is_darker_than_normal():
 	var idx = p._button_notes.find("C4")
 	var normal_color = p._buttons[idx].get_theme_stylebox("normal").bg_color
 	var pressed_color = p._buttons[idx].get_theme_stylebox("pressed").bg_color
-	assert_lt(pressed_color.r, normal_color.r, "pressed deve ser mais escuro que normal (R)")
-	assert_lt(pressed_color.g, normal_color.g, "pressed deve ser mais escuro que normal (G)")
-	assert_lt(pressed_color.b, normal_color.b, "pressed deve ser mais escuro que normal (B)")
+	# Luminância, não canal a canal: numa paleta onde a nota tem canal zerado
+	# (o Dó do esquema Pedagógico é #9C000A, com G=0), escurecer 0 dá 0 e a
+	# asserção por canal quebraria sem nada estar errado no jogo.
+	assert_lt(pressed_color.get_luminance(), normal_color.get_luminance(),
+		"pressed deve ser mais escuro que normal")
 
 func test_focus_stylebox_override_is_not_set():
 	# O indicador de foco (navegação por teclado/acessibilidade) some se a

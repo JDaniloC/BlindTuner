@@ -1,0 +1,71 @@
+extends RefCounted
+## Matemática de cor para o editor de paleta. Sem estado, tudo estático --
+## testável sem instanciar nada e sem tocar em nó nenhum.
+
+## ΔE abaixo do qual duas notas são "parecidas demais". O JND é ~2.3; aqui o
+## alvo é reconhecer de relance, de memória, com baixa visão -- por isso uma
+## ordem de grandeza acima.
+const MIN_DELTA_E := 20.0
+
+## Fator de absorção do azul por cristalino amarelado (catarata senil). O olho
+## do público-alvo separa azuis pior que o modelo padrão, então a comparação
+## roda depois deste filtro.
+const AGED_BLUE_FACTOR := 0.55
+
+static func to_lab(c: Color) -> Vector3:
+	var r := _linearize(c.r)
+	var g := _linearize(c.g)
+	var b := _linearize(c.b)
+	# sRGB -> XYZ (D65)
+	var x := (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047
+	var y := (r * 0.2126 + g * 0.7152 + b * 0.0722)
+	var z := (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883
+	var fx := _f(x)
+	var fy := _f(y)
+	var fz := _f(z)
+	return Vector3(116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz))
+
+static func _linearize(v: float) -> float:
+	return v / 12.92 if v <= 0.04045 else pow((v + 0.055) / 1.055, 2.4)
+
+static func _f(t: float) -> float:
+	return pow(t, 1.0 / 3.0) if t > 0.008856 else (7.787 * t + 16.0 / 116.0)
+
+## Distância perceptual CIE76. CIEDE2000 é mais fiel, mas custa ~40 linhas a
+## mais e não muda nenhuma decisão na faixa de ΔE > 20 que interessa aqui.
+static func delta_e(a: Color, b: Color) -> float:
+	return (to_lab(a) - to_lab(b)).length()
+
+static func aged_lens(c: Color) -> Color:
+	return Color(c.r, c.g, c.b * AGED_BLUE_FACTOR, c.a)
+
+## Índices cromáticos cuja cor fica perto demais de `candidate`, do mais
+## próximo pro mais distante. `skip_index` é a nota sendo editada.
+static func conflicts_for(candidate: Color, palette: Array, skip_index: int) -> Array[int]:
+	var pares := []
+	for i in range(palette.size()):
+		if i == skip_index:
+			continue
+		var d := delta_e(aged_lens(candidate), aged_lens(palette[i]))
+		if d < MIN_DELTA_E:
+			pares.append([d, i])
+	pares.sort_custom(func(a, b): return a[0] < b[0])
+	var out: Array[int] = []
+	for p in pares:
+		out.append(p[1])
+	return out
+
+## "Ajustar automaticamente": gira SÓ o matiz (preserva saturação e valor, logo
+## preserva a regra altura<->luminosidade) em passos de 5° nos dois sentidos, e
+## devolve a menor rotação que zera os conflitos. Se 72 passos não resolverem,
+## devolve o candidato intacto -- o aviso é não-bloqueante, nunca impede a escolha.
+static func suggest_adjustment(candidate: Color, palette: Array, skip_index: int) -> Color:
+	if conflicts_for(candidate, palette, skip_index).is_empty():
+		return candidate
+	for passo in range(1, 37):
+		for sinal in [1.0, -1.0]:
+			var h := fposmod(candidate.h + sinal * passo * (5.0 / 360.0), 1.0)
+			var tentativa := Color.from_hsv(h, candidate.s, candidate.v, candidate.a)
+			if conflicts_for(tentativa, palette, skip_index).is_empty():
+				return tentativa
+	return candidate

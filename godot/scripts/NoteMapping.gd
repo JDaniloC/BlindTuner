@@ -1,6 +1,8 @@
 extends Node
 ## Autoload singleton — fonte única de verdade do mapeamento nota ↔ direção ↔ frequência ↔ cor.
 
+var _scheme_cache: Node = null
+
 const NOTES := {
     "C4":  { "freq": 262, "angle":   0, "color": Color("#E91E63"), "label": "Dó",   "direction": Vector2i(-1, -1), "is_movement": true,  "is_action": false, "action_id": "" },
     "Cs4": { "freq": 277, "angle":  30, "color": Color("#1B5E20"), "label": "Dó#",  "direction": Vector2i( 0, -1), "is_movement": true,  "is_action": false, "action_id": "" },
@@ -69,8 +71,40 @@ func direction_for(note_key: String) -> Vector2i:
 func frequency_for(note_key: String) -> int:
     return NOTES[note_key]["freq"]
 
+## Cor da nota no esquema ATIVO. Se o autoload de esquema ainda não existir
+## (ordem de autoload, ou um teste que instancie este script solto), devolve a
+## cor de fábrica -- que é exatamente o esquema "classico". Nunca falha, nunca
+## depende da ordem dos _ready().
 func color_for(note_key: String) -> Color:
+    var s := _scheme()
+    if s == null:
+        return NOTES[note_key]["color"]
+    return s.color_for(note_key)
+
+## Cor de fábrica, ignorando o esquema ativo. Fonte do esquema "classico" e
+## âncora dos testes.
+func default_color_for(note_key: String) -> Color:
     return NOTES[note_key]["color"]
+
+## Índice cromático 0..11 (ordem de inserção de NOTES); -1 se desconhecida.
+## Formaliza o contrato implícito que PianoInput.gd já usa ao assumir que o
+## índice do laço é o índice cromático.
+func chromatic_index_for(note_key: String) -> int:
+    return NOTES.keys().find(note_key)
+
+func note_key_at(chromatic_index: int) -> String:
+    var keys := NOTES.keys()
+    if chromatic_index < 0 or chromatic_index >= keys.size():
+        return ""
+    return keys[chromatic_index]
+
+## Lookup lazy por path em vez de referência direta ao singleton: elimina o
+## acoplamento à ordem dos autoloads (NoteMapping é o primeiro da lista) e
+## deixa ColorSchemes chamar default_color_for() sem criar ciclo.
+func _scheme() -> Node:
+    if _scheme_cache == null and is_inside_tree():
+        _scheme_cache = get_node_or_null(^"/root/ColorSchemeSettings")
+    return _scheme_cache
 
 func label_for(note_key: String) -> String:
     return NOTES[note_key]["label"]
