@@ -13,15 +13,24 @@ const ColorDistance := preload("res://scripts/ColorDistance.gd")
 ## em pixels enquanto o raio cresce encolheria ela em proporção e faria um
 ## micro-arrasto disparar direção, que é o oposto do que o público precisa.
 const RADIUS := 140.0
-# Subiu de 0.15: é esta fração que cria a margem visual entre o nome da nota e
-# a borda da roda. Aumentar só o RADIUS não abriria espaço nenhum -- as
-# posições do rótulo também são frações do raio, então a proporção ficaria
-# idêntica e o nome continuaria colado no aro, só que tudo maior.
-const BACKDROP_OVERHANG := RADIUS * 0.24    # px que o disco/anel ultrapassam o raio das fatias
+# Engordar o aro foi a alavanca ERRADA pra afastar o nome da borda, e a medição
+# mostra por quê: com 0.24 o aro ia a 173,6 e a tinta do nome -- que o contorno
+# de 6px engorda 12px em cada eixo -- chegava a 158,1. Ou seja, o nome não estava
+# perto da borda, ele era pintado 18px DENTRO dela, e o aro precisava ser gordo
+# justamente pra caber o nome que invadia. Desde que o disco virou opaco isso
+# ficou pior: a banda deixou de ser sombra e virou anel sólido de 33,6px.
+# A alavanca certa é recuar o rótulo (LABEL_RADIUS_FRAC); aqui o aro volta a ser
+# só o contorno do controle.
+const BACKDROP_OVERHANG := RADIUS * 0.10    # px que o disco/anel ultrapassam o raio das fatias
 const DEAD_ZONE := RADIUS * 0.1875
 const SLICE_COUNT := 8
 const SLICE_ANGLE_DEG := 45.0
-const THUMB_RADIUS := RADIUS * 0.35
+## 0.26 e não 0.35: com 0.35 o thumb tinha 49px de raio e as setas moravam a
+## 47,6px do centro -- ou seja, DEBAIXO dele. Em repouso só as pontas escapavam
+## do disco branco, e repouso é justamente quando se aprende qual direção é qual
+## nota. Manter 0.35 obrigaria a empurrar o nome de volta pra 0,82 do raio pra
+## caber seta e nome fora do thumb, desfazendo o afastamento da borda.
+const THUMB_RADIUS := RADIUS * 0.26
 const SLICE_VERTICES := 16  # vértices ao longo do arco
 const BACKDROP_SEGMENTS := 64  # era 32: a 138px de raio, 32 lados leem como polígono
 const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # aparência com o interruptor de pistas desligado
@@ -29,17 +38,46 @@ const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # aparência com o interruptor d
 ## Geometria interna da fatia, toda em fração do raio: seta no anel de dentro,
 ## nome da nota no anel de fora. Frações em vez de pixels para o conteúdo
 ## acompanhar o joystick se o raio mudar.
-const ICON_RADIUS_FRAC := 0.36      # recuou de novo: o nome precisou vir pra dentro
-const ICON_SIDE := RADIUS * 0.37    # era 30 fixo: não acompanhava o raio
-const LABEL_RADIUS_FRAC := 0.80     # centro do nome, já fora da caixa da seta
-const LABEL_SIZE_FRAC := Vector2(0.50, 0.30)
-const LABEL_FONT_FRAC := 0.225      # 27px com RADIUS=120
+##
+## As cinco constantes daqui até LABEL_OUTLINE_SIZE foram escolhidas JUNTAS, por
+## medição, e mexer numa só reabre um dos dois conflitos abaixo. Ambos têm teste.
+##
+## 1. COLISÃO RADIAL. O anel útil vai da ponta da seta até a borda da fatia, e a
+##    tinta do nome quase o preenche. Recuar o nome sem recuar a seta faz um
+##    passar por cima do outro (test_the_arrow_and_the_note_name_do_not_overlap).
+## 2. INVASÃO DA FATIA VIZINHA. A fatia é uma CUNHA de 45°: a meia-largura
+##    disponível é 0,414*raio e ENCOLHE conforme o nome se aproxima do centro.
+##    Recuar o nome sem encolher a tinta joga os cantos pra dentro do vizinho
+##    (test_labels_do_not_bleed_into_the_neighbouring_slice). Foi o que aconteceu
+##    na primeira tentativa desta mudança.
+##
+## O teto do conflito 2 é o motivo de o recuo ter vindo junto com fonte e
+## contorno menores: era a TINTA que precisava caber, não a caixa.
+##
+## 3. THUMB POR CIMA DA SETA. O anel começa na borda do thumb, não no centro --
+##    foi o conflito que só a captura de tela revelou, porque nenhuma medição
+##    olhava o thumb. A conta usa a TINTA da seta (ICON_SIDE *
+##    ActionIcon.ICON_FRAC = 0,7), não a caixa: pela caixa acusa colisão onde
+##    não há.
+##
+## O anel útil final tem 3 inquilinos em fila: thumb (36,4), seta (36,3 de tinta)
+## e nome (44 de tinta), num raio de 140. Sobram ~23px pra dividir em folgas.
+const ICON_RADIUS_FRAC := 0.42      # fora do thumb, com folga dos dois lados
+const ICON_SIDE := RADIUS * 0.37    # inalterado de propósito: seta grossa é pedido explícito
+const LABEL_RADIUS_FRAC := 0.75     # era 0.80, que pintava a tinta 18px pra dentro do aro
+const LABEL_SIZE_FRAC := Vector2(0.42, 0.30)
+const LABEL_FONT_FRAC := 0.19       # 26px com RADIUS=140 (era 31px)
 const LABEL_COLOR := Color.WHITE
 ## O nome cai sobre fatia colorida translúcida e, mais além, sobre o cenário:
 ## nenhuma cor chapada contrasta com tudo isso. O contorno escuro resolve sem
 ## depender de qual esquema de cor está ativo.
 const LABEL_OUTLINE_COLOR := Color(0.08, 0.07, 0.06, 0.95)
-const LABEL_OUTLINE_SIZE := 6
+## 4 e não 6: o contorno engorda a tinta em 2x o seu valor em CADA eixo, então
+## ele sozinho respondia por 12px da largura -- justamente o que impedia o nome
+## de recuar sem invadir a fatia vizinha. A régua de contraste exige apenas
+## MIN_OUTLINE_PX=2 pra tratar o halo como fundo, então 4 continua sendo halo de
+## verdade e o rótulo segue legível sobre qualquer cor de fatia.
+const LABEL_OUTLINE_SIZE := 4
 
 ## Disco de fundo OPACO. Era alfa 0,30, e as setas eram brancas fixas com a
 ## justificativa de que aqui havia "fundo escuro garantido". Não havia: com o

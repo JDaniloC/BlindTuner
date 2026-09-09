@@ -5,7 +5,15 @@ extends Control
 signal note_triggered(note_key: String)
 
 const ACTION_NOTES := ["Gs4", "A4", "As4", "B4"]
-const BUTTON_SIZE := Vector2(96, 96)
+## Subiu de 96: o joystick desenhava um disco de 347px ao lado de placas de 96,
+## quase o dobro em cada eixo e 3,6x em área. O disco encolheu pra 308 (era aro
+## sobrando, não área de toque), e as placas sobem pra 116 -- a proporção fecha
+## de 1,74x pra 1,28x vindo dos dois lados, e alvo de toque maior é ganho direto
+## pro público. A caixa que hospeda o painel em Playground.tscn tem que subir
+## junto (2*116 + 8 de separação = 240): custom_minimum_size perde pros offsets
+## da cena quando o Control é filho de CanvasLayer, e o desenho cresceria sem o
+## toque crescer.
+const BUTTON_SIZE := Vector2(116, 116)
 ## Aparência com o interruptor de pistas desligado. Espelha DirectionJoystick.NEUTRAL_SLICE.
 const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)
 const ARMED_BRIGHTNESS := 1.6  # multiplicador da cor da placa quando a ação está armada

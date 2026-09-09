@@ -214,12 +214,27 @@ func test_label_sits_outside_the_icon_box():
 ## Medir o centro, ou a aresta radial, é medir onde o rótulo NÃO corta primeiro:
 ## numa caixa de 60x37 plantada a 45°, o canto chega 24px mais longe que a aresta
 ## que os testes antigos olhavam.
+## Cantos do que é PINTADO, não da caixa do Label. O contorno é desenhado fora
+## dos limites do nó e não entra no mínimo dele, então uma caixa inteiramente
+## dentro do disco ainda pode ter halo por cima do aro ou da fatia vizinha.
+## Medido: com a caixa como régua, um contorno de 12px passava limpo nos dois
+## testes abaixo enquanto a tinta chegava a 29,2° -- numa cunha de ±22,5°.
+##
+## União, e não só a tinta: a caixa pode ser mais larga que o texto (é o caso
+## hoje) e a tinta pode ser mais larga que a caixa (contorno grosso). Quem manda
+## é a maior das duas em cada eixo.
 func _cantos_do_rotulo(lbl: Label) -> Array[Vector2]:
+	var centro: Vector2 = lbl.position + lbl.size * 0.5
+	var contorno: float = lbl.get_theme_constant("outline_size")
+	var tinta: Vector2 = lbl.get_theme_font("font").get_string_size(
+		lbl.text, HORIZONTAL_ALIGNMENT_CENTER, -1, lbl.get_theme_font_size("font_size")
+	) + Vector2(contorno, contorno) * 2.0
+	var meio := Vector2(maxf(lbl.size.x, tinta.x), maxf(lbl.size.y, tinta.y)) * 0.5
 	return [
-		lbl.position,
-		lbl.position + Vector2(lbl.size.x, 0.0),
-		lbl.position + Vector2(0.0, lbl.size.y),
-		lbl.position + lbl.size,
+		centro - meio,
+		centro + Vector2(meio.x, -meio.y),
+		centro + Vector2(-meio.x, meio.y),
+		centro + meio,
 	]
 
 func test_labels_are_centred_on_their_slice_anchor():
@@ -266,6 +281,44 @@ func test_labels_do_not_bleed_into_the_neighbouring_slice():
 				"o canto %s do nome da fatia %d está a %.1f° do eixo, fora da cunha de ±%.1f°" % [
 					canto, i, desvio, meia_cunha])
 
+func test_the_thumb_does_not_cover_the_arrows_at_rest():
+	# Defeito que NENHUMA medição pegou e só apareceu numa captura de tela: com o
+	# thumb em 0,35 do raio (49px) e as setas a 0,34 (47,6px), o disco branco
+	# ficava POR CIMA das setas e só as pontas escapavam. Em repouso -- que é
+	# exatamente quando o jogador aprende qual direção é qual nota.
+	#
+	# O thumb só sai do centro enquanto se arrasta, então "em repouso" é o caso a
+	# fixar, não o caso raro.
+	var j = _make_joystick()
+	var IconScript = load("res://scripts/ActionIcon.gd")
+	var seta_dentro: float = j.RADIUS * j.ICON_RADIUS_FRAC - (j.ICON_SIDE * IconScript.ICON_FRAC) * 0.5
+	assert_gt(seta_dentro, j.THUMB_RADIUS,
+		"a seta começa a %.1fpx do centro e o thumb vai até %.1fpx" % [
+			seta_dentro, j.THUMB_RADIUS])
+
+func test_the_arrow_and_the_note_name_do_not_overlap():
+	# ICON_RADIUS_FRAC, LABEL_RADIUS_FRAC, LABEL_FONT_FRAC e LABEL_OUTLINE_SIZE
+	# dividem o MESMO anel: da ponta da seta até a borda da fatia. Mexer em um só
+	# faz o nome subir por cima da seta, e nada mais no arquivo acusa isso -- os
+	# outros testes de rótulo olham o disco e a cunha, não o vizinho de dentro.
+	#
+	# Mede a TINTA dos dois, não as caixas: a seta pinta ICON_FRAC (0,7) do
+	# próprio rect, então a caixa acusa colisão onde não existe nenhuma.
+	var j = _make_joystick()
+	var IconScript = load("res://scripts/ActionIcon.gd")
+	var seta_fora: float = j.RADIUS * j.ICON_RADIUS_FRAC + (j.ICON_SIDE * IconScript.ICON_FRAC) * 0.5
+	var font: Font = j._slice_labels[0].get_theme_font("font")
+	var fs: int = int(j.RADIUS * j.LABEL_FONT_FRAC)
+	var mais_alto := 0.0
+	for k in j._slice_note_keys:
+		var h: float = font.get_string_size(
+			NoteMapping.label_for(k), HORIZONTAL_ALIGNMENT_CENTER, -1, fs).y
+		mais_alto = maxf(mais_alto, h + j.LABEL_OUTLINE_SIZE * 2.0)
+	var nome_dentro: float = j.RADIUS * j.LABEL_RADIUS_FRAC - mais_alto * 0.5
+	assert_gt(nome_dentro, seta_fora,
+		"o nome começa a %.1fpx do centro e a seta só termina em %.1fpx" % [
+			nome_dentro, seta_fora])
+
 func test_labels_repaint_when_scheme_changes():
 	# O texto some/volta pelo mesmo caminho que repinta as fatias; trocar o
 	# esquema não pode zerar o nome de tabela.
@@ -279,17 +332,24 @@ func test_derived_constants_track_the_radius():
 	# proporção e um micro-arrasto passa a disparar direção -- justo o que o
 	# público de baixa visão não aguenta.
 	var J = load("res://scripts/DirectionJoystick.gd")
-	assert_almost_eq(J.BACKDROP_OVERHANG / J.RADIUS, 0.24, 0.01)
+	assert_almost_eq(J.BACKDROP_OVERHANG / J.RADIUS, 0.10, 0.01)
 	assert_almost_eq(J.DEAD_ZONE / J.RADIUS, 0.1875, 0.01)
-	assert_almost_eq(J.THUMB_RADIUS / J.RADIUS, 0.35, 0.01)
+	assert_almost_eq(J.THUMB_RADIUS / J.RADIUS, 0.26, 0.01)
 
 func test_minimum_size_covers_the_drawn_reach():
 	# O alcance desenhado é RADIUS+THUMB_RADIUS (o thumb é clampado no raio e
 	# desenha o próprio raio além disso), não RADIUS+BACKDROP_OVERHANG.
 	var j = _make_joystick()
+	#
+	# A tolerância não é frouxidão: Vector2 guarda float32 e a conta aqui é
+	# float64, então custom_minimum_size.x volta como 352,799987... contra 352,8.
+	# Enquanto o alcance era 378 (exato em binário) isso nunca apareceu -- é uma
+	# armadilha latente que só acorda quando as constantes deixam de dar um
+	# número redondo, e comparar float32 com float64 no fio é sempre errado.
 	var alcance: float = (j.RADIUS + j.THUMB_RADIUS) * 2.0
-	assert_gte(j.custom_minimum_size.x, alcance)
-	assert_gte(j.custom_minimum_size.y, alcance)
+	var epsilon := 0.001
+	assert_gte(j.custom_minimum_size.x, alcance - epsilon)
+	assert_gte(j.custom_minimum_size.y, alcance - epsilon)
 
 func test_slices_root_is_centered_on_the_actual_size():
 	# A geometria de toque usa size/2 e a de desenho usava uma posição fixa no
