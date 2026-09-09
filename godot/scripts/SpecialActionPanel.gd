@@ -9,6 +9,13 @@ const BUTTON_SIZE := Vector2(96, 96)
 const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha DirectionJoystick.NEUTRAL_SLICE
 const ARMED_BRIGHTNESS := 1.6  # multiplicador da cor da placa quando a ação está armada
 const CORNER_RADIUS := 8
+## Todos os estados de cor de texto do Button, não só font_color: este painel NÃO
+## está sob blindtuner_theme.tres (é irmão do GameHUD na CanvasLayer, não filho),
+## então herda o tema padrão do Godot -- que além do cinza claro de font_color
+## ainda CLAREIA o rótulo no hover/pressed/focus. Sobrescrever só o primeiro
+## deixaria o nome da nota sumir na placa clara justo quando o dedo está em cima.
+const BUTTON_FONT_COLORS := ["font_color", "font_hover_color", "font_pressed_color",
+	"font_hover_pressed_color", "font_focus_color"]
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 # ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
@@ -99,7 +106,19 @@ func _apply_cue() -> void:
 		pressed_sb.corner_radius_bottom_right = CORNER_RADIUS
 		_buttons[i].add_theme_stylebox_override("pressed", pressed_sb)
 		_buttons[i].modulate = Color.WHITE  # neutro: qualquer cor aqui tingiria o ícone junto
-		_icons[i].set_tint(ColorDistance.icon_tint_for(base_color))
+		# Glifo e NOME da nota recebem a MESMA tinta: é a mesma decisão ("tinta
+		# escura em placa clara e vice-versa"), e duas tintas diferentes na mesma
+		# placa leriam como dois elementos distintos.
+		#
+		# Sem isto o nome ficava no cinza claro do tema padrão do Godot sobre a
+		# cor da nota: medido no esquema Pedagógico (o de fábrica), 1,25:1 no Si e
+		# 1,36:1 no Lá -- ilegível. Levar a cor da placa pro bg_color da
+		# StyleBoxFlat pinta o FUNDO e não mexe no rótulo; enquanto ela vinha do
+		# modulate, o rótulo era tingido junto e por acidente dava 4,9 a 8,5:1.
+		var ink := ColorDistance.icon_tint_for(base_color)
+		for nome in BUTTON_FONT_COLORS:
+			_buttons[i].add_theme_color_override(nome, ink)
+		_icons[i].set_tint(ink)
 
 ## Conectado pelo Playground ao sinal armed_state_changed do Character.
 ## Atualiza brilho dos botões correspondentes a correr (índice 2) e pular (índice 3).

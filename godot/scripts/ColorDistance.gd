@@ -55,16 +55,34 @@ static func contrast_ratio(a: Color, b: Color) -> float:
 static func relative_luminance(c: Color) -> float:
 	return 0.2126 * _linearize(c.r) + 0.7152 * _linearize(c.g) + 0.0722 * _linearize(c.b)
 
-## Glifo escuro sobre fundo claro e vice-versa. A regra vivia inline no
+## Tinta escura sobre fundo claro e vice-versa. A regra vivia inline no
 ## PianoInput; virou função compartilhada quando o painel de ações passou a
 ## precisar da mesma decisão.
+##
+## Vale para o GLIFO e para o NOME DA NOTA na mesma placa: são a mesma decisão, e
+## duas tintas diferentes no mesmo botão leriam como dois elementos distintos.
 ##
 ## O limiar é sobre Color.get_luminance() -- a média Rec. 709 dos canais como
 ## estão, SEM linearizar. Não é a mesma conta de relative_luminance() acima (que
 ## é a do WCAG, sobre canais linearizados) e é de propósito: é um corte binário
-## "claro ou escuro", não uma razão. Medido sobre as 12 cores dos 3 esquemas
-## embarcados, o pior caso ainda dá 4,1:1 de contraste WCAG, folgado acima do
-## mínimo 3:1 para elemento gráfico.
+## "claro ou escuro", não uma razão.
+##
+## Contraste WCAG resultante, medido (não estimado) sobre TODAS as placas que os
+## dois painéis conseguem exibir -- 12 notas x 3 esquemas, mais o cinza da pista
+## 3 e as teclas autênticas do piano:
+##   - placas em repouso: 4,10:1 no pior caso (o verde #009218 do Pedagógico,
+##     seguido do #388e3c do Clássico com 4,12) -- os dois são meio-tom, onde a
+##     tinta branca vence por pouco. As 4 placas do SpecialActionPanel, que são
+##     as únicas que exibem nome em TODOS os esquemas, ficam em 4,52:1 ou mais.
+##   - placa ARMADA (bg x1.6, só correr/pular, e só enquanto a ação está armada):
+##     3,70:1 no pior caso (o azul #3949ab do Clássico clareado).
+## Ou seja: acima dos 3:1 do WCAG para elemento gráfico em qualquer estado, e
+## acima dos 4,5:1 para texto em tudo menos o estado armado transitório. É uma
+## melhora de uma ordem de grandeza sobre o que havia (1,03:1 a 2,32:1 com o
+## rótulo no cinza do tema padrão do Godot) e a alternativa -- escolher a tinta
+## por maior razão de contraste em vez de por corte de luminância -- inverteria o
+## glifo para escuro em placas de meio-tom, o que ninguém pediu e nenhuma medição
+## sustentou como mais legível.
 const ICON_DARK := Color(0.10, 0.10, 0.12)
 const ICON_LIGHT := Color.WHITE
 const ICON_LUMA_THRESHOLD := 0.5

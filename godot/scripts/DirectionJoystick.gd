@@ -151,14 +151,31 @@ func _build_slice_labels() -> void:
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.custom_minimum_size = box
-		lbl.size = box
-		lbl.position = _slice_anchor(i, LABEL_RADIUS_FRAC) - box * 0.5
 		lbl.add_theme_font_size_override("font_size", int(RADIUS * LABEL_FONT_FRAC))
 		lbl.add_theme_color_override("font_color", LABEL_COLOR)
 		lbl.add_theme_color_override("font_outline_color", LABEL_OUTLINE_COLOR)
 		lbl.add_theme_constant_override("outline_size", LABEL_OUTLINE_SIZE)
 		_slices_root.add_child(lbl)
 		_slice_labels.append(lbl)
+		_place_label(i)
+
+## Planta o rótulo da fatia centrado na âncora, medindo o tamanho REAL em vez de
+## confiar na caixa declarada em LABEL_SIZE_FRAC.
+##
+## O Label é clampado no mínimo combinado (linha de fonte + contorno): com
+## RADIUS=120 a caixa pedida é 60x36 e ele mede 60x37, então centrar por
+## `box * 0.5` deixava meio pixel de desvio. Meio pixel é cosmético; o que não é
+## cosmético é que o desvio cresce em (size - box)/2 a cada aumento de RADIUS, de
+## LABEL_FONT_FRAC ou da fonte do sistema por acessibilidade -- ou seja, a
+## invariância de escala que motivou escrever a geometria toda em frações do raio
+## não valia justamente para o rótulo.
+##
+## Chamado também depois de trocar o texto: o texto entra no mínimo do Label, e
+## um nome mais largo que a caixa a empurraria para fora do centro de novo.
+func _place_label(slice_index: int) -> void:
+	var lbl := _slice_labels[slice_index]
+	lbl.size = LABEL_SIZE_FRAC * RADIUS  # o setter já sobe pro mínimo combinado
+	lbl.position = _slice_anchor(slice_index, LABEL_RADIUS_FRAC) - lbl.size * 0.5
 
 func slice_display_color(note_key: String) -> Color:
 	if CueSettings.shows_color():
@@ -181,6 +198,8 @@ func _apply_cue() -> void:
 		c.a = _slice_polygons[i].color.a  # preserva alpha atual (gerido por _refresh_slice_alphas)
 		_slice_polygons[i].color = c
 		_slice_labels[i].text = NoteMapping.label_for(_slice_note_keys[i]) if show_name else ""
+		# Depois do texto: ele entra no mínimo do Label e pode mudar o tamanho.
+		_place_label(i)
 
 func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 	var points: Array[Vector2] = [Vector2.ZERO]

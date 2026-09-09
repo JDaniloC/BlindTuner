@@ -13,6 +13,11 @@ const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
 const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
 const CORNER_RADIUS := 6
+## Espelha SpecialActionPanel.BUTTON_FONT_COLORS -- este modo de input também é
+## irmão do GameHUD na CanvasLayer, logo também herda o tema padrão do Godot (e
+## com ele o cinza claro do rótulo, que ainda clareia mais no hover/pressed/focus).
+const BUTTON_FONT_COLORS := ["font_color", "font_hover_color", "font_pressed_color",
+	"font_hover_pressed_color", "font_focus_color"]
 const ICON_MAX_SIDE := 48.0
 const ICON_BOTTOM_MARGIN := 12.0
 ## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
@@ -143,9 +148,16 @@ func _apply_cue() -> void:
 		# roda de novo a cada troca de nível de pista ou de estado armado,
 		# o tint acompanha a troca de fundo sozinho. A regra mora em
 		# ColorDistance porque o SpecialActionPanel precisa da mesma decisão.
+		var bg: Color = sb.bg_color * _buttons[i].self_modulate
+		var ink := ColorDistance.icon_tint_for(bg)
 		if i < _key_icons.size():
-			var bg: Color = sb.bg_color * _buttons[i].self_modulate
-			_key_icons[i].set_tint(ColorDistance.icon_tint_for(bg))
+			_key_icons[i].set_tint(ink)
+		# O NOME da nota segue a MESMA tinta do glifo, pela mesma razão e com o
+		# mesmo defeito por trás: com a cor no bg_color da stylebox (e não no
+		# modulate), o rótulo continuava no cinza claro do tema padrão do Godot --
+		# ilegível numa tecla branca ou numa cor clara da paleta.
+		for nome in BUTTON_FONT_COLORS:
+			_buttons[i].add_theme_color_override(nome, ink)
 		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
 		# escurecido) pra dar feedback visual de toque -- sem isso, apertar
 		# uma tecla não mudava nada visualmente (normal/hover/pressed

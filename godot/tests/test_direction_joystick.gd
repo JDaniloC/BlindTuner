@@ -196,27 +196,63 @@ func test_label_sits_outside_the_icon_box():
 		assert_gt(raio_do_rotulo, raio_do_icone + icon.size.y * 0.5,
 			"o nome da fatia %d cai dentro da caixa da seta" % i)
 
-func test_labels_stay_inside_the_joystick_disc():
-	# Fora do disco o nome fica sobre o cenário e some. Mede a borda externa do
-	# rótulo no sentido radial, que é onde o disco realmente corta.
+## Os 4 cantos da caixa do rótulo, em coordenadas de _slices_root (centro = 0,0).
+## Medir o centro, ou a aresta radial, é medir onde o rótulo NÃO corta primeiro:
+## numa caixa de 60x37 plantada a 45°, o canto chega 24px mais longe que a aresta
+## que os testes antigos olhavam.
+func _cantos_do_rotulo(lbl: Label) -> Array[Vector2]:
+	return [
+		lbl.position,
+		lbl.position + Vector2(lbl.size.x, 0.0),
+		lbl.position + Vector2(0.0, lbl.size.y),
+		lbl.position + lbl.size,
+	]
+
+func test_labels_are_centred_on_their_slice_anchor():
+	# A caixa DECLARADA é 60x36, mas o Label é clampado no mínimo combinado
+	# (linha de fonte + contorno) e mede 60x37: centrar por LABEL_SIZE_FRAC em vez
+	# de pelo tamanho real deixava o rótulo meio pixel fora de centro, e o desvio
+	# cresce em (size - box)/2 a cada aumento de RADIUS, de LABEL_FONT_FRAC ou da
+	# fonte do sistema por acessibilidade.
+	CueSettings.set_level(0)
 	var j = _make_joystick()
 	for i in range(8):
 		var lbl: Label = j._slice_labels[i]
-		var raio := (lbl.position + lbl.size * 0.5).length()
-		assert_lte(raio + lbl.size.y * 0.5, j.RADIUS + j.BACKDROP_OVERHANG,
-			"o nome da fatia %d vaza do disco do joystick" % i)
+		var centro: Vector2 = lbl.position + lbl.size * 0.5
+		var ancora: Vector2 = j._slice_anchor(i, j.LABEL_RADIUS_FRAC)
+		assert_almost_eq((centro - ancora).length(), 0.0, 0.001,
+			"o nome da fatia %d nasce %.2fpx fora do centro da âncora" % [i, (centro - ancora).length()])
+
+func test_labels_stay_inside_the_joystick_disc():
+	# Fora do disco o nome fica sobre o cenário e some. Mede os 4 CANTOS: a versão
+	# anterior comparava `raio + altura/2` (114) contra o disco (138) enquanto o
+	# canto real chegava a 130,9 -- 24px de folga fantasma. Com LABEL_RADIUS_FRAC
+	# em 0,87 o canto sai do disco e aquele teste continuava verde.
+	var j = _make_joystick()
+	var limite: float = j.RADIUS + j.BACKDROP_OVERHANG
+	for i in range(8):
+		for canto in _cantos_do_rotulo(j._slice_labels[i]):
+			assert_lte(canto.length(), limite,
+				"o canto %s do nome da fatia %d cai a %.1fpx do centro, fora do disco de %.1f" % [
+					canto, i, canto.length(), limite])
 
 func test_labels_do_not_bleed_into_the_neighbouring_slice():
-	# A fatia é uma cunha: quanto mais longe do centro, mais larga. O rótulo
-	# precisa caber na largura da cunha no raio em que foi plantado, senão o
-	# nome de uma direção invade a fatia da direção vizinha.
+	# A fatia é uma cunha de 45° e a caixa do rótulo é alinhada à TELA, não à
+	# cunha: nas 4 fatias diagonais ela entra torta, e quem encosta na fronteira é
+	# um canto, não a meia-largura no raio do centro (o que a versão anterior
+	# media, concedendo folga fantasma pelo mesmo motivo do teste acima).
+	CueSettings.set_level(0)
 	var j = _make_joystick()
+	var meia_cunha: float = j.SLICE_ANGLE_DEG * 0.5
 	for i in range(8):
-		var lbl: Label = j._slice_labels[i]
-		var raio := (lbl.position + lbl.size * 0.5).length()
-		var meia_largura_da_fatia: float = raio * tan(deg_to_rad(j.SLICE_ANGLE_DEG * 0.5))
-		assert_lte(lbl.size.x * 0.5, meia_largura_da_fatia,
-			"o nome da fatia %d encosta na fatia vizinha" % i)
+		var ang_do_centro: float = i * j.SLICE_ANGLE_DEG
+		for canto in _cantos_do_rotulo(j._slice_labels[i]):
+			# Mesma convenção de _slice_anchor: 0° = Norte da tela (-y).
+			var ang: float = rad_to_deg(atan2(canto.x, -canto.y))
+			var desvio: float = absf(wrapf(ang - ang_do_centro, -180.0, 180.0))
+			assert_lte(desvio, meia_cunha,
+				"o canto %s do nome da fatia %d está a %.1f° do eixo, fora da cunha de ±%.1f°" % [
+					canto, i, desvio, meia_cunha])
 
 func test_labels_repaint_when_scheme_changes():
 	# O texto some/volta pelo mesmo caminho que repinta as fatias; trocar o

@@ -119,6 +119,32 @@ func test_paint_toggle_does_not_write_to_disk_just_by_being_created():
 	assert_false(FileAccess.file_exists(PAINT_TEST_PATH),
 		"montar o HUD não pode escrever a configuração do jogador")
 
+func test_paint_toggle_follows_a_change_made_somewhere_else():
+	# O interruptor não é a única porta pra essa preferência: "Restaurar tudo ao
+	# padrão", na tela de Cores, religa a pintura. Sem escutar paint_mode_changed,
+	# o botão ficava mostrando "desligado" com a pintura ligada -- e o toque
+	# seguinte era um toque MORTO: button_pressed ia pra true, set_paints_piano
+	# recebia o valor que já estava lá e não emitia nada, então o jogador
+	# precisava apertar duas vezes pra ver qualquer coisa acontecer.
+	ColorSchemeSettings.set_paints_piano(false)
+	var h = _hud()
+	assert_false(h._paint_btn.button_pressed, "pré-condição: nasce desligado")
+	ColorSchemeSettings.reset_to_defaults()  # é o que _on_reset_confirmed chama
+	assert_true(ColorSchemeSettings.paints_piano_keys(), "pré-condição: o reset religa a pintura")
+	assert_true(h._paint_btn.button_pressed,
+		"o interruptor tem que refletir a preferência, não a última vez que foi tocado")
+
+func test_reflecting_an_external_change_does_not_write_to_disk():
+	# set_pressed_no_signal, não button_pressed: reentrar em _on_paint_toggled
+	# gravaria a configuração do jogador a cada mudança vinda de outra tela -- e,
+	# no boot, gravaria só por ter LIDO a configuração dele.
+	ColorSchemeSettings.config_path = PAINT_TEST_PATH
+	ColorSchemeSettings.set_paints_piano(false)
+	_hud()
+	ColorSchemeSettings.set_paints_piano(true)
+	assert_false(FileAccess.file_exists(PAINT_TEST_PATH),
+		"refletir uma mudança externa não é o jogador tocando no interruptor")
+
 # --- Layout na largura de projeto (720px) --------------------------------------
 
 func _design_width() -> int:

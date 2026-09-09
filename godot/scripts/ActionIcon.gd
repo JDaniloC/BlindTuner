@@ -46,8 +46,14 @@ func _ready() -> void:
 	texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 ## Cor do glifo. Quem desenha o ícone sobre um fundo claro precisa pedir um
-## tint escuro -- branco sobre tecla branca dá contraste ~1.25:1. O padrão
-## continua branco (SpecialActionPanel/DirectionJoystick têm fundo escuro).
+## tint escuro -- branco sobre tecla branca dá contraste ~1.25:1.
+##
+## O padrão branco só serve a quem tem fundo escuro garantido, e hoje isso é só
+## o DirectionJoystick (fatia translúcida sobre o disco escuro). SpecialActionPanel
+## e PianoInput pintam a placa com a COR DA NOTA, que costuma ser clara -- medido
+## no esquema Pedagógico: Lá = #81c8ff, Si = #ffadfb -- e por isso os dois chamam
+## set_tint() com o resultado de ColorDistance.icon_tint_for(fundo). Ícone novo em
+## qualquer um desses dois painéis precisa fazer o mesmo.
 func set_tint(color: Color) -> void:
 	_tint = color
 	queue_redraw()

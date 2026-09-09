@@ -115,6 +115,14 @@ func _ready() -> void:
 	again.pressed.connect(_on_restart_pressed)
 	col.add_child(again)
 
+	# O interruptor não é a única porta pra essa preferência: "Restaurar tudo ao
+	# padrão", na tela de Cores, também religa a pintura. Sem escutar o sinal, o
+	# botão continuava mostrando "desligado" com a pintura ligada -- e o próximo
+	# toque virava um toque morto (button_pressed ia pra true, set_paints_piano
+	# recebia o valor que já estava lá e não emitia nada), obrigando a apertar duas
+	# vezes. Conectado por ÚLTIMO, depois de _paint_btn existir.
+	ColorSchemeSettings.paint_mode_changed.connect(_on_paint_mode_changed)
+
 ## Altura ocupada pela barra do topo, medida (não estimada): é o que separa o
 ## HUD de quem desenha logo abaixo dele.
 func top_bar_height() -> float:
@@ -134,6 +142,13 @@ func _on_color_pressed() -> void:
 func _on_paint_toggled(enabled: bool) -> void:
 	ColorSchemeSettings.set_paints_piano(enabled)
 	ColorSchemeSettings.save_to_disk()
+
+## A preferência mudou por fora (restaurar padrões, carga do disco). Reflete no
+## botão SEM emitir `toggled`: reentrar em _on_paint_toggled gravaria em disco a
+## cada mudança de estado vinda de outra tela -- e, no boot, gravaria a
+## configuração do jogador só por ter lido a configuração do jogador.
+func _on_paint_mode_changed(enabled: bool) -> void:
+	_paint_btn.set_pressed_no_signal(enabled)
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()

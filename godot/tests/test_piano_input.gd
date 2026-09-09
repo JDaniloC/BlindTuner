@@ -234,6 +234,53 @@ func test_icon_tint_follows_note_color_luminance():
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
 		"fundo escuro (#9C000A) pede ícone branco")
 
+## Pior contraste do rótulo contra a própria tecla, entre TODOS os estados de cor
+## de texto do Button: o tema padrão do Godot clareia o rótulo no
+## hover/pressed/focus, então cobrir só font_color deixaria o nome sumir
+## justamente quando o dedo está em cima da tecla.
+func _pior_contraste_do_rotulo(btn: Button) -> float:
+	var fundo: Color = btn.get_theme_stylebox("normal").bg_color
+	var pior := 99.0
+	for nome in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_hover_pressed_color", "font_focus_color"]:
+		pior = minf(pior, ColorDistance.contrast_ratio(fundo, btn.get_theme_color(nome)))
+	return pior
+
+func test_key_name_contrasts_with_its_own_key_when_painted():
+	# Mesmo defeito que o SpecialActionPanel tinha: a cor mora no bg_color da
+	# stylebox (pinta só o FUNDO) e o PianoInput não está sob blindtuner_theme.tres,
+	# então o rótulo herdava o cinza claro do tema padrão do Godot. Numa tecla
+	# clara da paleta isso era ilegível.
+	#
+	# A barra é 4,0 e não os 4,5 do WCAG porque as 12 cores dos esquemas
+	# embarcados não chegam lá: o pior caso medido é o verde #009218 do Pedagógico
+	# com 4,10:1, seguido do #388e3c do Clássico com 4,12 -- dois meio-tons em que
+	# a tinta branca vence por pouco. Subir a barra exigiria clarear ou escurecer
+	# essas cores nas paletas, não mexer na regra de tinta. As 4 placas do
+	# SpecialActionPanel, que é onde o nome aparece sempre, cobram 4,5 de verdade
+	# (ver test_note_name_contrasts_with_its_own_plate).
+	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(true)
+	var p = _make()
+	for esquema in ["classico", "pedagogico", "alto_contraste"]:
+		ColorSchemeSettings.set_scheme(esquema)
+		for i in range(p._buttons.size()):
+			assert_ne(p._buttons[i].text, "", "pré-condição: a tecla %s exibe o nome" % p._button_notes[i])
+			assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.0,
+				"%s: o nome da tecla %s dá %.2f:1 contra a própria tecla" % [
+					esquema, p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
+
+func test_key_name_contrasts_with_the_authentic_keyboard():
+	# Sem pintura o fundo é branco/preto/âmbar; o branco é o caso que o cinza
+	# claro do tema padrão estragava (13,92:1 com tinta escura, 1,25:1 sem ela).
+	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(false)
+	var p = _make()
+	for i in range(p._buttons.size()):
+		assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.5,
+			"o nome da tecla %s dá %.2f:1 no teclado autêntico" % [
+				p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
+
 func test_keys_repaint_when_scheme_changes():
 	# Trocar de esquema tem que repintar sem reiniciar a fase.
 	CueSettings.set_level(0)

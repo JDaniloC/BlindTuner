@@ -191,3 +191,53 @@ func test_icon_tint_contrasts_with_its_own_button():
 			if child.get_script() == ActionIconScript:
 				assert_gt(ColorDistance.contrast_ratio(fundo, child._tint), 3.0,
 					"glifo do botão %d se confunde com a própria placa" % i)
+
+## Todos os estados de cor de texto, não só font_color: o tema padrão do Godot
+## CLAREIA o rótulo no hover/pressed/focus, então cobrir só o primeiro deixaria o
+## nome sumir na placa clara justamente quando o dedo está em cima do botão.
+func _piores_contrastes(btn: Button, fundo: Color) -> Array:
+	var pior := 99.0
+	var pior_estado := ""
+	for nome in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_hover_pressed_color", "font_focus_color"]:
+		var r: float = ColorDistance.contrast_ratio(fundo, btn.get_theme_color(nome))
+		if r < pior:
+			pior = r
+			pior_estado = nome
+	return [pior, pior_estado]
+
+func test_note_name_contrasts_with_its_own_plate():
+	# Regressão da rodada 3: a cor da nota saiu do modulate (que tingia o rótulo
+	# junto, por acidente) e foi pro bg_color da StyleBoxFlat, que pinta só o
+	# FUNDO. O nome ficou no cinza claro do tema padrão do Godot -- e este painel
+	# NÃO está sob blindtuner_theme.tres, é irmão do GameHUD na CanvasLayer.
+	# Medido no esquema de fábrica: 1,25:1 no Si, 1,36:1 no Lá. Ilegível.
+	#
+	# Só o nível 0 mostra nome, e é o padrão do dropdown.
+	CueSettings.set_level(0)
+	var p = _make()
+	for esquema in ["classico", "pedagogico", "alto_contraste"]:
+		ColorSchemeSettings.set_scheme(esquema)
+		for i in range(p._buttons.size()):
+			assert_ne(p._buttons[i].text, "", "pré-condição: o botão %d exibe o nome" % i)
+			var res := _piores_contrastes(p._buttons[i], _bg(p._buttons[i]))
+			assert_gte(res[0], 4.5,
+				"%s: o nome do botão %d dá %.2f:1 contra a própria placa em %s (WCAG pede 4,5:1 pra texto)" % [
+					esquema, i, res[0], res[1]])
+
+func test_note_name_stays_legible_while_the_action_is_armed():
+	# A placa armada é a MESMA cor multiplicada por 1.6, e o corte de luminância
+	# pode virar a tinta do rótulo do claro pro escuro no meio do caminho. Aqui a
+	# barra é a de elemento gráfico (3:1) e não a de texto (4,5:1): o pior caso
+	# medido é o azul #3949ab do Clássico clareado, que dá 3,70:1, e o estado é
+	# transitório -- some assim que a ação dispara.
+	CueSettings.set_level(0)
+	var p = _make()
+	for esquema in ["classico", "pedagogico", "alto_contraste"]:
+		ColorSchemeSettings.set_scheme(esquema)
+		p.on_armed_state_changed(true, true)
+		for i in [2, 3]:  # correr e pular são as únicas armáveis
+			var res := _piores_contrastes(p._buttons[i], _bg(p._buttons[i]))
+			assert_gte(res[0], 3.0,
+				"%s: o nome do botão armado %d dá %.2f:1 em %s" % [esquema, i, res[0], res[1]])
+	p.on_armed_state_changed(false, false)
