@@ -74,85 +74,139 @@ enum Timbre { ADDITIVE, WAVEGUIDE }
 # duas reflexões inversoras a componente contínua das duas linhas se cancela na
 # leitura do cavalete e o que sobra é a ressonância da corda.
 #
-# 256 amostras por linha cobrem com folga a oitava do jogo (a nota mais grave,
-# 262Hz, pede 83,5 e a mais aguda 44,0) e o tamanho NUNCA muda. Redimensionar as
-# linhas a cada frequência nova é a alternativa óbvia e joga fora toda a energia
-# já guardada nelas -- a corda recomeçaria do zero a cada evento de arrasto, que
-# é o oposto do glissando.
+# O que EXCITA essa corda é o arco, e ele é o modelo de fricção do STK
+# (Cook/Scavone): a cada amostra, a diferença entre a velocidade do arco e a da
+# corda no ponto de contato passa por uma curva de atrito não-linear (a "mesa de
+# arco", _bow_friction) e volta injetada nas duas linhas. Dessa não-linearidade
+# EMERGE o movimento de Helmholtz -- o canto que viaja pela corda e produz a
+# onda tipo dente-de-serra --, e é por isso que este modelo soa como corda
+# friccionada e não como um ressoador chiando.
+#
+# A versão anterior excitava a corda com RUÍDO ALEATÓRIO, que é o atalho óbvio
+# (e o que o Karplus-Strong faz). Foi implementada, ouvida e reprovada -- "bem
+# bizarro", "pior que o normal". Medido, ruído contra mesa de arco:
+#   fator de crista       3,75  ->  1,80  (o do aditivo é 1,80: dente-de-serra
+#                                          contra envoltória de ruído)
+#   passeio de janelas de
+#   100ms depois do ataque 7,9dB -> 0,2dB (o "instável" que se ouvia)
+#   afinação real das 12
+#   notas                 -28,6 a +6,1 cents  ->  -0,2 a +0,3 cents
+# A afinação é a diferença que mais importa num jogo cuja mecânica é reconhecer
+# qual nota soou: o laço de atraso sempre esteve afinado, mas ruído não é
+# periódico, então o que saía não tinha período estável -- o teste de afinação
+# media a resposta ao IMPULSO (o laço linear, correto) e por isso passava.
+
+# Onde o arco toca a corda, como fração do laço (0 = no cavalete, 0,5 = no meio).
+# É ele que divide o laço nos dois segmentos abaixo -- a soma dos dois é o laço
+# inteiro, então MUDAR A POSIÇÃO NÃO DESAFINA a corda, só muda o timbre.
+#
+# E muda MUITO. Medido, espectro do Lá4 (harmônicos 1 a 7, normalizados pelo
+# fundamental), com todo o resto igual:
+#   0,5    1,00 0,03 0,08 0,01 0,05 0,01 0,01  -- o arco no meio da corda não
+#          consegue excitar modo nenhum de ordem par: sai quase uma senoide, e
+#          fator de crista 1,47. Timbre de flauta, não de corda.
+#   0,125  1,00 2,61 0,84 0,95 0,61 0,33 0,06  -- o 2º harmônico sai 2,6x MAIOR
+#          que o fundamental: nasalado, e a altura fica ambígua (é o oitavado
+#          que o jogador ouviria primeiro). É a posição de um violino de verdade
+#          (perto do cavalete), mas o modelo não a sustenta.
+#   0,25   1,00 0,52 0,40 0,11 0,16 0,16 0,16  -- série decrescente, parecida com
+#          a do aditivo (1 / 0,5 / 0,3 / 0,2 / 0,1) mas com corpo acima do 5º
+#          harmônico, que é o que o aditivo não tem.
+# 0,25 zera exatamente o 4º harmônico (0,11 contra 0,2 no aditivo), que é o preço
+# de bater numa fração inteira; 0,22 evita o zero mas põe o 2º harmônico de volta
+# em 0,30 e o passeio de envoltória em 0,9dB (contra 0,2), então não compensa.
+const WG_BOW_POSITION := 0.25
+# Comprimento de cada segmento em múltiplos de _wg_delay (que é MEIO laço).
+const WG_BRIDGE_SEGMENT := 2.0 * WG_BOW_POSITION
+const WG_NUT_SEGMENT := 2.0 * (1.0 - WG_BOW_POSITION)
+# Velocidade do arco e inclinação da mesa de fricção. Só o PRODUTO dos dois
+# importa pro timbre (a mesa só enxerga velocidade x inclinação; o resto vira
+# ganho, que WG_OUTPUT_GAIN reabsorve): medido, 0,15x2,0 e 0,20x1,5 dão espectro,
+# crista e afinação idênticos até a 3ª casa. O produto 0,4 foi escolhido nas
+# pontas de três medições (brilho = RMS da diferença entre amostras vizinhas
+# convertido em Hz, um centroide espectral: o aditivo dá 718Hz e a versão a ruído
+# reprovada, 1052Hz -- nenhuma destas três é mais áspera que o que já estava lá):
+#   0,3  -- crista 1,87, brilho 1103Hz
+#   0,4  -- crista 1,80 (o do aditivo), brilho 1040Hz, RMS dos primeiros 200ms a
+#           -0,3dB do resto, afinação do ataque dentro de 0,9 cent
+#   0,5  -- crista 1,72 e brilho 979Hz (mais escuro), mas o ataque sai a -0,5dB e
+#           entra 1,5 cent BAIXO -- e ataque é o que o jogador mais ouve.
+const WG_BOW_VELOCITY := 0.2
+const WG_BOW_TABLE_SLOPE := 2.0
+# 256 amostras por linha cobrem com folga a oitava do jogo e o tamanho NUNCA
+# muda. Redimensionar as linhas a cada frequência nova é a alternativa óbvia e
+# joga fora toda a energia já guardada nelas -- a corda recomeçaria do zero a
+# cada evento de arrasto, que é o oposto do glissando.
 const WG_LINE_SAMPLES := 256
+# O arco divide a corda em dois segmentos (ver WG_BOW_POSITION), e o segmento
+# do lado da pestana é o mais longo dos dois: é ELE que tem que caber na linha,
+# não a metade do laço. Daí o teto ser o comprimento da linha dividido pelo
+# segmento maior, e não a linha inteira. Dá 169,3 amostras de meio-laço, ou seja
+# corda afinável até ~130Hz -- a nota mais grave do jogo (262Hz) pede 83,4.
+const WG_MAX_HALF_DELAY := (WG_LINE_SAMPLES - 2) / (2.0 * (1.0 - WG_BOW_POSITION))
 # Filtro de perdas de 1 polo no cavalete: é ele que faz os harmônicos agudos
 # morrerem antes do fundamental, como numa corda de verdade.
 const WG_LOSS_COEFF := 0.3774
 # Ganho de cada reflexão. Ao quadrado (são duas por volta) dá o decaimento da
-# corda; perto demais de 1 a corda vira um sino que nunca cala, longe demais e
-# o ruído do arco não chega a virar nota.
+# corda; perto demais de 1 a corda vira um sino que nunca cala, longe demais e o
+# arco não chega a pôr a corda pra oscilar.
 #
-# Com o arco correndo, esta constante também governa quanto tempo a corda leva
-# pra ALCANÇAR o volume dela, e é por isso que ela não é 0,998 (o valor "sino",
-# tentado primeiro). A 0,998 o ganho por volta é 0,996 e a constante de tempo de
-# subida vira ~250 voltas -- 0,95s no Dó, 0,5s no Si: a corda ainda está subindo
-# quando o jogador já soltou o dedo. Medido nas 12 notas x 1,5s, com o mesmo
-# procedimento nas duas configurações:
-#   0,998 -- RMS dos primeiros 200ms 0,0728 contra 0,1009 do resto (-2,8dB: a
-#            corda entra fraca), e as janelas de 100ms de todas as notas variando
-#            de 0,0348 a 0,2279, ou seja 16,3dB de passeio de envoltória.
-#   0,98  -- RMS dos primeiros 200ms 0,1314 contra 0,1432 (-0,7dB: já nasce no
-#            volume dela), passeio de 100ms em 9,3dB.
-# O passeio que sobra é o que uma corda excitada por RUÍDO tem de nascença; o que
-# a mudança tirou foi a subida lenta por cima dele.
+# Na versão a ruído esta constante era quem governava quanto tempo a corda levava
+# pra alcançar o volume dela, e 0,98 foi escolhido por isso (a 0,998 o arrasto
+# acabava antes de a corda subir). Com a mesa de arco ela NÃO governa mais:
+# medido nas 12 notas, o RMS dos primeiros 200ms fica a -0,49dB do resto a 0,98 e
+# a -0,50dB a 0,998 -- quem manda no ataque agora é o arco, que injeta energia
+# ativamente até a curva de atrito saturar, e não o quanto o laço guarda dela.
 #
-# 0,98 são 0,9604 por volta, constante de tempo de 94ms no Dó e 50ms no Si. A
-# afinação não depende disto: o erro nas 12 notas fica em 0,62 cent, contra 0,55
-# a 0,998.
+# O que ela ainda muda é o brilho e o fator de crista (0,95 -> 1,72; 0,98 -> 1,80;
+# 0,998 -> 1,87) e uns 0,5 cent de afinação. 0,98 fica porque é a crista que casa
+# com a do aditivo e é o valor contra o qual WG_LOSS_DELAY_COMP foi medido.
 const WG_REFLECTION_GAIN := 0.98
-# O filtro de perdas ATRASA o sinal, e esse atraso entra no comprimento do laço
-# tanto quanto as linhas de delay. Sem descontá-lo o tom sai BAIXO: zerando esta
-# constante, a suíte mede de 16 cents na nota mais grave a 31 na mais aguda --
-# inaudível como bug de código e fatal num jogo cuja mecânica inteira é
-# reconhecer qual nota soou. 1,65 é o atraso de fase do filtro de 1 polo acima
-# (que é (1-a)/a amostras); com ele o erro nas 12 notas cai para 0,5 cent.
-const WG_LOSS_DELAY_COMP := 1.65
+# O laço fecha mais curto do que a soma das linhas de delay diz, por três motivos
+# que não dá pra separar por dedução: o atraso de fase do filtro de perdas, o da
+# interpolação linear das leituras fracionárias, e o encurtamento que a própria
+# mesa de arco causa (durante a GRUDADA a corda é praticamente presa no ponto do
+# arco, e uma corda presa no meio é uma corda mais curta -- some 0,34 amostra).
+# Sem descontar nada o tom sai BAIXO: 16 a 31 cents nas 12 notas.
+#
+# Por isso o valor é MEDIDO e não derivado: com a mesa de arco o erro é linear
+# nesta constante e some junto nas 12 notas ao mesmo tempo (é um erro de ATRASO
+# fixo, e atraso fixo vira sempre a mesma proporção do período). Medido nas 12
+# notas, afinação real (deriva de fase da fundamental em 0,8s):
+#   1,25  -- -0,74 a -1,21 cent (baixo demais)
+#   1,355 -- -0,16 a +0,29 cent
+#   1,65  -- +3,57 a +6,41 cents (o valor da versão a ruído, que era o atraso de
+#            fase do filtro sozinho -- e que só passava no teste porque o teste
+#            media a resposta ao impulso, onde a mesa de arco nem entra)
+const WG_LOSS_DELAY_COMP := 1.355
 # O dedo é amostrado por FRAME e o áudio por AMOSTRA, então a frequência nova
 # chega como degrau. Aplicar o degrau direto no comprimento da linha estala:
-# pulo máximo amostra-a-amostra medido em 0,239, contra 0,030 do mesmo tom
-# parado. Com este slew, 0,030 -- indistinguível do tom parado, e ainda assim
-# rápido o bastante pra a corda alcançar o comprimento novo (resíduo de 0,4
-# amostra meio segundo depois de um salto de oitava inteira).
+# numa varredura Dó4->Si4 com a frequência mudando uma vez por frame, o pulo
+# máximo amostra-a-amostra vai a 0,238, contra 0,154 do mesmo tom parado. Com
+# este slew fica em 0,163 -- 6% acima do tom parado --, e ainda assim rápido o
+# bastante pra a corda alcançar o comprimento novo (resíduo de 0,4 amostra meio
+# segundo depois de um salto de oitava inteira).
 const WG_DELAY_SLEW := 0.02
-# Ruído de arco -- aqui ele é a EXCITAÇÃO da corda (entra na linha de delay),
-# não uma camada somada por cima como no timbre aditivo. Nada do ruído cru
-# chega à saída: tudo passa pela corda antes.
-const WG_BOW_DRIVE := 0.03
 # Bloqueio de DC na SAÍDA (não dentro do laço: lá dentro ele adianta a fase de
 # 3,4 amostras nas notas do jogo e desafinaria tudo o que WG_LOSS_DELAY_COMP
-# acabou de acertar). O arco é ruído aleatório, então a corda acumula um
-# deslocamento lento que não é som -- só come margem antes do clipping.
+# acabou de acertar). O arco puxa a corda sempre no MESMO sentido, então a força
+# que ele injeta tem componente contínua: sem este bloqueio, a onda sai montada
+# num degrau que não é som e só come margem antes do clipping.
 const WG_DC_BLOCK_COEFF := 0.995
 # Trocar de timbre não pode virar uma mudança de VOLUME, senão a comparação de
 # ouvido -- que é a razão de o interruptor existir -- sai enviesada pelo mais
-# alto dos dois. Calibrado por RMS, e não por pico como na primeira versão: o
-# pico do aditivo é o estado permanente de uma onda periódica e o do guia de onda
-# é uma excursão rara de uma envoltória de ruído, e sonoridade segue RMS. Com os
-# dois PICOS casados (ganho 9, pico 0,438) o guia de onda saía 9,7dB abaixo no
-# RMS dos primeiros 200ms e 6,9dB no resto -- ou seja, a calibração antiga
-# entregava exatamente o viés que este comentário promete impedir.
+# alto dos dois. Calibrado por RMS, e não por pico: sonoridade segue RMS.
 #
-# Quanto dá pra subir quem decide é a MARGEM DE CLIPPING, e ela é apertada porque
-# a corda é excitada por RUÍDO: medido nas 12 notas x 1,5s, o fator de crista do
-# guia de onda é ~4,7 contra 1,8 do aditivo, que é uma onda periódica (RMS 0,222,
-# pico 0,40). Casar o RMS exatamente pediria ganho ~40 e poria o pico em ~1,19 --
-# clipping, e o clampf() aqui embaixo esconderia a distorção em vez de deixá-la
-# aparecer, que é o modo de falha que o teste de pico existe pra evitar.
-#
-# 25 é onde as duas restrições se encontram, medido em quatro rodadas: RMS médio
-# dos primeiros 200ms entre 0,131 e 0,142 (-3,9 a -4,5dB do aditivo, contra os
-# -9,7dB de antes) com pico entre 0,62 e 0,74, que ainda precisa sobreviver ao
-# +2,5dB do EQ do bus Strings. Os ~4dB que sobram NÃO fecham por calibração:
-# fechá-los pede trocar a excitação de ruído por um dente-de-serra de stick-slip
-# (que é o que um arco faz de verdade, e tem crista de onda periódica). É
-# redesenho de síntese, e faz sentido depois de o jogador dizer se quer este
-# timbre -- que é a pergunta que o interruptor existe pra responder.
-const WG_OUTPUT_GAIN := 25.0
+# Com a excitação a ruído esta calibração não fechava. O ruído dava fator de
+# crista 3,75 contra 1,80 do aditivo, então casar o RMS jogava o pico em ~1,19 e
+# o clampf() aqui embaixo esconderia a distorção; o gasto ficava em ganho 25, com
+# o guia de onda ainda ~4dB abaixo do aditivo. O comentário de então dizia que
+# fechar esses 4dB pedia trocar o ruído por stick-slip de verdade. Pediu mesmo, e
+# fechou: com a mesa de arco a crista é 1,80 -- a MESMA do aditivo --, então
+# casar o RMS casa o pico junto (0,410 contra 0,402 do aditivo) e sobra a mesma
+# margem de clipping que o timbre antigo sempre teve pro +2,5dB do EQ do bus
+# Strings. Medido nas 12 notas x 1,5s, com 0,92: RMS 0,2221 contra 0,2221.
+const WG_OUTPUT_GAIN := 0.92
 
 # Trocar de algoritmo no meio de um arrasto pula a amostra do valor de uma
 # síntese pro da outra num único frame de áudio -- estalo garantido, e bem na
@@ -396,12 +450,14 @@ func _additive_step(freq_hz: float) -> float:
     _pitch_phase = fposmod(_pitch_phase + freq_hz / MIX_RATE, 1.0)
     return sample
 
-## Meio comprimento do laço (o que cabe em CADA uma das duas linhas), já
-## descontado o atraso do filtro de perdas. Clampado porque play_continuous_pitch
+## Meio comprimento do laço, já descontado o atraso que WG_LOSS_DELAY_COMP mede.
+## Os dois segmentos do arco saem daqui multiplicados por WG_BRIDGE_SEGMENT e
+## WG_NUT_SEGMENT, que somam 2 -- então o laço fecha no período da nota
+## independentemente de onde o arco esteja. Clampado porque play_continuous_pitch
 ## aceita qualquer frequência: um valor absurdo não pode ler fora do array.
 func _wg_target_delay(freq_hz: float) -> float:
     var round_trip := MIX_RATE / maxf(freq_hz, 1.0) - WG_LOSS_DELAY_COMP
-    return clampf(round_trip * 0.5, 2.0, float(WG_LINE_SAMPLES - 2))
+    return clampf(round_trip * 0.5, 2.0, WG_MAX_HALF_DELAY)
 
 func _reset_waveguide(freq_hz: float) -> void:
     _wg_right.resize(WG_LINE_SAMPLES)
@@ -417,19 +473,49 @@ func _reset_waveguide(freq_hz: float) -> void:
     # nova entrar deslizando a partir da última.
     _wg_delay = _wg_target_delay(freq_hz)
 
+## Mesa de arco: dada a velocidade RELATIVA entre arco e corda, quanto da força
+## do arco a corda leva. É a não-linearidade inteira do modelo, e é dela que sai
+## o movimento de Helmholtz.
+##
+## Com a corda quase acompanhando o arco (diferença perto de zero) o resultado
+## satura em 1: a corda GRUDA no arco e é arrastada junto, e a força injetada é a
+## diferença inteira. Passando de |diferença| = 0,25/inclinação a curva despenca
+## (cai com a 4ª potência) -- a corda ESCORREGA, quase nada é transmitido, e ela
+## volta livre até a onda refletida trazê-la para perto da velocidade do arco de
+## novo. Esse ciclo gruda/escorrega uma vez por período é o que faz a onda tipo
+## dente-de-serra; nenhuma parte dela está escrita aqui.
+##
+## A curva (|x|+0,75)^-4 e o expoente são os do BowTable do STK (Cook/Scavone).
+## O 0,75 é o que põe o topo da curva acima de 1 (0,75^-4 = 3,16) e portanto no
+## clamp: é a LARGURA da região de grude, e sem ele não existe grude nenhum.
+func _bow_friction(delta_v: float) -> float:
+    var x := absf(delta_v) * WG_BOW_TABLE_SLOPE + 0.75
+    var x2 := x * x
+    return minf(1.0, 1.0 / (x2 * x2))
+
 ## Timbre de guia de onda, um passo. A onda percorre a linha da direita até o
 ## cavalete, reflete invertida e filtrada para a linha da esquerda, volta até a
 ## pestana e reflete invertida de novo. A saída é o que chega ao cavalete, que é
 ## também o que num instrumento de verdade empurra o corpo e vira som.
+##
+## O arco fica no ponto que separa os dois segmentos: a velocidade da corda ali é
+## a SOMA das duas ondas que chegam a ele, e a força que a mesa devolve entra nas
+## DUAS linhas (é uma junção, não uma ponta -- por isso soma nas duas e não
+## reflete). Injetar nas duas também é o que impede a componente contínua do arco
+## de crescer dentro do laço: as duas reflexões inversoras a cancelam.
 func _waveguide_step(freq_hz: float) -> float:
     _wg_delay += clampf(_wg_target_delay(freq_hz) - _wg_delay, -WG_DELAY_SLEW, WG_DELAY_SLEW)
-    var at_bridge := _wg_read(_wg_right, _wg_delay)
-    var at_nut := _wg_read(_wg_left, _wg_delay)
+    var at_bridge := _wg_read(_wg_right, _wg_delay * WG_BRIDGE_SEGMENT)
+    var at_nut := _wg_read(_wg_left, _wg_delay * WG_NUT_SEGMENT)
     _wg_loss += WG_LOSS_COEFF * (at_bridge - _wg_loss)
     # Os dois sinais de menos são as reflexões inversoras, e são o que faz esta
-    # estrutura soar onde o laço único converge para DC. O arco entra na pestana.
-    _wg_right[_wg_write] = -at_nut * WG_REFLECTION_GAIN + _noise_lp * WG_BOW_DRIVE
-    _wg_left[_wg_write] = -_wg_loss * WG_REFLECTION_GAIN
+    # estrutura soar onde o laço único converge para DC.
+    var from_bridge := -_wg_loss * WG_REFLECTION_GAIN
+    var from_nut := -at_nut * WG_REFLECTION_GAIN
+    var delta_v := WG_BOW_VELOCITY - (from_bridge + from_nut)
+    var injected := _bow_friction(delta_v) * delta_v
+    _wg_right[_wg_write] = from_nut + injected
+    _wg_left[_wg_write] = from_bridge + injected
     _wg_write = (_wg_write + 1) % WG_LINE_SAMPLES
     _wg_dc_out = at_bridge - _wg_dc_in + WG_DC_BLOCK_COEFF * _wg_dc_out
     _wg_dc_in = at_bridge
@@ -441,10 +527,11 @@ func _waveguide_step(freq_hz: float) -> float:
 
 ## Leitura FRACIONÁRIA da linha de delay (interpolação linear entre as duas
 ## amostras vizinhas). Arredondar o comprimento para inteiro é o atalho óbvio e
-## foi medido: o pulo máximo amostra-a-amostra sobe de 0,030 para 0,040 durante
-## um arrasto, porque a corda dá um pulinho de comprimento toda vez que cruza a
-## fronteira de uma amostra -- uma aspereza contínua enquanto o dedo desliza,
-## que é justamente quando este modo de input está em uso.
+## foi medido: numa varredura Dó4->Si4 o pulo máximo amostra-a-amostra DOBRA, de
+## 0,163 para 0,319, enquanto o do tom parado quase não muda (0,154 -> 0,167).
+## É a corda dando um pulinho de comprimento toda vez que cruza a fronteira de
+## uma amostra -- uma aspereza que só aparece enquanto o dedo desliza, que é
+## justamente quando este modo de input está em uso.
 func _wg_read(line: PackedFloat32Array, delay: float) -> float:
     var pos := float(_wg_write) - delay
     if pos < 0.0:
