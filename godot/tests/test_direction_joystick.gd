@@ -268,7 +268,7 @@ func test_derived_constants_track_the_radius():
 	# proporção e um micro-arrasto passa a disparar direção -- justo o que o
 	# público de baixa visão não aguenta.
 	var J = load("res://scripts/DirectionJoystick.gd")
-	assert_almost_eq(J.BACKDROP_OVERHANG / J.RADIUS, 0.15, 0.01)
+	assert_almost_eq(J.BACKDROP_OVERHANG / J.RADIUS, 0.24, 0.01)
 	assert_almost_eq(J.DEAD_ZONE / J.RADIUS, 0.1875, 0.01)
 	assert_almost_eq(J.THUMB_RADIUS / J.RADIUS, 0.35, 0.01)
 

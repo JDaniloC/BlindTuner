@@ -9,8 +9,12 @@ signal note_triggered(note_key: String)
 ## frações exatas dele, só que escritas como número fixo -- deixar a zona morta
 ## em pixels enquanto o raio cresce encolheria ela em proporção e faria um
 ## micro-arrasto disparar direção, que é o oposto do que o público precisa.
-const RADIUS := 120.0
-const BACKDROP_OVERHANG := RADIUS * 0.15    # px que o disco/anel ultrapassam o raio das fatias
+const RADIUS := 140.0
+# Subiu de 0.15: é esta fração que cria a margem visual entre o nome da nota e
+# a borda da roda. Aumentar só o RADIUS não abriria espaço nenhum -- as
+# posições do rótulo também são frações do raio, então a proporção ficaria
+# idêntica e o nome continuaria colado no aro, só que tudo maior.
+const BACKDROP_OVERHANG := RADIUS * 0.24    # px que o disco/anel ultrapassam o raio das fatias
 const DEAD_ZONE := RADIUS * 0.1875
 const SLICE_COUNT := 8
 const SLICE_ANGLE_DEG := 45.0
@@ -22,7 +26,7 @@ const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor so
 ## Geometria interna da fatia, toda em fração do raio: seta no anel de dentro,
 ## nome da nota no anel de fora. Frações em vez de pixels para o conteúdo
 ## acompanhar o joystick se o raio mudar.
-const ICON_RADIUS_FRAC := 0.46      # centro da seta (era 0.6 fixo; recuou pra abrir espaço)
+const ICON_RADIUS_FRAC := 0.36      # recuou de novo: o nome precisou vir pra dentro
 const ICON_SIDE := RADIUS * 0.37    # era 30 fixo: não acompanhava o raio
 const LABEL_RADIUS_FRAC := 0.80     # centro do nome, já fora da caixa da seta
 const LABEL_SIZE_FRAC := Vector2(0.50, 0.30)

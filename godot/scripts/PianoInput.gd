@@ -25,7 +25,6 @@ const ColorDistance := preload("res://scripts/ColorDistance.gd")
 const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
 const WHITE_KEY_COLOR := Color(0.92, 0.90, 0.85)
 const BLACK_KEY_COLOR := Color(0.12, 0.12, 0.14)
-const ACTION_KEY_COLOR := Color(0.55, 0.38, 0.16)  # âmbar escuro -- as 4 teclas de ação (G#-B) se distinguem mesmo sem pista de cor
 
 var _buttons: Array[Button] = []
 var _button_notes: Array[String] = []
@@ -135,7 +134,9 @@ func _apply_cue() -> void:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
 			_buttons[i].self_modulate = Color.WHITE
 		else:
-			# Pintura desligada: teclado autêntico (branco/preto/âmbar), sem tint.
+			# Pintura desligada: teclado autêntico, branco e preto pela posição
+			# cromática -- inclusive nas 4 notas de ação, que num piano de verdade
+			# não teriam cor especial. O que as distingue é o ícone.
 			sb.bg_color = _key_base_color(i, note_key)
 			if is_armed:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
@@ -174,9 +175,10 @@ func _apply_cue() -> void:
 		# desenhar o indicador de foco (navegação por teclado/acessibilidade).
 		# Sobrescrever com uma stylebox sem borda estava removendo esse indicador.
 
-func _key_base_color(chromatic_index: int, note_key: String) -> Color:
-	if NoteMapping.is_action_note(note_key):
-		return ACTION_KEY_COLOR
+## Um piano de verdade não tem tecla de cor especial: as 4 notas de ação
+## (Sol#-Si) recebem branco ou preto pela própria posição cromática, como
+## qualquer outra. O que distingue uma ação é o ícone, não a cor da tecla.
+func _key_base_color(chromatic_index: int, _note_key: String) -> Color:
 	return BLACK_KEY_COLOR if is_black_key(chromatic_index) else WHITE_KEY_COLOR
 
 ## As4=correr (índice 2) e B4=pular (índice 3) espelham a convenção de índice

@@ -63,28 +63,28 @@ func test_panel_visible_in_all_cue_levels():
 func test_level_zero_shows_name_and_color():
 	CueSettings.set_level(0)
 	var p = _make()
-	assert_eq(p._buttons[0].text, NoteMapping.label_for("Gs4"))
+	assert_eq(p._labels[0].text, NoteMapping.label_for("Gs4"))
 	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 func test_level_one_hides_name_keeps_color():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(1)
-	assert_eq(p._buttons[0].text, "")
+	assert_eq(p._labels[0].text, "")
 	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 func test_level_three_neutral_and_empty():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(3)
-	assert_eq(p._buttons[0].text, "")
+	assert_eq(p._labels[0].text, "")
 	assert_eq(_bg(p._buttons[0]), p.NEUTRAL_BUTTON)
 
 func test_level_two_hides_name_keeps_color():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(2)
-	assert_eq(p._buttons[0].text, "")
+	assert_eq(p._labels[0].text, "")
 	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
@@ -94,8 +94,10 @@ func test_each_button_has_action_icon_child():
 	var expected_actions = ["interagir", "pegar", "correr", "pular"]
 	for i in range(p._buttons.size()):
 		var btn = p._buttons[i]
+		# O ícone é NETO do botão desde que glifo e nome passaram a viver numa
+		# VBox que os centra como um grupo -- busca recursiva, não só nos filhos.
 		var icon: Node = null
-		for child in btn.get_children():
+		for child in btn.find_children("*", "", true, false):
 			if child.get_script() == ActionIconScript:
 				icon = child
 				break
@@ -169,7 +171,7 @@ func test_action_icons_have_nonzero_width():
 	var p = _make()
 	await wait_frames(2)  # o GridContainer só dimensiona os botões no sort
 	for i in range(p._buttons.size()):
-		for child in p._buttons[i].get_children():
+		for child in p._buttons[i].find_children("*", "", true, false):
 			if child.get_script() == ActionIconScript:
 				assert_gt(child.size.x, 0.0, "ícone %d com largura zero não desenha nada" % i)
 				assert_gt(child.size.y, 0.0, "ícone %d com altura zero não desenha nada" % i)
@@ -187,24 +189,17 @@ func test_icon_tint_contrasts_with_its_own_button():
 	var p = _make()
 	for i in range(p._buttons.size()):
 		var fundo = _bg(p._buttons[i])
-		for child in p._buttons[i].get_children():
+		for child in p._buttons[i].find_children("*", "", true, false):
 			if child.get_script() == ActionIconScript:
 				assert_gt(ColorDistance.contrast_ratio(fundo, child._tint), 3.0,
 					"glifo do botão %d se confunde com a própria placa" % i)
 
-## Todos os estados de cor de texto, não só font_color: o tema padrão do Godot
-## CLAREIA o rótulo no hover/pressed/focus, então cobrir só o primeiro deixaria o
-## nome sumir na placa clara justamente quando o dedo está em cima do botão.
-func _piores_contrastes(btn: Button, fundo: Color) -> Array:
-	var pior := 99.0
-	var pior_estado := ""
-	for nome in ["font_color", "font_hover_color", "font_pressed_color",
-			"font_hover_pressed_color", "font_focus_color"]:
-		var r: float = ColorDistance.contrast_ratio(fundo, btn.get_theme_color(nome))
-		if r < pior:
-			pior = r
-			pior_estado = nome
-	return [pior, pior_estado]
+## O nome saiu do Button.text para uma Label dentro da VBox que centra glifo e
+## nome como um grupo. Isso simplificou o contraste: uma Label tem UM estado de
+## cor, enquanto o Button ainda clareava o rótulo no hover/pressed/focus e exigia
+## sobrescrever os cinco.
+func _piores_contrastes(lbl: Label, fundo: Color) -> Array:
+	return [ColorDistance.contrast_ratio(fundo, lbl.get_theme_color("font_color")), "font_color"]
 
 func test_note_name_contrasts_with_its_own_plate():
 	# Regressão da rodada 3: a cor da nota saiu do modulate (que tingia o rótulo
@@ -219,8 +214,8 @@ func test_note_name_contrasts_with_its_own_plate():
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
 		for i in range(p._buttons.size()):
-			assert_ne(p._buttons[i].text, "", "pré-condição: o botão %d exibe o nome" % i)
-			var res := _piores_contrastes(p._buttons[i], _bg(p._buttons[i]))
+			assert_ne(p._labels[i].text, "", "pré-condição: o botão %d exibe o nome" % i)
+			var res := _piores_contrastes(p._labels[i], _bg(p._buttons[i]))
 			assert_gte(res[0], 4.5,
 				"%s: o nome do botão %d dá %.2f:1 contra a própria placa em %s (WCAG pede 4,5:1 pra texto)" % [
 					esquema, i, res[0], res[1]])
@@ -237,7 +232,49 @@ func test_note_name_stays_legible_while_the_action_is_armed():
 		ColorSchemeSettings.set_scheme(esquema)
 		p.on_armed_state_changed(true, true)
 		for i in [2, 3]:  # correr e pular são as únicas armáveis
-			var res := _piores_contrastes(p._buttons[i], _bg(p._buttons[i]))
+			var res := _piores_contrastes(p._labels[i], _bg(p._buttons[i]))
 			assert_gte(res[0], 3.0,
 				"%s: o nome do botão armado %d dá %.2f:1 em %s" % [esquema, i, res[0], res[1]])
 	p.on_armed_state_changed(false, false)
+
+func test_icon_and_label_have_breathing_room_between_them():
+	# O nome colava no glifo: o ícone era ancorado na faixa de cima do botão e
+	# o nome era o text do Button, que o Godot centra no botão INTEIRO.
+	CueSettings.set_level(0)
+	var p = _make()
+	await wait_frames(2)
+	for i in range(p._buttons.size()):
+		var fim_do_glifo = p._icons[i].position.y + p._icons[i].size.y
+		var topo_do_nome = p._labels[i].position.y
+		assert_gte(topo_do_nome - fim_do_glifo, float(p.ICON_TEXT_GAP) - 0.5,
+			"botão %d: glifo e nome sem respiro entre eles" % i)
+
+func test_icon_and_label_are_centered_as_a_group():
+	CueSettings.set_level(0)
+	var p = _make()
+	await wait_frames(2)
+	for i in range(p._buttons.size()):
+		var topo = p._icons[i].position.y
+		var base = p._labels[i].position.y + p._labels[i].size.y
+		var centro_do_grupo = (topo + base) * 0.5
+		var centro_do_botao = p._buttons[i].size.y * 0.5
+		assert_almost_eq(centro_do_grupo, centro_do_botao, 2.0,
+			"botão %d: o par glifo+nome não está centrado" % i)
+
+func test_children_do_not_swallow_the_press():
+	# Regressão em potencial: um Control filho com mouse_filter STOP come o
+	# clique e o botão inteiro para de responder.
+	var p = _make()
+	for i in range(p._buttons.size()):
+		assert_eq(p._labels[i].mouse_filter, Control.MOUSE_FILTER_IGNORE)
+		assert_eq(p._icons[i].mouse_filter, Control.MOUSE_FILTER_IGNORE)
+		assert_eq(p._labels[i].get_parent().mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+func test_label_is_hidden_when_the_cue_hides_names():
+	# Escondida, não só vazia: uma Label vazia ainda reserva a altura da linha
+	# na VBox e o glifo ficaria alto em vez de centrado sozinho.
+	CueSettings.set_level(0)
+	var p = _make()
+	CueSettings.set_level(3)
+	for lbl in p._labels:
+		assert_false(lbl.visible)
