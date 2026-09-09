@@ -86,7 +86,10 @@ func _ready() -> void:
 	ccol.add_theme_constant_override("separation", 8)
 	_confirm_panel.add_child(ccol)
 	var caviso := Label.new()
-	caviso.text = "Isso apaga as suas 12 cores personalizadas e volta ao padrão. Continuar?"
+	# O aviso lista tudo o que reset_to_defaults() zera. Quando a preferência de
+	# pintura do piano entrou no mesmo reset, calar sobre ela passou a ser mentir
+	# por omissão numa confirmação que existe justamente para não haver surpresa.
+	caviso.text = "Isso apaga as suas 12 cores personalizadas, religa a pintura das teclas do piano e volta tudo ao padrão. Continuar?"
 	caviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ccol.add_child(caviso)
 	var cbtns := HBoxContainer.new()

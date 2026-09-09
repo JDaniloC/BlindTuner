@@ -229,6 +229,72 @@ func test_load_unknown_scheme_id_returns_false():
 	assert_false(s.load_from_disk())
 	assert_eq(s.scheme_id, "pedagogico")
 
+# --- Pintar as teclas do piano: escolha própria, não efeito do nível de pista --
+
+func test_paints_piano_defaults_to_true():
+	var s = _make()
+	assert_true(s.paints_piano_keys(), "sem escolha do jogador, o piano nasce colorido")
+
+func test_set_paints_piano_emits_its_own_signal():
+	# Sinal próprio, não scheme_changed: um teste existente assere os parâmetros
+	# daquele sinal, e "mudou a paleta" não é "mudou se pinta".
+	var s = _make()
+	watch_signals(s)
+	s.set_paints_piano(false)
+	assert_signal_emitted_with_parameters(s, "paint_mode_changed", [false])
+
+func test_set_paints_piano_is_silent_when_nothing_changes():
+	var s = _make()
+	watch_signals(s)
+	s.set_paints_piano(true)  # já era true
+	assert_signal_not_emitted(s, "paint_mode_changed")
+
+func test_paint_preference_survives_a_round_trip():
+	var s = _make()
+	s.set_paints_piano(false)
+	assert_true(s.save_to_disk())
+
+	var outro = _make()
+	assert_true(outro.load_from_disk())
+	assert_false(outro.paints_piano_keys(), "a escolha é ajuste de acessibilidade: tem que persistir")
+
+func test_missing_paint_key_keeps_the_default_without_discarding_the_palette():
+	# Chave ausente é o caso NORMAL: todo arquivo gravado antes desta versão não a
+	# tem. Abortar a carga por causa dela apagaria a paleta personalizada do
+	# jogador -- exatamente a classe de bug que já custou caro aqui.
+	var s = _make()
+	var cfg = ConfigFile.new()
+	cfg.set_value("cor", "scheme_id", "personalizado")
+	cfg.set_value("cor", "custom", ColorSchemes.colors_for("pedagogico"))
+	cfg.save(TEST_PATH)
+
+	assert_true(s.load_from_disk(), "chave ausente não pode invalidar o arquivo")
+	assert_true(s.paints_piano_keys())
+	assert_eq(s.scheme_id, "personalizado")
+
+func test_corrupted_paint_key_falls_back_to_the_default_without_failing_the_load():
+	# Tipo errado também só cai no default -- nunca `return false`, que
+	# descartaria a paleta personalizada junto.
+	var s = _make()
+	var cfg = ConfigFile.new()
+	cfg.set_value("cor", "scheme_id", "alto_contraste")
+	cfg.set_value("cor", "pinta_piano", "talvez")
+	cfg.save(TEST_PATH)
+
+	assert_true(s.load_from_disk())
+	assert_true(s.paints_piano_keys())
+	assert_eq(s.scheme_id, "alto_contraste")
+
+func test_reset_to_defaults_restores_the_paint_preference():
+	# Contrato de "estado global zerado" de que a suíte inteira depende: quem
+	# desliga a pintura num teste não pode contaminar o próximo.
+	var s = _make()
+	s.set_paints_piano(false)
+	watch_signals(s)
+	s.reset_to_defaults()
+	assert_true(s.paints_piano_keys())
+	assert_signal_emitted_with_parameters(s, "paint_mode_changed", [true])
+
 func test_autoload_points_at_the_real_config_path():
 	# Prova que a redireção usada pelos testes não vazou para o jogo: o autoload
 	# de verdade continua lendo e gravando o arquivo do jogador.

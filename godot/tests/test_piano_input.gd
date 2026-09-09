@@ -53,24 +53,50 @@ func test_level_zero_shows_name_and_color():
 	var sb = p._buttons[idx].get_theme_stylebox("normal")
 	assert_eq(sb.bg_color, NoteMapping.color_for("C4"))
 
-func test_level_three_white_key_shows_authentic_color_no_tint():
+func test_keys_are_authentic_when_painting_is_off():
+	# Quem manda na pintura das teclas é ColorSchemeSettings, não o nível de
+	# pista: antes estes dois testes desligavam a cor subindo pro nível 3, o que
+	# amarrava "teclado autêntico" a "esconder o nome da nota".
 	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(false)
 	var p = _make()
-	CueSettings.set_level(3)
 	var idx = p._button_notes.find("C4")
-	assert_eq(p._buttons[idx].text, "")
 	assert_eq(p._buttons[idx].self_modulate, Color.WHITE)
 	assert_eq(p._buttons[idx].modulate, Color.WHITE, "modulate tem que ficar neutro: ele se propaga pro ícone filho")
-	var sb = p._buttons[idx].get_theme_stylebox("normal")
-	assert_eq(sb.bg_color, p.WHITE_KEY_COLOR)
+	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.WHITE_KEY_COLOR)
 
-func test_level_three_black_key_shows_authentic_color():
+func test_black_key_is_authentic_when_painting_is_off():
+	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(false)
+	var p = _make()
+	var idx = p._button_notes.find("Cs4")
+	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.BLACK_KEY_COLOR)
+
+func test_painting_is_independent_of_the_cue_level():
+	# Nível de pista máximo com pintura ligada: some o NOME, fica a COR.
+	CueSettings.set_level(3)
+	ColorSchemeSettings.set_paints_piano(true)
+	var p = _make()
+	var idx = p._button_notes.find("C4")
+	assert_eq(p._buttons[idx].text, "", "o nome continua sendo assunto do nível de pista")
+	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, NoteMapping.color_for("C4"))
+
+func test_names_still_disappear_with_the_cue_level_while_painting_stays_off():
+	# O outro cruzamento: pintura desligada não pode ressuscitar o rótulo.
+	CueSettings.set_level(3)
+	ColorSchemeSettings.set_paints_piano(false)
+	var p = _make()
+	var idx = p._button_notes.find("C4")
+	assert_eq(p._buttons[idx].text, "")
+	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.WHITE_KEY_COLOR)
+
+func test_toggling_repaints_without_restarting():
 	CueSettings.set_level(0)
 	var p = _make()
-	CueSettings.set_level(3)
-	var idx = p._button_notes.find("Cs4")
-	var sb = p._buttons[idx].get_theme_stylebox("normal")
-	assert_eq(sb.bg_color, p.BLACK_KEY_COLOR)
+	var antes = p._buttons[0].get_theme_stylebox("normal").bg_color
+	ColorSchemeSettings.set_paints_piano(false)
+	assert_ne(p._buttons[0].get_theme_stylebox("normal").bg_color, antes,
+		"desligar a pintura tem que repintar na hora, sem reiniciar a fase")
 
 func test_on_armed_state_changed_brightens_correr_button():
 	# No nível 0, quem clareia com o armed é o bg_color da tecla (não mais o
@@ -181,15 +207,15 @@ func test_icon_tint_is_dark_on_light_key():
 	# 3:1 do WCAG pra elemento gráfico, ou seja, a redundância visual que o
 	# ícone existe pra dar simplesmente não acontecia.
 	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(false)
 	var p = _make()
-	CueSettings.set_level(3)
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._key_icons[idx]._tint, ColorDistance.ICON_DARK, "tecla branca pede ícone escuro")
 
 func test_icon_tint_is_white_on_dark_key():
 	CueSettings.set_level(0)
+	ColorSchemeSettings.set_paints_piano(false)
 	var p = _make()
-	CueSettings.set_level(3)
 	var idx = p._button_notes.find("Cs4")
 	assert_eq(p._key_icons[idx]._tint, Color.WHITE, "tecla preta pede ícone branco")
 

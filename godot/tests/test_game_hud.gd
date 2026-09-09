@@ -2,10 +2,23 @@ extends GutTest
 
 const HudScene := preload("res://scenes/GameHUD.tscn")
 
+## Arquivo próprio para o teste do botão de pintura, que dispara save_to_disk()
+## no autoload de verdade. Sem a redireção a suíte sobrescreveria o
+## color_scheme.cfg REAL de quem joga na mesma máquina.
+const PAINT_TEST_PATH := "user://test_hud_paint.cfg"
+
 func _hud() -> Node:
 	var h = HudScene.instantiate()
 	add_child_autofree(h)
 	return h
+
+## A restauração mora aqui, e não no fim do teste: se ele falhar no meio, a
+## redireção vazaria para os outros scripts da suíte -- e o próximo save_to_disk()
+## de qualquer um deles cairia no arquivo do jogador.
+func after_each():
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PAINT_TEST_PATH))
+	ColorSchemeSettings.config_path = ColorSchemeSettings.CONFIG_PATH
+	ColorSchemeSettings.reset_to_defaults()
 
 func test_preset_dropdown_filled_from_presets():
 	var h = _hud()
@@ -70,6 +83,38 @@ func test_color_button_emits_request():
 	watch_signals(h)
 	h._color_btn.pressed.emit()
 	assert_signal_emitted(h, "color_settings_requested")
+
+# --- Botão "Piano colorido" ----------------------------------------------------
+
+func test_paint_toggle_starts_in_sync_with_the_setting():
+	var h = _hud()
+	assert_not_null(h._paint_btn)
+	assert_true(h._paint_btn.toggle_mode, "é um interruptor, não um botão de ação")
+	assert_eq(h._paint_btn.button_pressed, ColorSchemeSettings.paints_piano_keys())
+
+func test_paint_toggle_sits_before_the_progress_label():
+	# _progress tem SIZE_EXPAND_FILL e come toda a sobra da linha: inserido
+	# depois dele, o botão seria empurrado pra borda da tela.
+	var h = _hud()
+	assert_eq(h._paint_btn.get_parent(), h._progress.get_parent(),
+		"o botão mora na segunda linha -- uma terceira cobriria o NotePanel")
+	assert_lt(h._paint_btn.get_index(), h._progress.get_index())
+
+func test_paint_toggle_applies_and_persists_the_choice():
+	ColorSchemeSettings.config_path = PAINT_TEST_PATH
+	var h = _hud()
+	h._paint_btn.button_pressed = false  # o setter do Button já emite toggled
+	assert_false(ColorSchemeSettings.paints_piano_keys(), "o botão tem que mandar na preferência")
+	assert_true(FileAccess.file_exists(PAINT_TEST_PATH),
+		"a escolha é ajuste de acessibilidade: tem que sobreviver a fechar o jogo")
+
+func test_paint_toggle_does_not_write_to_disk_just_by_being_created():
+	# button_pressed é setado ANTES do connect de propósito: o setter emite
+	# `toggled`, e conectar primeiro faria o HUD gravar em disco só por nascer.
+	ColorSchemeSettings.config_path = PAINT_TEST_PATH
+	_hud()
+	assert_false(FileAccess.file_exists(PAINT_TEST_PATH),
+		"montar o HUD não pode escrever a configuração do jogador")
 
 # --- Layout na largura de projeto (720px) --------------------------------------
 

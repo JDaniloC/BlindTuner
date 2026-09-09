@@ -18,6 +18,7 @@ var _cue_opt: OptionButton
 var _mode_opt: OptionButton
 var _start_btn: Button
 var _color_btn: Button
+var _paint_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -79,6 +80,19 @@ func _ready() -> void:
 	_color_btn.pressed.connect(_on_color_pressed)
 	row2.add_child(_color_btn)
 
+	# Vai na SEGUNDA linha, e antes do _progress: uma terceira linha levaria a
+	# barra do topo a 197px e cobriria 57 dos 82px do NotePanel, e o _progress
+	# tem SIZE_EXPAND_FILL -- inserido depois dele, o botão seria empurrado
+	# contra a borda da tela.
+	_paint_btn = Button.new()
+	_paint_btn.toggle_mode = true
+	# button_pressed antes de conectar: o setter emite `toggled`, e conectar
+	# primeiro faria o HUD gravar em disco só por ter nascido.
+	_paint_btn.button_pressed = ColorSchemeSettings.paints_piano_keys()
+	_paint_btn.text = "Piano colorido"
+	_paint_btn.toggled.connect(_on_paint_toggled)
+	row2.add_child(_paint_btn)
+
 	_progress = Label.new()
 	_progress.text = "—"
 	_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -114,6 +128,12 @@ func _on_start_pressed() -> void:
 
 func _on_color_pressed() -> void:
 	color_settings_requested.emit()
+
+## Grava na hora: é ajuste de acessibilidade, feito uma vez, e o jogador não tem
+## por que passar pela tela de Cores só para ele sobreviver ao próximo boot.
+func _on_paint_toggled(enabled: bool) -> void:
+	ColorSchemeSettings.set_paints_piano(enabled)
+	ColorSchemeSettings.save_to_disk()
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()

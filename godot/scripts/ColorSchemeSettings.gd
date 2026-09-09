@@ -7,6 +7,10 @@ extends Node
 ## paleta original e como fallback quando o autoload não está disponível.
 
 signal scheme_changed(scheme_id: String)
+## Sinal próprio, e não uma segunda emissão de scheme_changed: "mudou a paleta"
+## e "mudou se o piano é pintado" são fatos diferentes, e há teste que assere os
+## parâmetros de scheme_changed.
+signal paint_mode_changed(enabled: bool)
 
 const DEFAULT_SCHEME := "pedagogico"
 const CUSTOM_ID := "personalizado"
@@ -31,6 +35,14 @@ var _custom: Array[Color] = []
 ## havia como começar uma paleta personalizada a partir de outro esquema sem
 ## passar por "Restaurar tudo ao padrão".
 var _custom_edited: bool = false
+
+## As teclas do piano recebem a cor da nota, ou o preto/branco/âmbar de um
+## teclado de verdade? É escolha explícita do jogador e mora aqui, no mesmo
+## domínio de "qual paleta", porque precisa persistir e este autoload já tem o
+## fluxo de ConfigFile endurecido. Deliberadamente INDEPENDENTE do nível de
+## pista: antes a cor sumia junto com o nome, e quem quisesse o teclado
+## autêntico era obrigado a jogar sem o nome das notas também.
+var paints_piano: bool = true
 
 func _ready() -> void:
 	# Guarda essencial: os testes instanciam este script solto
@@ -69,6 +81,15 @@ func _seed_custom_from_active() -> void:
 		# id é inválido): mantém o que houver em vez de zerar.
 		return
 	_custom = base.duplicate()
+
+func paints_piano_keys() -> bool:
+	return paints_piano
+
+func set_paints_piano(enabled: bool) -> void:
+	if enabled == paints_piano:
+		return
+	paints_piano = enabled
+	paint_mode_changed.emit(paints_piano)
 
 func color_for(note_key: String) -> Color:
 	var idx := NoteMapping.chromatic_index_for(note_key)
@@ -116,7 +137,11 @@ func reset_to_defaults() -> void:
 	scheme_id = DEFAULT_SCHEME
 	_custom.clear()
 	_custom_edited = false
+	# A preferência de pintura volta junto: "estado global zerado" é o contrato
+	# de que a suíte inteira depende para um teste não contaminar o próximo.
+	paints_piano = true
 	scheme_changed.emit(scheme_id)
+	paint_mode_changed.emit(paints_piano)
 
 ## Retorna false se a escrita falhar. Sem o retorno checado, um disco cheio ou
 ## sem permissão perdia a configuração do jogador em silêncio absoluto.
@@ -129,6 +154,7 @@ func save_to_disk() -> bool:
 	# Sem este campo não dá para distinguir "o jogador pintou as 12 cores" de "a
 	# tela semeou as 12 cores porque ele espiou o item Personalizado".
 	cfg.set_value("cor", "custom_editada", _custom_edited)
+	cfg.set_value("cor", "pinta_piano", paints_piano)
 	var err := cfg.save(config_path)
 	if err != OK:
 		push_warning("ColorSchemeSettings: falha ao salvar em %s (erro %d)" % [config_path, err])
@@ -181,8 +207,16 @@ func load_from_disk() -> bool:
 		# Esquema personalizado sem paleta válida é estado incoerente.
 		return false
 
+	# Só depois de todos os `return false`: o contrato desta função é não aplicar
+	# meia carga. Chave ausente é o caso NORMAL (todo arquivo gravado antes desta
+	# versão não a tem) e tipo errado também cai no default -- nunca `return
+	# false`, que descartaria a paleta personalizada do jogador junto.
+	var pinta_raw = cfg.get_value("cor", "pinta_piano", true)
+	paints_piano = pinta_raw if typeof(pinta_raw) == TYPE_BOOL else true
+
 	scheme_id = id
 	scheme_changed.emit(scheme_id)
+	paint_mode_changed.emit(paints_piano)
 	return true
 
 func _matches_stock_scheme(cores: Array) -> bool:

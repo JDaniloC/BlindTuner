@@ -82,6 +82,10 @@ func _ready() -> void:
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	# Sinal separado de propósito: ligar/desligar a pintura não é trocar de
+	# paleta, e reaproveitar scheme_changed quebraria o teste que assere os
+	# parâmetros daquele sinal.
+	ColorSchemeSettings.paint_mode_changed.connect(_on_paint_mode_changed)
 	_apply_cue()
 
 func _emit_note(note_key: String) -> void:
@@ -93,9 +97,17 @@ func _on_scheme_changed(_id: String) -> void:
 func _on_cue_changed(_level: int) -> void:
 	_apply_cue()
 
+func _on_paint_mode_changed(_enabled: bool) -> void:
+	_apply_cue()
+
 func _apply_cue() -> void:
 	var show_name := CueSettings.shows_name()
-	var show_color := CueSettings.shows_color()
+	# A COR das teclas é escolha explícita do jogador (ColorSchemeSettings), o
+	# NOME continua sendo assunto do nível de pista. Antes as duas coisas saíam
+	# de CueSettings.shows_color()/shows_name(), e quem quisesse o teclado
+	# autêntico (preto/branco) era obrigado a subir pro nível 3 e jogar sem o
+	# nome das notas também.
+	var show_color := ColorSchemeSettings.paints_piano_keys()
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
 		_buttons[i].text = NoteMapping.label_for(note_key) if show_name else ""
@@ -105,8 +117,8 @@ func _apply_cue() -> void:
 		sb.corner_radius_bottom_left = CORNER_RADIUS
 		sb.corner_radius_bottom_right = CORNER_RADIUS
 		if show_color:
-			# Nível de pista máximo: prioriza a cor distintiva por nota (igual
-			# aos outros 3 modos de input) sobre o realismo do teclado -- a cor
+			# Pintura ligada: prioriza a cor distintiva por nota (igual
+			# aos outros modos de input) sobre o realismo do teclado -- a cor
 			# vai direto no fundo da tecla (bg_color). O tint do nó fica neutro
 			# (Color.WHITE): tingir o botão multiplicaria também o texto do
 			# label, deixando-o quase da mesma cor do fundo (contraste ~1.12,
@@ -118,7 +130,7 @@ func _apply_cue() -> void:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
 			_buttons[i].self_modulate = Color.WHITE
 		else:
-			# Níveis de prática: teclado autêntico (branco/preto/âmbar), sem tint.
+			# Pintura desligada: teclado autêntico (branco/preto/âmbar), sem tint.
 			sb.bg_color = _key_base_color(i, note_key)
 			if is_armed:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
