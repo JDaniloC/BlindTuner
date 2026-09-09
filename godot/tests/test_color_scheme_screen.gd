@@ -83,6 +83,18 @@ func test_reset_cancelled_keeps_everything():
 	assert_false(s._confirm_panel.visible)
 	assert_eq(ColorSchemeSettings.scheme_id, "alto_contraste", "cancelar não pode restaurar")
 
+func test_peeking_at_custom_in_the_dropdown_does_not_freeze_the_palette():
+	# Caminho pela UI, que é onde o beco sem saída aparecia: a tela grava em disco
+	# a cada troca, então espiar "Personalizado" gravava 12 cores semeadas e a
+	# única saída passava a ser "Restaurar tudo ao padrão".
+	var s = _make()
+	var custom_idx: int = ColorSchemes.SCHEME_IDS.size()
+	s._on_scheme_selected(custom_idx)                                    # espiou
+	s._on_scheme_selected(ColorSchemes.SCHEME_IDS.find("alto_contraste"))
+	s._on_scheme_selected(custom_idx)
+	assert_eq(s._rows[0].swatch.color, Color("#0D4A74"),
+		"o editor tem que partir do Alto Contraste, o esquema que estava na tela")
+
 func test_edit_buttons_have_readable_disabled_text():
 	# Estado em que a tela SEMPRE abre (esquema fixo): o padrão do tema deixava
 	# o rótulo em 1,14:1 contra o fundo do botão.

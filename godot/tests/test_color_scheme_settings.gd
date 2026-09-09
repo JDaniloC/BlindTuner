@@ -69,6 +69,72 @@ func test_saving_does_not_seed_the_custom_palette():
 	assert_eq(s.color_for("C4"), NoteMapping.default_color_for("C4"),
 		"o editor deve partir do Clássico, que era o esquema ativo na hora")
 
+func test_peeking_at_custom_does_not_freeze_the_palette():
+	# Regressão: bastava SELECIONAR "Personalizado" no dropdown uma vez para as 12
+	# cores serem semeadas, e a partir daí a semente nunca mais mudava -- não havia
+	# como começar uma paleta personalizada a partir de outro esquema sem
+	# "Restaurar tudo ao padrão".
+	var s = _make()
+	s.set_scheme("personalizado")   # só espiando, sem editar nada
+	s.set_scheme("alto_contraste")
+	s.set_scheme("personalizado")
+	assert_eq(s.color_for("C4"), Color("#0D4A74"),
+		"sem edição nenhuma, o editor tem que partir do esquema que estava ativo")
+
+func test_peeking_at_custom_does_not_freeze_the_palette_across_boots():
+	# O mesmo beco sem saída, agora atravessando o disco: a espiada era gravada.
+	var s = _make()
+	s.set_scheme("personalizado")   # espiou
+	s.set_scheme("alto_contraste")
+	assert_true(s.save_to_disk())
+
+	var outro = _make()
+	assert_true(outro.load_from_disk())
+	outro.set_scheme("personalizado")
+	assert_eq(outro.color_for("C4"), Color("#0D4A74"),
+		"a espiada gravada em disco não pode congelar a semente para sempre")
+
+func test_edited_colors_are_never_reseeded_by_visiting_another_scheme():
+	# O outro lado da moeda: quem editou de verdade não perde nada ao dar uma
+	# olhada em outro esquema e voltar.
+	var s = _make()
+	s.set_scheme("personalizado")
+	s.set_custom_color(0, Color("#123456"))
+	s.set_scheme("classico")
+	s.set_scheme("personalizado")
+	assert_eq(s.color_for("C4"), Color("#123456"),
+		"cor editada pelo jogador não pode ser sobrescrita pela semente")
+
+func test_legacy_file_without_the_flag_keeps_a_hand_made_palette():
+	# Arquivos gravados antes de "custom_editada" existir não dizem se as cores
+	# foram editadas. Uma paleta que NÃO bate com nenhum esquema de fábrica só
+	# pode ter saído da mão do jogador.
+	var cores: Array[Color] = ColorSchemes.colors_for("pedagogico")
+	cores[0] = Color("#123456")
+	var cfg = ConfigFile.new()
+	cfg.set_value("cor", "scheme_id", "alto_contraste")
+	cfg.set_value("cor", "custom", cores)
+	cfg.save(TEST_PATH)
+
+	var s = _make()
+	assert_true(s.load_from_disk())
+	s.set_scheme("personalizado")
+	assert_eq(s.color_for("C4"), Color("#123456"), "paleta feita à mão não pode ser descartada")
+
+func test_legacy_file_with_a_stock_palette_counts_as_never_edited():
+	# Mesma situação, paleta idêntica ao Pedagógico de fábrica: é a assinatura da
+	# espiada, não de trabalho manual.
+	var cfg = ConfigFile.new()
+	cfg.set_value("cor", "scheme_id", "alto_contraste")
+	cfg.set_value("cor", "custom", ColorSchemes.colors_for("pedagogico"))
+	cfg.save(TEST_PATH)
+
+	var s = _make()
+	assert_true(s.load_from_disk())
+	s.set_scheme("personalizado")
+	assert_eq(s.color_for("C4"), Color("#0D4A74"),
+		"paleta igualzinha a um esquema de fábrica não é trabalho do jogador")
+
 func test_custom_colors_is_a_pure_getter():
 	var s = _make()
 	assert_eq(s.custom_colors().size(), 0, "sem personalização, não inventa paleta")
@@ -167,3 +233,11 @@ func test_autoload_points_at_the_real_config_path():
 	# Prova que a redireção usada pelos testes não vazou para o jogo: o autoload
 	# de verdade continua lendo e gravando o arquivo do jogador.
 	assert_eq(ColorSchemeSettings.config_path, ColorSchemeSettings.CONFIG_PATH)
+
+func test_autoload_is_registered_under_the_node_path_the_boot_guard_expects():
+	# _ready() só chama load_from_disk() quando get_path() bate com este caminho
+	# exato -- é o que impede as instâncias de teste de lerem o arquivo do
+	# jogador. Renomear o autoload em project.godot faria o jogo abrir sempre no
+	# Pedagógico, em silêncio, com a suíte verde.
+	assert_eq(ColorSchemeSettings.get_path(), ^"/root/ColorSchemeSettings",
+		"o nome do autoload em project.godot é load-bearing para a carga no boot")

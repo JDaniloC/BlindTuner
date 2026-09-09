@@ -21,6 +21,14 @@ var config_path: String = CONFIG_PATH
 var scheme_id: String = DEFAULT_SCHEME
 var _custom: Array[Color] = []
 
+## O jogador REALMENTE editou alguma das 12 cores, ou elas só foram semeadas?
+## Sem essa distinção, apenas SELECIONAR "Personalizado" no dropdown já gravava
+## 12 cores em disco (a tela salva a cada troca de esquema) e a paleta congelava
+## para sempre: a semente via size() == 12 e nunca mais re-semeava, então não
+## havia como começar uma paleta personalizada a partir de outro esquema sem
+## passar por "Restaurar tudo ao padrão".
+var _custom_edited: bool = false
+
 func _ready() -> void:
 	# Guarda essencial: os testes instanciam este script solto
 	# (ColorSchemeSettingsScript.new() + add_child_autofree) para não encostar no
@@ -36,20 +44,28 @@ func set_scheme(id: String) -> void:
 		return
 	if id == CUSTOM_ID:
 		# Entrar no editor parte do esquema que estava ativo, não do zero -- mas
-		# só semeia se ainda não houver paleta personalizada (carregada do disco
-		# ou editada antes), senão sobrescreveria o trabalho do jogador.
-		_ensure_custom_seeded()
+		# só re-semeia enquanto o jogador não tiver editado cor nenhuma, senão
+		# sobrescreveria o trabalho dele.
+		_seed_custom_from_active()
 	scheme_id = id
 	scheme_changed.emit(scheme_id)
 
-## Semeia _custom a partir do esquema ativo, se ainda não houver 12 cores.
+## Copia as 12 cores do esquema ATIVO para _custom, a menos que o jogador já
+## tenha editado alguma -- aí a paleta é trabalho dele e não pode ser trocada.
+##
 ## Separado de custom_colors() de propósito: aquele é um getter puro. Enquanto
 ## os dois estavam no mesmo lugar, save_to_disk() -- que só queria LER --
 ## semeava a paleta como efeito colateral, e como a tela salva a cada troca de
 ## esquema, a semente do "Personalizado" congelava no primeiro esquema salvo.
-func _ensure_custom_seeded() -> void:
-	if _custom.size() != 12:
-		_custom = ColorSchemes.colors_for(scheme_id).duplicate()
+func _seed_custom_from_active() -> void:
+	if _custom_edited and _custom.size() == 12:
+		return
+	var base := ColorSchemes.colors_for(scheme_id)
+	if base.size() != 12:
+		# Não há esquema fixo de onde copiar (já estamos no personalizado, ou o
+		# id é inválido): mantém o que houver em vez de zerar.
+		return
+	_custom = base.duplicate()
 
 func color_for(note_key: String) -> Color:
 	var idx := NoteMapping.chromatic_index_for(note_key)
@@ -65,8 +81,13 @@ func color_for(note_key: String) -> Color:
 func set_custom_color(chromatic_index: int, color: Color) -> void:
 	if chromatic_index < 0 or chromatic_index >= 12:
 		return
-	_ensure_custom_seeded()
+	if _custom.size() != 12:
+		# Editar direto, sem passar pelo dropdown: parte do que o jogador está
+		# vendo agora. Nunca re-semeia quando já há 12 cores -- as outras 11
+		# podem ser trabalho dele.
+		_custom = active_palette()
 	_custom[chromatic_index] = color
+	_custom_edited = true
 	if scheme_id == CUSTOM_ID:
 		scheme_changed.emit(scheme_id)
 
@@ -91,6 +112,7 @@ func active_palette() -> Array[Color]:
 func reset_to_defaults() -> void:
 	scheme_id = DEFAULT_SCHEME
 	_custom.clear()
+	_custom_edited = false
 	scheme_changed.emit(scheme_id)
 
 ## Retorna false se a escrita falhar. Sem o retorno checado, um disco cheio ou
@@ -101,6 +123,9 @@ func save_to_disk() -> bool:
 	# Grava _custom direto: custom_colors() é puro agora, e mesmo assim não
 	# queremos semear aqui -- salvar não é motivo pra inventar paleta.
 	cfg.set_value("cor", "custom", _custom)
+	# Sem este campo não dá para distinguir "o jogador pintou as 12 cores" de "a
+	# tela semeou as 12 cores porque ele espiou o item Personalizado".
+	cfg.set_value("cor", "custom_editada", _custom_edited)
 	var err := cfg.save(config_path)
 	if err != OK:
 		push_warning("ColorSchemeSettings: falha ao salvar em %s (erro %d)" % [config_path, err])
@@ -120,6 +145,7 @@ func load_from_disk() -> bool:
 	# em vez de simplesmente devolver false.
 	var id_raw = cfg.get_value("cor", "scheme_id", "")
 	var custom_raw = cfg.get_value("cor", "custom", [])
+	var editada_raw = cfg.get_value("cor", "custom_editada", null)
 	if typeof(id_raw) != TYPE_STRING:
 		return false
 	var id: String = id_raw
@@ -135,6 +161,13 @@ func load_from_disk() -> bool:
 	var custom_ok := ColorSchemes.is_valid_palette(custom)
 	if custom_ok:
 		_custom.assign(custom)
+		if typeof(editada_raw) == TYPE_BOOL:
+			_custom_edited = editada_raw
+		else:
+			# Arquivo gravado antes de o campo existir: uma paleta idêntica a um
+			# esquema de fábrica não carrega trabalho nenhum do jogador (foi
+			# semeada), qualquer outra carrega. Na dúvida, preserva o trabalho.
+			_custom_edited = not _matches_stock_scheme(custom)
 	elif id == CUSTOM_ID:
 		# Esquema personalizado sem paleta válida é estado incoerente.
 		return false
@@ -142,3 +175,17 @@ func load_from_disk() -> bool:
 	scheme_id = id
 	scheme_changed.emit(scheme_id)
 	return true
+
+func _matches_stock_scheme(cores: Array) -> bool:
+	for id in ColorSchemes.SCHEME_IDS:
+		var fixo := ColorSchemes.colors_for(id)
+		if fixo.size() != cores.size():
+			continue
+		var igual := true
+		for i in range(fixo.size()):
+			if fixo[i] != cores[i]:
+				igual = false
+				break
+		if igual:
+			return true
+	return false
