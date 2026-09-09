@@ -227,6 +227,45 @@ func test_labels_repaint_when_scheme_changes():
 	for i in range(j._slice_labels.size()):
 		assert_eq(j._slice_labels[i].text, NoteMapping.label_for(j._slice_note_keys[i]))
 
+func test_derived_constants_track_the_radius():
+	# Regressão: com DEAD_ZONE fixa, crescer o raio encolhe a zona morta em
+	# proporção e um micro-arrasto passa a disparar direção -- justo o que o
+	# público de baixa visão não aguenta.
+	var J = load("res://scripts/DirectionJoystick.gd")
+	assert_almost_eq(J.BACKDROP_OVERHANG / J.RADIUS, 0.15, 0.01)
+	assert_almost_eq(J.DEAD_ZONE / J.RADIUS, 0.1875, 0.01)
+	assert_almost_eq(J.THUMB_RADIUS / J.RADIUS, 0.35, 0.01)
+
+func test_minimum_size_covers_the_drawn_reach():
+	# O alcance desenhado é RADIUS+THUMB_RADIUS (o thumb é clampado no raio e
+	# desenha o próprio raio além disso), não RADIUS+BACKDROP_OVERHANG.
+	var j = _make_joystick()
+	var alcance: float = (j.RADIUS + j.THUMB_RADIUS) * 2.0
+	assert_gte(j.custom_minimum_size.x, alcance)
+	assert_gte(j.custom_minimum_size.y, alcance)
+
+func test_slices_root_is_centered_on_the_actual_size():
+	# A geometria de toque usa size/2 e a de desenho usava uma posição fixa no
+	# .tscn; coincidiam por acidente. Agora ambas saem da mesma fonte.
+	var j = _make_joystick()
+	assert_eq(j._slices_root.position, j.size / 2.0)
+	assert_eq(j._thumb.position, j.size / 2.0)
+
+func test_geometry_follows_a_resize_from_the_layout_pass():
+	# Como filho do CanvasLayer, o tamanho real vem dos offsets do Playground.tscn
+	# e só chega DEPOIS do _ready(). Centro congelado no valor do _ready deixaria
+	# o desenho fora do alvo de toque.
+	var j = _make_joystick()
+	j.size = Vector2(400, 400)
+	assert_eq(j._slices_root.position, Vector2(200, 200))
+	assert_eq(j._thumb.position, Vector2(200, 200))
+
+func test_icons_scale_with_the_radius():
+	var j = _make_joystick()
+	for icon in j._slice_icons:
+		assert_gt(icon.size.x, 30.0, "ícone de tamanho fixo não acompanha o joystick maior")
+		assert_gt(icon.size.y, 30.0)
+
 func test_slices_repaint_when_scheme_changes():
 	# A versão anterior lia slice_display_color(), que é função PURA (consulta o
 	# esquema ativo na hora): passava mesmo com a conexão de scheme_changed

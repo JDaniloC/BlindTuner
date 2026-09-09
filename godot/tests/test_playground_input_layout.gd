@@ -66,3 +66,29 @@ func test_joystick_and_special_actions_are_fully_on_screen():
 	await wait_frames(2)
 	_assert_on_screen((p.get_node("UI/DirectionJoystick") as Control).get_global_rect(), "DirectionJoystick")
 	_assert_on_screen((p.get_node("UI/SpecialActionPanel") as Control).get_global_rect(), "SpecialActionPanel")
+
+func test_joystick_drawn_reach_is_fully_on_screen():
+	# A caixa do nó não é o desenho: as fatias saem do centro e o thumb chega a
+	# RADIUS+THUMB_RADIUS dele. Medir só get_global_rect() deixaria passar um
+	# transbordo do desenho, que é como o joystick já vivia (108px de alcance
+	# dentro de uma meia-caixa de 100px).
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var j: Control = p.get_node("UI/DirectionJoystick")
+	var alcance: float = j.RADIUS + j.THUMB_RADIUS
+	var centro := j.get_global_rect().get_center()
+	_assert_on_screen(Rect2(centro - Vector2.ONE * alcance, Vector2.ONE * alcance * 2.0),
+		"alcance desenhado do joystick")
+	assert_true(j.get_global_rect().encloses(Rect2(centro - Vector2.ONE * alcance, Vector2.ONE * alcance * 2.0)),
+		"a área de toque do joystick precisa cobrir o desenho inteiro")
+
+func test_joystick_does_not_overlap_the_note_panel_or_the_actions():
+	# O joystick cresceu na direção do painel de ações (mesma faixa de baixo) e
+	# para cima, na direção do NotePanel.
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var j := (p.get_node("UI/DirectionJoystick") as Control).get_global_rect()
+	assert_false(j.intersects((p.get_node("UI/NotePanel") as Control).get_global_rect()),
+		"o joystick cobre o NotePanel")
+	assert_false(j.intersects((p.get_node("UI/SpecialActionPanel") as Control).get_global_rect()),
+		"o joystick cobre os botões de ação")

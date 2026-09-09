@@ -5,23 +5,28 @@ extends Control
 
 signal note_triggered(note_key: String)
 
-const RADIUS := 80.0
-const BACKDROP_OVERHANG := 12.0  # px que o disco/anel ultrapassam o raio das fatias
-const DEAD_ZONE := 15.0
+## RADIUS é a raiz de toda a geometria. As três constantes abaixo já eram
+## frações exatas dele, só que escritas como número fixo -- deixar a zona morta
+## em pixels enquanto o raio cresce encolheria ela em proporção e faria um
+## micro-arrasto disparar direção, que é o oposto do que o público precisa.
+const RADIUS := 120.0
+const BACKDROP_OVERHANG := RADIUS * 0.15    # px que o disco/anel ultrapassam o raio das fatias
+const DEAD_ZONE := RADIUS * 0.1875
 const SLICE_COUNT := 8
 const SLICE_ANGLE_DEG := 45.0
-const THUMB_RADIUS := 28.0
+const THUMB_RADIUS := RADIUS * 0.35
 const SLICE_VERTICES := 16  # vértices ao longo do arco
+const BACKDROP_SEGMENTS := 64  # era 32: a 138px de raio, 32 lados leem como polígono
 const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor some
 
 ## Geometria interna da fatia, toda em fração do raio: seta no anel de dentro,
 ## nome da nota no anel de fora. Frações em vez de pixels para o conteúdo
 ## acompanhar o joystick se o raio mudar.
 const ICON_RADIUS_FRAC := 0.46      # centro da seta (era 0.6 fixo; recuou pra abrir espaço)
-const ICON_SIDE := 30.0
+const ICON_SIDE := RADIUS * 0.37    # era 30 fixo: não acompanhava o raio
 const LABEL_RADIUS_FRAC := 0.80     # centro do nome, já fora da caixa da seta
 const LABEL_SIZE_FRAC := Vector2(0.50, 0.30)
-const LABEL_FONT_FRAC := 0.225      # ~18px com RADIUS=80
+const LABEL_FONT_FRAC := 0.225      # 27px com RADIUS=120
 const LABEL_COLOR := Color.WHITE
 ## O nome cai sobre fatia colorida translúcida e, mais além, sobre o cenário:
 ## nenhuma cor chapada contrasta com tudo isso. O contorno escuro resolve sem
@@ -44,6 +49,17 @@ var _backdrop_ring: Line2D
 @onready var _thumb: Polygon2D = $Thumb
 
 func _ready() -> void:
+	# Uma fonte só para desenho e toque. Antes o tamanho vinha do .tscn (200x200)
+	# e o centro do desenho de uma posição fixa gravada lá (100,100): coincidiam
+	# só porque os números casavam com RADIUS=80. O alcance a cobrir é
+	# RADIUS+THUMB_RADIUS, não RADIUS+BACKDROP_OVERHANG -- o thumb é clampado no
+	# raio e ainda desenha o próprio raio além disso.
+	custom_minimum_size = Vector2.ONE * 2.0 * (RADIUS + THUMB_RADIUS)
+	size = custom_minimum_size
+	# Como filho do CanvasLayer o tamanho real vem dos offsets da cena e só chega
+	# depois daqui; sem reagir ao resize, o desenho ficaria fora do alvo de toque.
+	resized.connect(_recenter)
+	_recenter()
 	_build_backdrop()
 	_build_slices()
 	_build_thumb()
@@ -53,13 +69,19 @@ func _ready() -> void:
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
 	_apply_cue()
 
+## Centro do desenho colado no centro da caixa de toque, em qualquer tamanho.
+func _recenter() -> void:
+	var center := size / 2.0
+	_slices_root.position = center
+	_thumb.position = center + _thumb_offset
+
 ## Disco + anel circulares atrás das fatias (substitui o antigo NinePatchRect).
 ## Adicionados primeiro em _slices_root, logo desenhados atrás das fatias.
 func _build_backdrop() -> void:
 	var r := RADIUS + BACKDROP_OVERHANG
 	var pts: Array[Vector2] = []
-	for v in range(32):
-		var a := TAU * float(v) / 32.0
+	for v in range(BACKDROP_SEGMENTS):
+		var a := TAU * float(v) / float(BACKDROP_SEGMENTS)
 		pts.append(Vector2(cos(a), sin(a)) * r)
 	_backdrop_disc = Polygon2D.new()
 	_backdrop_disc.polygon = PackedVector2Array(pts)
