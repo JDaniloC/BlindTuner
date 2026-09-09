@@ -112,17 +112,49 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 
 func _move_finger_to(local_y: float) -> void:
-	_finger_y = clampf(local_y, NECK_TOP + BOARD_MARGIN.y, BOARD_SIZE.y - BOARD_MARGIN.y)
+	_finger_y = clampf(local_y, _neck_usable_top(), _neck_usable_bottom())
 	queue_redraw()
 	AudioManager.play_continuous_pitch(_frequency_for_finger_y())
 
-## Topo do braço útil (logo abaixo do cravelhal) = nota mais aguda, igual
-## à posição de dedo mais próxima da cravelha num instrumento de corda real.
+## Extremos do trecho de braço que o dedo percorre: do topo (logo abaixo do
+## cravelhal, onde ficaria a pestana) até a base (perto do cavalete).
+func _neck_usable_top() -> float:
+	return NECK_TOP + BOARD_MARGIN.y
+
+func _neck_usable_bottom() -> float:
+	return BOARD_SIZE.y - BOARD_MARGIN.y
+
+## Numa corda, a frequência é inversamente proporcional ao comprimento que
+## vibra: com o dedo a uma distância x da pestana, numa corda de comprimento L,
+## f = f_grave * L / (L - x). Duas consequências, e as duas valem aqui:
+##
+## 1. SENTIDO -- o topo do braço útil é a pestana, então a corda solta ali é a
+##    nota mais GRAVE. Descer o dedo encurta o trecho que vibra e SOBE a nota,
+##    como num violino. (A versão anterior punha a mais aguda no topo.)
+## 2. ESPAÇAMENTO -- os semitons se apertam conforme se desce, porque o mesmo
+##    salto de frequência custa cada vez menos comprimento. Um mapeamento linear
+##    em frequência produz o espelho exato disso: grave espremido, agudo largo.
+##
+## `x` é normalizado pelo x da nota mais aguda pra oitava inteira ocupar
+## exatamente o braço útil.
 func _frequency_for_finger_y() -> float:
-	var top := NECK_TOP + BOARD_MARGIN.y
-	var usable_height := (BOARD_SIZE.y - BOARD_MARGIN.y) - top
-	var t := (_finger_y - top) / usable_height
-	return lerpf(_highest_frequency(), _lowest_frequency(), t)
+	var t := (_finger_y - _neck_usable_top()) / (_neck_usable_bottom() - _neck_usable_top())
+	var low := _lowest_frequency()
+	return low / (1.0 - t * _neck_span_ratio())
+
+## Onde no braço mora uma frequência -- a inversa exata de
+## _frequency_for_finger_y(). Fonte única da posição de cada nota: quem precisar
+## desenhar ou testar posição chama daqui, senão a fórmula duplica e as duas
+## versões divergem em silêncio.
+func _y_for_frequency(freq: float) -> float:
+	var low := _lowest_frequency()
+	var t := (1.0 - low / freq) / _neck_span_ratio()
+	return _neck_usable_top() + t * (_neck_usable_bottom() - _neck_usable_top())
+
+## Fração do comprimento da corda que a oitava consome; é ela que estica a
+## conta pra oitava caber justa no braço útil.
+func _neck_span_ratio() -> float:
+	return 1.0 - _lowest_frequency() / _highest_frequency()
 
 func _lowest_frequency() -> float:
 	var lowest := INF
