@@ -14,11 +14,27 @@ const THUMB_RADIUS := 28.0
 const SLICE_VERTICES := 16  # vértices ao longo do arco
 const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor some
 
+## Geometria interna da fatia, toda em fração do raio: seta no anel de dentro,
+## nome da nota no anel de fora. Frações em vez de pixels para o conteúdo
+## acompanhar o joystick se o raio mudar.
+const ICON_RADIUS_FRAC := 0.46      # centro da seta (era 0.6 fixo; recuou pra abrir espaço)
+const ICON_SIDE := 30.0
+const LABEL_RADIUS_FRAC := 0.80     # centro do nome, já fora da caixa da seta
+const LABEL_SIZE_FRAC := Vector2(0.50, 0.30)
+const LABEL_FONT_FRAC := 0.225      # ~18px com RADIUS=80
+const LABEL_COLOR := Color.WHITE
+## O nome cai sobre fatia colorida translúcida e, mais além, sobre o cenário:
+## nenhuma cor chapada contrasta com tudo isso. O contorno escuro resolve sem
+## depender de qual esquema de cor está ativo.
+const LABEL_OUTLINE_COLOR := Color(0.08, 0.07, 0.06, 0.95)
+const LABEL_OUTLINE_SIZE := 6
+
 var _dragging := false
 var _thumb_offset := Vector2.ZERO
 var _slice_polygons: Array[Polygon2D] = []
 var _slice_note_keys: Array[String] = []  # paralelo a _slice_polygons (8 entradas)
 var _slice_icons: Array[Control] = []     # paralelo a _slice_note_keys (8 entradas)
+var _slice_labels: Array[Label] = []      # paralelo a _slice_note_keys (8 entradas)
 var _active_slice_index: int = -1         # 0..7 (índice da fatia em _slice_polygons), ou -1
 var _flash_tween: Tween
 var _backdrop_disc: Polygon2D
@@ -35,6 +51,7 @@ func _ready() -> void:
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	_apply_cue()
 
 ## Disco + anel circulares atrás das fatias (substitui o antigo NinePatchRect).
 ## Adicionados primeiro em _slices_root, logo desenhados atrás das fatias.
@@ -74,23 +91,52 @@ func _build_slices() -> void:
 		_slice_note_keys.append(key)
 		idx += 1
 	_build_slice_icons()
+	# Depois dos ícones de propósito: em Node2D a ordem de filho é a ordem de
+	# desenho, e o nome precisa ficar por cima da seta se um dia encostarem.
+	_build_slice_labels()
 
-## Uma seta por fatia, posicionada no meio do arco (60% do raio), apontando
-## na direção que a nota daquela fatia representa.
+## Centro do conteúdo da fatia i, num raio dado em fração do raio do joystick.
+## 0° aponta pro Norte da tela (-y), igual a _build_slice_polygon.
+func _slice_anchor(slice_index: int, radius_frac: float) -> Vector2:
+	var rad := deg_to_rad(slice_index * SLICE_ANGLE_DEG)
+	return Vector2(sin(rad), -cos(rad)) * (RADIUS * radius_frac)
+
+## Uma seta por fatia, no anel interno, apontando na direção que a nota daquela
+## fatia representa.
 func _build_slice_icons() -> void:
 	var IconScript := load("res://scripts/ActionIcon.gd")
 	_slice_icons.clear()
 	for i in range(_slice_note_keys.size()):
 		var icon: Control = IconScript.new()
-		icon.custom_minimum_size = Vector2(30, 30)
-		icon.size = Vector2(30, 30)
-		var deg := i * SLICE_ANGLE_DEG
-		var rad := deg_to_rad(deg)
-		var center := Vector2(sin(rad), -cos(rad)) * (RADIUS * 0.6)
-		icon.position = center - icon.size * 0.5
+		icon.custom_minimum_size = Vector2(ICON_SIDE, ICON_SIDE)
+		icon.size = Vector2(ICON_SIDE, ICON_SIDE)
+		icon.position = _slice_anchor(i, ICON_RADIUS_FRAC) - icon.size * 0.5
 		_slices_root.add_child(icon)
 		icon.set_note(_slice_note_keys[i])
 		_slice_icons.append(icon)
+
+## Um rótulo por fatia, no anel externo. O texto em si é preenchido por
+## _apply_cue(): é identidade da nota, então segue o nível de pista. A seta não
+## segue -- ela é afordância e só repete o que a posição da fatia já dizia.
+func _build_slice_labels() -> void:
+	_slice_labels.clear()
+	var box := LABEL_SIZE_FRAC * RADIUS
+	for i in range(_slice_note_keys.size()):
+		var lbl := Label.new()
+		# O padrão de Label já é IGNORE, mas explícito aqui porque um rótulo que
+		# capture o ponteiro engole o arrasto do joystick inteiro.
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.custom_minimum_size = box
+		lbl.size = box
+		lbl.position = _slice_anchor(i, LABEL_RADIUS_FRAC) - box * 0.5
+		lbl.add_theme_font_size_override("font_size", int(RADIUS * LABEL_FONT_FRAC))
+		lbl.add_theme_color_override("font_color", LABEL_COLOR)
+		lbl.add_theme_color_override("font_outline_color", LABEL_OUTLINE_COLOR)
+		lbl.add_theme_constant_override("outline_size", LABEL_OUTLINE_SIZE)
+		_slices_root.add_child(lbl)
+		_slice_labels.append(lbl)
 
 func slice_display_color(note_key: String) -> Color:
 	if CueSettings.shows_color():
@@ -98,13 +144,21 @@ func slice_display_color(note_key: String) -> Color:
 	return NEUTRAL_SLICE
 
 func _on_scheme_changed(_id: String) -> void:
-	_on_cue_changed(0)
+	_apply_cue()
 
 func _on_cue_changed(_level: int) -> void:
+	_apply_cue()
+
+## Aplica o nível de pista na fatia inteira: cor no polígono, nome no rótulo.
+## Cor e nome são pistas diferentes e somem em níveis diferentes -- shows_color()
+## aguenta até o nível 2, shows_name() só o nível 0.
+func _apply_cue() -> void:
+	var show_name := CueSettings.shows_name()
 	for i in range(_slice_polygons.size()):
 		var c := slice_display_color(_slice_note_keys[i])
 		c.a = _slice_polygons[i].color.a  # preserva alpha atual (gerido por _refresh_slice_alphas)
 		_slice_polygons[i].color = c
+		_slice_labels[i].text = NoteMapping.label_for(_slice_note_keys[i]) if show_name else ""
 
 func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 	var points: Array[Vector2] = [Vector2.ZERO]
