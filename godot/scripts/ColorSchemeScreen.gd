@@ -12,6 +12,8 @@ const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
 const ModalScript := preload("res://scripts/NoteColorModal.gd")
 
 const SWATCH_MIN := Vector2(56, 56)  # acima do mínimo de 44pt recomendado
+const SWATCH_BORDER := Color(0.12, 0.10, 0.09)
+const SWATCH_BORDER_PX := 3
 const CUSTOM_LABEL := "Personalizado"
 
 class Row:
@@ -93,9 +95,21 @@ func _build_rows() -> void:
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 12)
 
+		# Moldura escura em volta do swatch: sem ela, as cores claras da paleta
+		# (o Si do Pedagógico é #FFADFB, o Lá# do Alto Contraste é #A5EEFE)
+		# ficam com ~1.6:1 contra um fundo claro e a borda do quadrado somem --
+		# o jogador não consegue nem ver onde a cor começa e termina.
+		var moldura := PanelContainer.new()
+		var borda := StyleBoxFlat.new()
+		borda.bg_color = SWATCH_BORDER
+		for lado in ["content_margin_left", "content_margin_top", "content_margin_right", "content_margin_bottom"]:
+			borda.set(lado, SWATCH_BORDER_PX)
+		moldura.add_theme_stylebox_override("panel", borda)
+		line.add_child(moldura)
+
 		row.swatch = ColorRect.new()
 		row.swatch.custom_minimum_size = SWATCH_MIN
-		line.add_child(row.swatch)
+		moldura.add_child(row.swatch)
 
 		row.label = Label.new()
 		row.label.text = NoteMapping.label_for(keys[i])

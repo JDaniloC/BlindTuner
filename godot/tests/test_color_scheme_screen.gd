@@ -64,3 +64,63 @@ func test_close_emits_signal():
 	watch_signals(s)
 	s._on_close_pressed()
 	assert_signal_emitted(s, "closed")
+
+# --- Layout na tela de projeto (720x1280) -------------------------------------
+# Mesma rede de segurança de test_playground_input_layout.gd: a janela raiz em
+# headless não tem o tamanho de projeto, então medir contra ela daria folga
+# demais e deixaria passar transbordo. Foi assim que dois Critical do Plano A
+# escaparam da suíte.
+
+const PlaygroundScene := preload("res://scenes/Playground.tscn")
+
+var _screen_vp: SubViewport
+
+func _design_size() -> Vector2i:
+	var w: int = ProjectSettings.get_setting("display/window/size/viewport_width")
+	var h: int = ProjectSettings.get_setting("display/window/size/viewport_height")
+	return Vector2i(w, h)
+
+func test_color_screen_fits_the_design_screen():
+	_screen_vp = SubViewport.new()
+	_screen_vp.size = _design_size()
+	add_child_autofree(_screen_vp)
+	var s = ScreenScene.instantiate()
+	_screen_vp.add_child(s)
+	await wait_frames(2)
+	var visivel := _screen_vp.get_visible_rect()
+	assert_true(visivel.encloses(s.get_global_rect()),
+		"a tela de cores não cabe em %s: %s" % [visivel, s.get_global_rect()])
+
+func test_opening_from_playground_adds_exactly_one_screen():
+	# O handler do Playground usa $UI; só um teste que instancia a cena de jogo
+	# de verdade prova que esse caminho existe.
+	_screen_vp = SubViewport.new()
+	_screen_vp.size = _design_size()
+	add_child_autofree(_screen_vp)
+	var p = PlaygroundScene.instantiate()
+	_screen_vp.add_child(p)
+	await wait_frames(2)
+	p._on_color_settings_requested()
+	p._on_color_settings_requested()  # segunda vez não pode abrir outra
+	await wait_frames(2)
+	var abertas := 0
+	for child in p.get_node("UI").get_children():
+		if child.get_script() != null and child.get_script().resource_path.ends_with("ColorSchemeScreen.gd"):
+			abertas += 1
+	assert_eq(abertas, 1, "deveria haver exatamente uma tela de cores aberta")
+
+func test_action_buttons_stay_on_screen_with_all_twelve_rows():
+	# A lista de 12 linhas fica num ScrollContainer justamente pra não empurrar
+	# "Restaurar" e "Fechar" pra fora em 1280px de altura. Se alguém trocar o
+	# ScrollContainer por um VBox solto, é aqui que quebra.
+	_screen_vp = SubViewport.new()
+	_screen_vp.size = _design_size()
+	add_child_autofree(_screen_vp)
+	var s = ScreenScene.instantiate()
+	_screen_vp.add_child(s)
+	await wait_frames(2)
+	var visivel := _screen_vp.get_visible_rect()
+	assert_true(visivel.encloses(s._reset_btn.get_global_rect()),
+		"botão de restaurar fora da tela: %s" % s._reset_btn.get_global_rect())
+	assert_true(visivel.encloses(s._close_btn.get_global_rect()),
+		"botão de fechar fora da tela: %s" % s._close_btn.get_global_rect())
