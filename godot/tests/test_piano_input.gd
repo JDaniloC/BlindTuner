@@ -1,6 +1,9 @@
 extends GutTest
 
 const PianoScene := preload("res://scenes/PianoInput.tscn")
+# A regra de tint do ícone saiu do PianoInput e virou compartilhada; ColorDistance
+# é RefCounted, não autoload, então precisa de preload.
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
 func _make() -> Node:
 	var p = PianoScene.instantiate()
@@ -181,7 +184,7 @@ func test_icon_tint_is_dark_on_light_key():
 	var p = _make()
 	CueSettings.set_level(3)
 	var idx = p._button_notes.find("C4")
-	assert_eq(p._key_icons[idx]._tint, p.ICON_DARK_ON_LIGHT, "tecla branca pede ícone escuro")
+	assert_eq(p._key_icons[idx]._tint, ColorDistance.ICON_DARK, "tecla branca pede ícone escuro")
 
 func test_icon_tint_is_white_on_dark_key():
 	CueSettings.set_level(0)
@@ -200,7 +203,7 @@ func test_icon_tint_follows_note_color_luminance():
 	var p = _make()
 	assert_eq(NoteMapping.color_for("E4"), Color("#FFF200"), "pré-condição: o Mi é o amarelo claro")
 	assert_eq(NoteMapping.color_for("C4"), Color("#9C000A"), "pré-condição: o Dó é o vermelho escuro")
-	assert_eq(p._key_icons[p._button_notes.find("E4")]._tint, p.ICON_DARK_ON_LIGHT,
+	assert_eq(p._key_icons[p._button_notes.find("E4")]._tint, ColorDistance.ICON_DARK,
 		"fundo claro (#FFF200) pede ícone escuro")
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
 		"fundo escuro (#9C000A) pede ícone branco")

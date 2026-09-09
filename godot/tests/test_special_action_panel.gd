@@ -1,11 +1,19 @@
 extends GutTest
 
 const PanelScene := preload("res://scenes/SpecialActionPanel.tscn")
+# ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
 func _make() -> Node:
 	var p = PanelScene.instantiate()
 	add_child_autofree(p)
 	return p
+
+## Cor da placa do botão. Ela mora na StyleBoxFlat e NÃO no modulate: modulate
+## se propaga pros filhos, e tingir o botão com a cor da nota deixava o ícone
+## branco exatamente da cor do próprio fundo -- invisível.
+func _bg(btn: Button) -> Color:
+	return btn.get_theme_stylebox("normal").bg_color
 
 func before_each():
 	ColorSchemeSettings.reset_to_defaults()
@@ -56,28 +64,28 @@ func test_level_zero_shows_name_and_color():
 	CueSettings.set_level(0)
 	var p = _make()
 	assert_eq(p._buttons[0].text, NoteMapping.label_for("Gs4"))
-	assert_eq(p._buttons[0].modulate, NoteMapping.color_for("Gs4"))
+	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 func test_level_one_hides_name_keeps_color():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(1)
 	assert_eq(p._buttons[0].text, "")
-	assert_eq(p._buttons[0].modulate, NoteMapping.color_for("Gs4"))
+	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 func test_level_three_neutral_and_empty():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(3)
 	assert_eq(p._buttons[0].text, "")
-	assert_eq(p._buttons[0].modulate, p.NEUTRAL_BUTTON)
+	assert_eq(_bg(p._buttons[0]), p.NEUTRAL_BUTTON)
 
 func test_level_two_hides_name_keeps_color():
 	CueSettings.set_level(0)
 	var p = _make()
 	CueSettings.set_level(2)
 	assert_eq(p._buttons[0].text, "")
-	assert_eq(p._buttons[0].modulate, NoteMapping.color_for("Gs4"))
+	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 
@@ -113,26 +121,26 @@ func test_action_icon_ignores_unknown_action():
 func test_on_armed_state_changed_brightens_correr_button():
 	CueSettings.set_level(0)  # cor visível
 	var p = _make()
-	var base = p._buttons[2].modulate  # As4 = correr (índice 2)
+	var base = _bg(p._buttons[2])  # As4 = correr (índice 2)
 	p.on_armed_state_changed(true, false)
-	assert_gt(p._buttons[2].modulate.get_luminance(), base.get_luminance(), "armed brighten")
+	assert_gt(_bg(p._buttons[2]).get_luminance(), base.get_luminance(), "armed brighten")
 	assert_eq(p._armed, [false, false, true, false])
 
 func test_on_armed_state_changed_brightens_pular_button():
 	CueSettings.set_level(0)
 	var p = _make()
-	var base = p._buttons[3].modulate  # B4 = pular (índice 3)
+	var base = _bg(p._buttons[3])  # B4 = pular (índice 3)
 	p.on_armed_state_changed(false, true)
-	assert_gt(p._buttons[3].modulate.get_luminance(), base.get_luminance(), "armed brighten")
+	assert_gt(_bg(p._buttons[3]).get_luminance(), base.get_luminance(), "armed brighten")
 	assert_eq(p._armed, [false, false, false, true])
 
-func test_disarm_restores_modulate_to_cue_base():
+func test_disarm_restores_plate_color_to_cue_base():
 	CueSettings.set_level(0)
 	var p = _make()
-	var base = p._buttons[2].modulate
+	var base = _bg(p._buttons[2])
 	p.on_armed_state_changed(true, false)
 	p.on_armed_state_changed(false, false)
-	assert_eq(p._buttons[2].modulate, base, "modulate volta ao base após disarm")
+	assert_eq(_bg(p._buttons[2]), base, "a placa volta ao base após disarm")
 
 func test_armed_brighten_respects_neutral_at_cue_3():
 	# Em cue 3 a cor base é NEUTRAL_BUTTON; armed multiplica em cima.
@@ -143,13 +151,43 @@ func test_armed_brighten_respects_neutral_at_cue_3():
 	var expected = Color(p.NEUTRAL_BUTTON.r * p.ARMED_BRIGHTNESS,
 		p.NEUTRAL_BUTTON.g * p.ARMED_BRIGHTNESS,
 		p.NEUTRAL_BUTTON.b * p.ARMED_BRIGHTNESS, p.NEUTRAL_BUTTON.a)
-	assert_eq(p._buttons[2].modulate, expected)
+	assert_eq(_bg(p._buttons[2]), expected)
 
 func test_buttons_repaint_when_scheme_changes():
 	CueSettings.set_level(0)
 	var p = _make()
-	var antes = p._buttons[0].modulate
+	var antes = _bg(p._buttons[0])
 	ColorSchemeSettings.set_scheme("alto_contraste")
-	var depois = p._buttons[0].modulate
+	var depois = _bg(p._buttons[0])
 	assert_ne(antes, depois, "os botões de ação deveriam seguir o esquema ativo")
 	ColorSchemeSettings.reset_to_defaults()
+
+func test_action_icons_have_nonzero_width():
+	# Regressão: set_anchors_preset com keep_offsets preservava o rect 0x0 do
+	# Control recém-criado, e o ícone desenhava um retângulo de lado zero --
+	# invisível, sem erro nem warning.
+	var p = _make()
+	await wait_frames(2)  # o GridContainer só dimensiona os botões no sort
+	for i in range(p._buttons.size()):
+		for child in p._buttons[i].get_children():
+			if child.get_script() == ActionIconScript:
+				assert_gt(child.size.x, 0.0, "ícone %d com largura zero não desenha nada" % i)
+				assert_gt(child.size.y, 0.0, "ícone %d com altura zero não desenha nada" % i)
+
+func test_button_color_is_in_the_stylebox_not_in_modulate():
+	# modulate propaga pros filhos: com a cor da nota no modulate, o ícone
+	# branco vira exatamente a cor do fundo do botão.
+	CueSettings.set_level(0)
+	var p = _make()
+	assert_eq(p._buttons[0].modulate, Color.WHITE, "a cor não pode morar no modulate")
+	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
+
+func test_icon_tint_contrasts_with_its_own_button():
+	CueSettings.set_level(0)
+	var p = _make()
+	for i in range(p._buttons.size()):
+		var fundo = _bg(p._buttons[i])
+		for child in p._buttons[i].get_children():
+			if child.get_script() == ActionIconScript:
+				assert_gt(ColorDistance.contrast_ratio(fundo, child._tint), 3.0,
+					"glifo do botão %d se confunde com a própria placa" % i)

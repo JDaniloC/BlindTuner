@@ -15,10 +15,8 @@ const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
 const CORNER_RADIUS := 6
 const ICON_MAX_SIDE := 48.0
 const ICON_BOTTOM_MARGIN := 12.0
-## Luminância perceptual (Rec. 709) acima da qual o fundo conta como claro e o
-## ícone precisa ser escuro pra ter contraste.
-const ICON_DARK_ON_LIGHT := Color(0.10, 0.10, 0.12)
-const ICON_LUMA_THRESHOLD := 0.5
+## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
 const ARMED_BRIGHTNESS := 1.6  # espelha SpecialActionPanel.ARMED_BRIGHTNESS
 const WHITE_KEY_COLOR := Color(0.92, 0.90, 0.85)
 const BLACK_KEY_COLOR := Color(0.12, 0.12, 0.14)
@@ -131,11 +129,11 @@ func _apply_cue() -> void:
 		# visual que o ícone existe pra dar. Escolhe o tint pela luminância
 		# perceptual (Rec. 709) do fundo efetivo da tecla; como _apply_cue()
 		# roda de novo a cada troca de nível de pista ou de estado armado,
-		# o tint acompanha a troca de fundo sozinho.
+		# o tint acompanha a troca de fundo sozinho. A regra mora em
+		# ColorDistance porque o SpecialActionPanel precisa da mesma decisão.
 		if i < _key_icons.size():
 			var bg: Color = sb.bg_color * _buttons[i].self_modulate
-			var luma := 0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b
-			_key_icons[i].set_tint(ICON_DARK_ON_LIGHT if luma > ICON_LUMA_THRESHOLD else Color.WHITE)
+			_key_icons[i].set_tint(ColorDistance.icon_tint_for(bg))
 		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
 		# escurecido) pra dar feedback visual de toque -- sem isso, apertar
 		# uma tecla não mudava nada visualmente (normal/hover/pressed

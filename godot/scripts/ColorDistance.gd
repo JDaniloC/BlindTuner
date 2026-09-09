@@ -55,6 +55,23 @@ static func contrast_ratio(a: Color, b: Color) -> float:
 static func relative_luminance(c: Color) -> float:
 	return 0.2126 * _linearize(c.r) + 0.7152 * _linearize(c.g) + 0.0722 * _linearize(c.b)
 
+## Glifo escuro sobre fundo claro e vice-versa. A regra vivia inline no
+## PianoInput; virou função compartilhada quando o painel de ações passou a
+## precisar da mesma decisão.
+##
+## O limiar é sobre Color.get_luminance() -- a média Rec. 709 dos canais como
+## estão, SEM linearizar. Não é a mesma conta de relative_luminance() acima (que
+## é a do WCAG, sobre canais linearizados) e é de propósito: é um corte binário
+## "claro ou escuro", não uma razão. Medido sobre as 12 cores dos 3 esquemas
+## embarcados, o pior caso ainda dá 4,1:1 de contraste WCAG, folgado acima do
+## mínimo 3:1 para elemento gráfico.
+const ICON_DARK := Color(0.10, 0.10, 0.12)
+const ICON_LIGHT := Color.WHITE
+const ICON_LUMA_THRESHOLD := 0.5
+
+static func icon_tint_for(background: Color) -> Color:
+	return ICON_DARK if background.get_luminance() > ICON_LUMA_THRESHOLD else ICON_LIGHT
+
 ## Mapa índice cromático -> ΔE, só dos que ficam perto demais de `candidate`.
 ## `skip_index` é a nota sendo editada. Existe separado de conflicts_for porque
 ## o editor precisa comparar a GRAVIDADE de um conflito com a de antes: um

@@ -124,3 +124,21 @@ func test_conflicts_are_ordered_nearest_first():
 	assert_eq(conflitos.size(), 2, "só essas duas ficam abaixo do limiar")
 	assert_eq(conflitos[0], 5, "a mais próxima vem primeiro, mesmo estando depois na paleta")
 	assert_eq(conflitos[1], 2)
+
+func test_icon_tint_is_dark_on_light_background():
+	var tint = CD.icon_tint_for(Color("#F7E9A0"))
+	assert_lt(tint.get_luminance(), 0.5, "fundo claro pede glifo escuro")
+
+func test_icon_tint_is_light_on_dark_background():
+	var tint = CD.icon_tint_for(Color("#0D4A74"))
+	assert_gt(tint.get_luminance(), 0.5, "fundo escuro pede glifo claro")
+
+func test_icon_tint_always_clears_the_minimum_contrast():
+	# Varre as 12 cores dos 3 esquemas embarcados: nenhuma pode produzir um
+	# glifo que se confunda com a própria placa. 3:1 é o mínimo do WCAG para
+	# elemento gráfico não-textual.
+	for id in ColorSchemes.SCHEME_IDS:
+		for c in ColorSchemes.colors_for(id):
+			var tint = CD.icon_tint_for(c)
+			var razao = CD.contrast_ratio(c, tint)
+			assert_gt(razao, 3.0, "contraste insuficiente do ícone sobre %s" % c.to_html())
