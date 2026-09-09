@@ -1,7 +1,7 @@
 extends Control
 ## Modo de input "Piano Virtual": teclado real de uma oitava (C4-B4), teclas
 ## brancas/pretas na posição de um piano de verdade. Emite o mesmo sinal
-## note_triggered que DirectionJoystick/SpecialActionPanel/BlindTouchInput.
+## note_triggered que DirectionJoystick/SpecialActionPanel/PitchScrollInput.
 
 signal note_triggered(note_key: String)
 

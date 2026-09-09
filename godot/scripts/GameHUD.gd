@@ -58,7 +58,7 @@ func _ready() -> void:
 	row.add_child(_cue_opt)
 
 	_mode_opt = OptionButton.new()
-	for m in ["Joystick", "Toque no Escuro", "Piano Virtual", "Scroll de Afinação"]:
+	for m in ["Joystick", "Piano Virtual", "Scroll de Afinação"]:
 		_mode_opt.add_item(m)
 	row.add_child(_mode_opt)
 

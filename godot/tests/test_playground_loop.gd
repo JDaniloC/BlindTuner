@@ -259,26 +259,6 @@ func test_piano_input_note_triggered_routes_through_playground():
 	assert_eq(p._character.grid_position, Vector2i(2, 6))
 	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
 
-func test_begin_preset_with_blind_touch_mode_shows_it_hides_joystick():
-	var p = _playground()
-	p._begin_preset("curto", 0, InputModeSettings.Mode.BLIND_TOUCH)
-	assert_true(p._blind_touch_input.visible)
-	assert_false(p._joystick.visible)
-	assert_false(p._special_actions.visible)
-	assert_false(p._piano_input.visible)
-	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
-
-func test_blind_touch_input_note_triggered_routes_through_playground():
-	var p = _playground()
-	# Sem _begin_preset (mesmo motivo documentado em
-	# test_piano_input_note_triggered_routes_through_playground): fica em
-	# IDLE de propósito.
-	InputModeSettings.set_mode(InputModeSettings.Mode.BLIND_TOUCH)
-	p._apply_input_mode()
-	p._blind_touch_input.note_triggered.emit("Ds4")  # dir (1,0) a partir de (1,6)
-	assert_eq(p._character.grid_position, Vector2i(2, 6))
-	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
-
 func test_begin_preset_with_pitch_scroll_mode_shows_it_hides_others():
 	var p = _playground()
 	p._begin_preset("curto", 0, InputModeSettings.Mode.PITCH_SCROLL)
@@ -286,7 +266,6 @@ func test_begin_preset_with_pitch_scroll_mode_shows_it_hides_others():
 	assert_false(p._joystick.visible)
 	assert_false(p._special_actions.visible)
 	assert_false(p._piano_input.visible)
-	assert_false(p._blind_touch_input.visible)
 	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
 
 func test_pitch_scroll_input_note_triggered_routes_through_playground():
@@ -304,20 +283,17 @@ func test_hud_is_hit_tested_before_alternate_input_mode_components():
 	# Regressão (revisão final, achado CRÍTICO): Controls irmãos sob um
 	# CanvasLayer são hit-testados em ordem REVERSA da lista de filhos -- o
 	# ÚLTIMO filho é testado PRIMEIRO e consome o clique se estiver visível e
-	# mouse_filter != IGNORE. PianoInput/BlindTouchInput/PitchScrollInput
-	# cobrem áreas grandes (BlindTouchInput cobre a tela inteira) com
-	# mouse_filter=STOP quando ativos; se qualquer um deles vier DEPOIS do
+	# mouse_filter != IGNORE. PianoInput/PitchScrollInput cobrem áreas grandes
+	# com mouse_filter=STOP quando ativos; se qualquer um deles vier DEPOIS do
 	# GameHUD na árvore, ele intercepta todo clique destinado aos botões e
 	# dropdowns do HUD -- soft-lock total (sem como trocar de modo, reiniciar,
 	# ou trocar de preset). get_index() maior = mais tarde na lista de filhos
-	# = testado primeiro. GameHUD precisa ter índice MAIOR que os 3 componentes
+	# = testado primeiro. GameHUD precisa ter índice MAIOR que os 2 componentes
 	# de modo alternativo pra ser testado (e poder consumir o clique) antes deles.
 	var p = _playground()
 	var hud_index: int = p._hud.get_index()
 	assert_gt(hud_index, p._piano_input.get_index(),
 		"GameHUD deve vir depois (índice maior) do PianoInput em UI, senão o Piano bloqueia o HUD")
-	assert_gt(hud_index, p._blind_touch_input.get_index(),
-		"GameHUD deve vir depois (índice maior) do BlindTouchInput em UI, senão ele bloqueia o HUD")
 	assert_gt(hud_index, p._pitch_scroll_input.get_index(),
 		"GameHUD deve vir depois (índice maior) do PitchScrollInput em UI, senão ele bloqueia o HUD")
 
@@ -344,12 +320,11 @@ func test_ready_applies_input_mode_invariant_without_begin_preset():
 	# nem _apply_input_mode() manualmente, só instancia e verifica.
 	var p = _playground()
 	assert_eq(p._piano_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
-	assert_eq(p._blind_touch_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_eq(p._pitch_scroll_input.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_ne(p._joystick.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 
 func test_apply_input_mode_mouse_filter_invariant_across_all_modes():
-	# Regressão (revisão final, achado IMPORTANTE #3): pra cada um dos 4 modos,
+	# Regressão (revisão final, achado IMPORTANTE #3): pra cada um dos 3 modos,
 	# o(s) nó(s) do grupo ATIVO precisam continuar clicáveis (mouse_filter !=
 	# IGNORE) e TODOS os outros grupos precisam estar mouse_filter == IGNORE.
 	# Essa é exatamente a invariante "só um grupo visível E interativo" que
@@ -359,7 +334,6 @@ func test_apply_input_mode_mouse_filter_invariant_across_all_modes():
 	var groups := {
 		InputModeSettings.Mode.JOYSTICK: [p._joystick, p._special_actions],
 		InputModeSettings.Mode.PIANO: [p._piano_input],
-		InputModeSettings.Mode.BLIND_TOUCH: [p._blind_touch_input],
 		InputModeSettings.Mode.PITCH_SCROLL: [p._pitch_scroll_input],
 	}
 	for active_mode in groups.keys():

@@ -1,9 +1,9 @@
 extends Node
-## Autoload — modo de input ativo (joystick ou um dos 3 modos alternativos). Pura apresentação/roteamento.
+## Autoload — modo de input ativo (joystick ou um dos 2 modos alternativos). Pura apresentação/roteamento.
 
 signal mode_changed(mode: int)
 
-enum Mode { JOYSTICK, BLIND_TOUCH, PIANO, PITCH_SCROLL }
+enum Mode { JOYSTICK, PIANO, PITCH_SCROLL }
 
 var mode: int = Mode.JOYSTICK
 

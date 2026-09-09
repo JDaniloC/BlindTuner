@@ -33,7 +33,7 @@ func test_start_button_emits_selection():
 	watch_signals(h)
 	h._preset_opt.select(1)   # "medio"
 	h._cue_opt.select(2)      # nível 2
-	h._mode_opt.select(1)     # Toque no Escuro
+	h._mode_opt.select(1)     # Piano Virtual
 	h._on_start_pressed()
 	assert_signal_emitted_with_parameters(h, "start_requested", ["medio", 2, 1])
 
@@ -69,9 +69,12 @@ func test_hide_stats_conceals_panel():
 	h.hide_stats()
 	assert_false(h._stats_panel.visible)
 
-func test_mode_dropdown_has_four_options():
+func test_mode_dropdown_has_three_options():
+	# Um item por valor de InputModeSettings.Mode: o índice do dropdown é
+	# emitido cru como input_mode em start_requested. Sobrar item aqui
+	# mandaria um modo inexistente para o Playground.
 	var h = _hud()
-	assert_eq(h._mode_opt.item_count, 4)
+	assert_eq(h._mode_opt.item_count, 3)
 
 func test_hud_has_color_settings_button():
 	var h = _hud()
