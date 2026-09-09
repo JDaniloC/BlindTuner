@@ -200,6 +200,11 @@ func _on_reset_cancelled() -> void:
 	_confirm_panel.visible = false
 
 func _on_edit_pressed(chromatic_index: int) -> void:
+	# Fecha a confirmação de reset antes de abrir o modal: ela ficava aberta por
+	# trás e reaparecia quando o jogador confirmasse a cor, com o botão
+	# "Restaurar" à mostra -- que se lê como confirmação da cor recém escolhida,
+	# e apaga as 12 personalizadas.
+	_confirm_panel.visible = false
 	_modal.open_for(chromatic_index)
 
 func _on_modal_color_confirmed(_index: int, _color: Color) -> void:

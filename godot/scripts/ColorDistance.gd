@@ -43,20 +43,41 @@ static func delta_e(a: Color, b: Color) -> float:
 static func aged_lens(c: Color) -> Color:
 	return Color(c.r, c.g, c.b * AGED_BLUE_FACTOR, c.a)
 
-## Índices cromáticos cuja cor fica perto demais de `candidate`, do mais
-## próximo pro mais distante. `skip_index` é a nota sendo editada.
-static func conflicts_for(candidate: Color, palette: Array, skip_index: int) -> Array[int]:
-	var pares := []
+## Razão de contraste WCAG 2.x entre duas cores opacas (1:1 a 21:1). Mora aqui
+## porque é a mesma matemática de luminância do resto do módulo, e porque o jogo
+## precisa cobrar contraste de texto sobre fundo em teste -- não basta conferir
+## que existe um override de cor, o que importa é o número.
+static func contrast_ratio(a: Color, b: Color) -> float:
+	var la := relative_luminance(a)
+	var lb := relative_luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+static func relative_luminance(c: Color) -> float:
+	return 0.2126 * _linearize(c.r) + 0.7152 * _linearize(c.g) + 0.0722 * _linearize(c.b)
+
+## Mapa índice cromático -> ΔE, só dos que ficam perto demais de `candidate`.
+## `skip_index` é a nota sendo editada. Existe separado de conflicts_for porque
+## o editor precisa comparar a GRAVIDADE de um conflito com a de antes: um
+## conflito que já vinha da paleta de fábrica não é culpa do jogador.
+static func conflict_distances(candidate: Color, palette: Array, skip_index: int) -> Dictionary:
+	var out := {}
 	for i in range(palette.size()):
 		if i == skip_index:
 			continue
 		var d := delta_e(aged_lens(candidate), aged_lens(palette[i]))
 		if d < MIN_DELTA_E:
-			pares.append([d, i])
-	pares.sort_custom(func(a, b): return a[0] < b[0])
+			out[i] = d
+	return out
+
+## Índices cromáticos cuja cor fica perto demais de `candidate`, do mais
+## próximo pro mais distante. `skip_index` é a nota sendo editada.
+static func conflicts_for(candidate: Color, palette: Array, skip_index: int) -> Array[int]:
+	var dist := conflict_distances(candidate, palette, skip_index)
+	var idxs := dist.keys()
+	idxs.sort_custom(func(a, b): return dist[a] < dist[b])
 	var out: Array[int] = []
-	for p in pares:
-		out.append(p[1])
+	for i in idxs:
+		out.append(i)
 	return out
 
 ## "Ajustar automaticamente": gira SÓ o matiz (preserva saturação e valor, logo

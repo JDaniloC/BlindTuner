@@ -121,6 +121,21 @@ func test_swatch_has_dark_border_so_light_colors_stay_visible():
 	var estilo = moldura.get_theme_stylebox("panel")
 	assert_eq(estilo.bg_color, s.SWATCH_BORDER)
 
+func test_opening_the_editor_closes_a_pending_reset_confirmation():
+	# A confirmação ficava aberta por trás do modal e reaparecia quando o jogador
+	# confirmasse a cor, com o botão "Restaurar" à mostra -- que se lê como
+	# confirmação da cor recém escolhida, e apaga as 12 personalizadas.
+	var s = _make()
+	ColorSchemeSettings.set_scheme(ColorSchemeSettings.CUSTOM_ID)
+	s._on_reset_pressed()
+	assert_true(s._confirm_panel.visible, "pré-condição: a confirmação está aberta")
+	s._on_edit_pressed(1)
+	assert_false(s._confirm_panel.visible, "abrir o editor tem que fechar a confirmação")
+	s._modal._set_pending(Color("#123456"))
+	s._modal._on_confirm_pressed()
+	assert_false(s._confirm_panel.visible,
+		"confirmar a cor não pode devolver o botão Restaurar para a tela")
+
 func test_editing_a_color_updates_the_row_swatch():
 	# Caminho de integração completo: Editar -> modal abre -> confirma -> o
 	# swatch da lista reflete a cor nova.

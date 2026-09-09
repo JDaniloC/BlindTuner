@@ -18,14 +18,24 @@ const GRABBER_PX := 44
 const BORDER := Color(0.12, 0.10, 0.09)
 const BORDER_PX := 3
 const WARNING_BG := Color(0.32, 0.24, 0.06)
+## O Label do aviso herdava a fonte escura do tema (0.16, 0.13, 0.10) sobre o
+## oliva escuro do painel: 1,53:1, abaixo até do piso de 3:1 de texto grande. É
+## a única frase que explica POR QUE o aviso apareceu, num jogo para baixa visão.
+const WARNING_TEXT := Color(0.98, 0.97, 0.94)
+
+## ΔE de piora a partir do qual um conflito que já existia passa a ser culpa do
+## jogador. Abaixo do JND (~2,3) a diferença nem é perceptível, então acusá-lo
+## seria ruído.
+const AGRAVO_MIN := 2.0
 
 var _index: int = -1
 var _pending: Color = Color.WHITE
-## O aviso de conflito só vale depois que o jogador mexe. Ao abrir, a cor é a
-## que o próprio jogo entregou -- avisar ali culpa o jogador por um conflito
-## que veio de fábrica (o Alto Contraste repete matiz entre natural e sustenido
-## de propósito, o que acendia o aviso em 8 das 12 notas logo na abertura).
-var _touched := false
+## ΔE dos conflitos que a cor ORIGINAL desta nota já tinha, medidos na abertura.
+## O aviso só fala dos conflitos que o jogador criou ou agravou: as paletas
+## embarcadas têm pares abaixo de MIN_DELTA_E de propósito (o Alto Contraste
+## repete matiz entre natural e sustenido em 8 das 12 notas), e acusá-lo por
+## eles é culpar o jogador por um conflito que veio de fábrica.
+var _baseline_conflicts: Dictionary = {}
 var _warning_dismissed := false
 
 var _title: Label
@@ -81,6 +91,12 @@ func _ready() -> void:
 	_hue.step = 1.0
 	_hue.custom_minimum_size = Vector2(0, SLIDER_TRACK_H + 8)
 	_hue.add_theme_stylebox_override("slider", _make_hue_track())
+	# O tema do projeto não define HSlider, então "grabber_area" vem do tema
+	# padrão da engine: uma camada clara desenhada POR CIMA do trilho, da borda
+	# esquerda até o pegador, que lavava justamente a parte do espectro para onde
+	# o jogador arrasta quando quer ir pro vermelho/laranja.
+	_hue.add_theme_stylebox_override("grabber_area", StyleBoxEmpty.new())
+	_hue.add_theme_stylebox_override("grabber_area_highlight", StyleBoxEmpty.new())
 	var grabber := _make_grabber()
 	_hue.add_theme_icon_override("grabber", grabber)
 	_hue.add_theme_icon_override("grabber_highlight", grabber)
@@ -100,6 +116,7 @@ func _ready() -> void:
 	_warning.add_child(wcol)
 	_warning_label = Label.new()
 	_warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warning_label.add_theme_color_override("font_color", WARNING_TEXT)
 	wcol.add_child(_warning_label)
 	var wbtns := HBoxContainer.new()
 	wbtns.add_theme_constant_override("separation", 10)
@@ -176,9 +193,11 @@ func open_for(chromatic_index: int) -> void:
 		return
 	_index = chromatic_index
 	_title.text = "Cor de %s" % NoteMapping.label_for(key)
-	_touched = false
 	_warning_dismissed = false
-	_set_pending(NoteMapping.color_for(key), false)
+	var original := NoteMapping.color_for(key)
+	_baseline_conflicts = ColorDistance.conflict_distances(
+		original, ColorSchemeSettings.active_palette(), _index)
+	_set_pending(original, false)
 	_hue.set_value_no_signal(_pending.h * 360.0)
 	visible = true
 
@@ -191,25 +210,31 @@ func _set_pending(c: Color, from_user: bool = true) -> void:
 	_pending = c
 	_preview.color = c
 	if from_user:
-		_touched = true
 		_warning_dismissed = false
 	_refresh_warning()
 
 ## Aviso não-bloqueante: mostra COM QUAL nota a cor escolhida se parece e
 ## oferece o atalho, mas nunca impede confirmar -- autonomia do jogador vem
 ## antes da "correção" do sistema.
+##
+## Só entram no aviso os conflitos que o jogador CRIOU ou AGRAVOU. Um flag de
+## "já mexeu" não bastava: mexer um grau no slider já acendia o aviso por um
+## conflito que a paleta de fábrica trazia desde sempre.
 func _refresh_warning() -> void:
-	if not _touched or _warning_dismissed:
+	if _warning_dismissed:
 		_warning.visible = false
 		return
 	var palette := ColorSchemeSettings.active_palette()
-	var conflitos := ColorDistance.conflicts_for(_pending, palette, _index)
-	if conflitos.is_empty():
+	var atuais := ColorDistance.conflict_distances(_pending, palette, _index)
+	var nomes := []
+	for idx in ColorDistance.conflicts_for(_pending, palette, _index):
+		var antes: float = _baseline_conflicts.get(idx, INF)
+		if atuais[idx] >= antes - AGRAVO_MIN:
+			continue
+		nomes.append(NoteMapping.label_for(NoteMapping.note_key_at(idx)))
+	if nomes.is_empty():
 		_warning.visible = false
 		return
-	var nomes := []
-	for idx in conflitos:
-		nomes.append(NoteMapping.label_for(NoteMapping.note_key_at(idx)))
 	_warning_label.text = "Essa cor está parecida com a de %s" % ", ".join(nomes)
 	_warning.visible = true
 

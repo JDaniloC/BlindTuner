@@ -87,6 +87,26 @@ func test_aged_lens_leaves_red_and_green_untouched():
 	assert_almost_eq(CD.aged_lens(c).r, c.r, 0.001)
 	assert_almost_eq(CD.aged_lens(c).g, c.g, 0.001)
 
+func test_contrast_ratio_matches_the_wcag_extremes():
+	assert_almost_eq(CD.contrast_ratio(Color.BLACK, Color.WHITE), 21.0, 0.01)
+	assert_almost_eq(CD.contrast_ratio(Color.RED, Color.RED), 1.0, 0.001)
+
+func test_contrast_ratio_is_symmetric():
+	var a = Color("#3D3C1A")
+	var b = Color("#FAF8F0")
+	assert_almost_eq(CD.contrast_ratio(a, b), CD.contrast_ratio(b, a), 0.001)
+
+func test_conflict_distances_reports_how_close_each_conflict_is():
+	# O editor precisa da GRAVIDADE, não só da lista: um conflito que já vinha da
+	# paleta de fábrica só vira aviso se o jogador o agravar.
+	var palette = _palette_black_with(2, Color("#FF9A02"))
+	palette[5] = Color("#F08A10")
+	var d = CD.conflict_distances(Color("#FF9800"), palette, 9)
+	assert_true(d.has(2) and d.has(5), "os dois vizinhos deveriam entrar")
+	assert_lt(d[2], d[5], "o índice 2 é o mais parecido dos dois")
+	assert_lt(d[2], CD.MIN_DELTA_E)
+	assert_false(d.has(0), "preto está longe demais para entrar")
+
 func test_conflicts_are_ordered_nearest_first():
 	# A ordenação é prometida na documentação da função (o modal nomeia as notas
 	# na ordem em que ela devolve) e não era asseverada.

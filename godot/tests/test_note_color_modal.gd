@@ -1,6 +1,7 @@
 extends GutTest
 
 const ModalScene := preload("res://scenes/NoteColorModal.tscn")
+const CD := preload("res://scripts/ColorDistance.gd")
 
 ## Nunca o arquivo real do jogador -- ver test_color_scheme_settings.gd.
 const TEST_PATH := "user://test_note_modal.cfg"
@@ -137,3 +138,63 @@ func test_cancel_does_not_apply():
 	m._set_pending(Color("#123456"))
 	m._on_cancel_pressed()
 	assert_eq(NoteMapping.color_for("C4"), antes, "cancelar não pode alterar a paleta")
+
+func test_a_factory_conflict_is_not_blamed_on_the_player_after_one_slider_step():
+	# O flag "já mexeu" só adiava o problema um passo: no Alto Contraste, 8 das 12
+	# notas já nascem em conflito (o sustenido é a natural com L* +10), e um grau
+	# de slider acendia o aviso acusando o jogador por isso.
+	ColorSchemeSettings.reset_to_defaults()
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	ColorSchemeSettings.set_scheme(ColorSchemeSettings.CUSTOM_ID)
+	var m = _make()
+	m.open_for(0)  # Dó, que conflita de fábrica com o Dó#
+	assert_false(CD.conflicts_for(m._pending, ColorSchemeSettings.active_palette(), 0).is_empty(),
+		"pré-condição: a cor de fábrica do Dó conflita mesmo com outra nota")
+	m._on_hue_changed(m._hue.value + 1.0)
+	assert_false(m._warning.visible,
+		"um grau de slider não pode fazer o jogo acusar um conflito de fábrica")
+
+func test_the_warning_still_appears_when_the_player_creates_the_conflict():
+	# A contrapartida do teste acima: o aviso não pode ter virado decorativo.
+	ColorSchemeSettings.reset_to_defaults()
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	ColorSchemeSettings.set_scheme(ColorSchemeSettings.CUSTOM_ID)
+	var m = _make()
+	m.open_for(0)
+	m._set_pending(NoteMapping.color_for("Cs4"))  # copiou a cor da vizinha
+	assert_true(m._warning.visible, "agravar um conflito até a cor idêntica precisa avisar")
+
+func test_warning_text_is_readable_against_the_warning_panel():
+	# O painel ganhou fundo próprio, mas o Label herdava a fonte escura do tema:
+	# 1,53:1, abaixo até do piso de 3:1 de texto grande. É a única frase que
+	# explica por que o aviso apareceu.
+	var m = _make()
+	var fundo = m._warning.get_theme_stylebox("panel").bg_color
+	var texto = m._warning_label.get_theme_color("font_color")
+	var razao = CD.contrast_ratio(texto, fundo)
+	assert_gte(razao, 4.5,
+		"texto do aviso a %.2f:1 sobre o painel -- ilegível para o público do jogo" % razao)
+
+func test_warning_panel_is_visually_distinct_from_the_screen_background():
+	var m = _make()
+	var estilo = m._warning.get_theme_stylebox("panel")
+	assert_true(estilo is StyleBoxFlat, "o aviso precisa de fundo próprio, não o painel padrão")
+	assert_eq(estilo.bg_color, m.WARNING_BG)
+
+func test_preview_has_a_dark_frame_so_light_colors_stay_visible():
+	# Mesma razão dos swatches da lista: o Si do Pedagógico (#FFADFB) some contra
+	# um fundo claro, e o preview é a tela onde o jogador julga aquela cor.
+	var m = _make()
+	var moldura = m._preview.get_parent()
+	assert_true(moldura is PanelContainer, "o preview precisa estar dentro da moldura")
+	assert_eq(moldura.get_theme_stylebox("panel").bg_color, m.BORDER)
+
+func test_hue_track_spectrum_is_not_covered_by_the_default_grabber_area():
+	# O tema do projeto não define HSlider: sem override, o "grabber_area" padrão
+	# da engine desenha por cima do trilho, da borda esquerda até o pegador, e
+	# lava o pedaço do espectro para onde o jogador arrasta.
+	var m = _make()
+	assert_true(m._hue.get_theme_stylebox("grabber_area") is StyleBoxEmpty,
+		"o espectro do trilho não pode ficar coberto")
+	assert_true(m._hue.get_theme_stylebox("slider") is StyleBoxTexture,
+		"o trilho precisa continuar sendo o espectro de matiz")
