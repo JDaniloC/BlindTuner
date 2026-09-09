@@ -20,32 +20,12 @@ func test_play_note_miss_sfx_returns_a_player_node():
     assert_not_null(player)
     assert_true(player is AudioStreamPlayer)
 
-func test_note_miss_envelope_fades_near_silence_by_last_sample():
-    # NOTE_MISS_DURATION_SEC precisa ser maior que ATTACK_SEC+DECAY_SEC, senão o
-    # buffer termina no meio do decay (nunca alcança release) e corta com um
-    # click audível em vez de esmaecer a 0, como play_note e play_collision_sfx fazem.
-    var duration = AudioManager.NOTE_MISS_DURATION_SEC
-    var total_samples := int(AudioManager.MIX_RATE * duration)
-    var attack_samples := int(AudioManager.MIX_RATE * AudioManager.ATTACK_SEC)
-    var decay_samples := int(AudioManager.MIX_RATE * AudioManager.DECAY_SEC)
-    var release_samples := int(AudioManager.MIX_RATE * AudioManager.RELEASE_SEC)
-    var sustain_samples := total_samples - attack_samples - decay_samples - release_samples
-    var last_envelope = AudioManager._envelope_at(total_samples - 1, attack_samples,
-        decay_samples, sustain_samples, release_samples)
-    assert_lt(last_envelope, 0.05,
-        "envelope deveria esmaecer perto de 0 no último sample, não cortar no meio do decay")
-
 func after_each():
     # _stop_current() para tanto o player discreto (play_note) quanto o
     # contínuo (play_continuous_pitch) -- stop_continuous_pitch() sozinho
     # deixava um player discreto órfão de testes anteriores (ex: play_note()),
     # causando "ObjectDB leaked at exit" ao rodar este arquivo isolado.
     AudioManager._stop_current()
-    # O timbre é estado GLOBAL de um autoload: sem devolver ao padrão, um teste
-    # que troca de timbre faz o próximo (e o test_game_hud, que lê o mesmo campo
-    # pra montar o interruptor) enxergar a escolha do anterior.
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.ADDITIVE)
-    AudioManager._timbre_fade = 0.0
 
 func test_play_continuous_pitch_returns_a_player_node():
     var player = AudioManager.play_continuous_pitch(440.0)
@@ -131,6 +111,23 @@ func test_fill_pitch_buffer_still_preserves_phase_across_frequency_change():
     assert_true(AudioManager._pitch_phase != 0.0,
         "_fill_pitch_buffer não deveria resetar _pitch_phase a cada chamada")
 
+func test_the_continuous_tone_samples_before_it_advances_the_phase():
+    # A amostra tem que ser a da fase de AGORA, e o avanço vir depois: invertida
+    # a ordem, o tom sai adiantado de uma amostra e -- o que importa de verdade --
+    # a primeira amostra de todo arrasto deixa de ser a da fase zerada por
+    # play_continuous_pitch, que é o que garante que o arrasto comece do mesmo
+    # ponto do ciclo em vez de um degrau.
+    AudioManager._pitch_phase = 0.11
+    AudioManager._pitch_lfo_phase = 0.0
+    var got = AudioManager._pitch_step(440.0)
+    # _pitch_step atualiza o ruído de arco ANTES de amostrar, então o valor que
+    # ficou em _noise_lp é exatamente o que entrou nesta amostra.
+    var expected = AudioManager._continuous_pitch_sample(0.11, 0.0, AudioManager._noise_lp)
+    assert_almost_eq(got, expected, 1e-6,
+        "a amostra do tom contínuo é _continuous_pitch_sample na fase anterior ao avanço")
+    assert_almost_eq(AudioManager._pitch_phase, 0.11 + 440.0 / AudioManager.MIX_RATE, 1e-6,
+        "e a fase tem que ter avançado uma amostra da frequência pedida")
+
 func test_strings_bus_created_on_ready():
     assert_true(AudioServer.get_bus_index(AudioManager.STRINGS_BUS_NAME) != -1,
         "bus Strings deveria existir (criado no _ready() do AudioManager)")
@@ -155,474 +152,113 @@ func test_eq10_band_index_for_maps_to_nearest_band():
     assert_eq(AudioManager._eq10_band_index_for(700.0), 4)   # banda de 500Hz
     assert_eq(AudioManager._eq10_band_index_for(2500.0), 6)  # banda de 2000Hz
 
-# --- Timbre alternativo do Scroll: guia de onda ---------------------------------
+# --- Envoltória dos sons discretos ----------------------------------------------
 
-## O guia de onda soando com o arco correndo, que é o único jeito de ele soar --
-## e, ao contrário da versão excitada por ruído, é DETERMINÍSTICO: a mesa de arco
-## não sorteia nada, então a mesma nota dá exatamente o mesmo buffer em toda
-## rodada da suíte.
+## Degrau máximo tolerado entre duas amostras vizinhas da envoltória. O maior
+## degrau LEGÍTIMO é a rampa de ataque -- 1/ataque por amostra --, e o ataque mais
+## curto dos três sons é o dos SFX de 0,2s: 191 amostras depois da compressão.
+## Medido: 0,00227 na nota de 0,6s, 0,00524 nos SFX de 0,2s e 0,00525 lendo o PCM
+## da colisão (o meio LSB do arredondamento pra 16 bits). O teto é ~4x o pior
+## deles -- folga pra quem mexer nos tempos da envoltória -- e reprova por 15x o
+## degrau de 0,3005 (12dB numa amostra) que o sustain negativo produzia.
+const MAX_ENVELOPE_STEP := 0.02
+
+## O PCM que _make_stream escreve quando a envoltória vale 1: a onda vai a +-1 e o
+## laço multiplica por 0,5 antes de escalar pra 16 bits. Dividir por ele devolve a
+## envoltória, em unidades comparáveis a MAX_ENVELOPE_STEP.
+const PCM_AT_FULL_ENVELOPE := 0.5 * 32767.0
+
+## Os três sons discretos que o jogo toca, com a duração de cada um. É a lista
+## inteira: só play_note, play_collision_sfx e play_note_miss_sfx chamam
+## _play_synth.
+func _sons_do_jogo() -> Array:
+    return [
+        ["nota", AudioManager.NOTE_DURATION_SEC],
+        ["colisão com parede", AudioManager.COLLISION_DURATION_SEC],
+        ["erro de nota", AudioManager.NOTE_MISS_DURATION_SEC],
+    ]
+
+## Maior degrau entre amostras vizinhas de `valores`, ancorado em SILÊNCIO nas
+## duas pontas: antes da primeira amostra e depois da última o alto-falante está
+## parado em zero, então esses dois também são degraus de verdade -- e é no do fim
+## que aparece a correção "óbvia" de cortar o release em vez de comprimir a
+## envoltória (o som terminaria em 0,3929 e o corte seco viraria o mesmo click, só
+## que no fim). Devolve [pior degrau, índice, maior valor].
 ##
-## A versão anterior deste helper media a resposta ao IMPULSO (uma amostra de
-## ruído e depois silêncio) justamente pra fugir do randf_range() por amostra. O
-## preço escondido era medir o laço de atraso SOZINHO, sem a excitação -- e foi
-## por isso que o teste de afinação daqui de baixo passava com folga enquanto o
-## som que o jogador ouvia passeava dezenas de cents.
-func _waveguide_ring(freq: float, warm: int, n: int) -> PackedFloat32Array:
-    AudioManager._reset_waveguide(freq)
-    AudioManager._pitch_lfo_phase = 0.0  # tremolo constante: só escala, não desloca período
-    for i in range(warm):
-        AudioManager._waveguide_step(freq)
-    var buf := PackedFloat32Array()
-    buf.resize(n)
-    for i in range(n):
-        buf[i] = AudioManager._waveguide_step(freq)
-    return buf
-
-## Fase da componente de f0 num bloco de `m` amostras a partir de `start`, contra
-## um oscilador de referência ancorado na amostra 0 do buffer.
-func _phase_at(buf: PackedFloat32Array, start: int, m: int, f0: float) -> float:
-    var re := 0.0
-    var im := 0.0
-    for i in range(start, start + m):
-        var a: float = TAU * f0 * float(i) / AudioManager.MIX_RATE
-        re += buf[i] * cos(a)
-        im -= buf[i] * sin(a)
-    return atan2(im, re)
-
-## Erro de afinação em cents, pelo ARRASTO DE FASE da fundamental entre dois
-## blocos distantes: se o tom sai 1 cent alto, a fase dele adianta 1 cent de
-## período por período, e em ~0,8s isso vira um ângulo grande e fácil de medir.
-##
-## A versão anterior media o período por autocorrelação com refino parabólico
-## numa janela de +-4 lags. Duas armadilhas, as duas medidas:
-##   - a janela SATURA. Todo timbre e todo parâmetro davam o mesmo intervalo
-##     [+1,4; +2,8] cents, que é exatamente a borda da janela -- não era o sinal,
-##     era o teto do medidor.
-##   - o refino parabólico enviesa quando a onda tem quina (dente-de-serra), que
-##     é justamente o que uma corda friccionada produz.
-## Este medidor lê -0,02 cent no timbre aditivo, cuja frequência é exata por
-## construção -- que é a calibração que o outro não tinha.
-func _cents_off(buf: PackedFloat32Array, f0: float, m: int, near: int) -> float:
-    var far := buf.size() - m
-    var p0 := _phase_at(buf, 0, m, f0)
-    # O bloco próximo só existe pra desambiguar as voltas inteiras de fase que o
-    # bloco distante acumula -- sozinho ele é preciso mas ambíguo.
-    var coarse: float = fposmod(_phase_at(buf, near, m, f0) - p0 + PI, TAU) - PI
-    var df: float = coarse * AudioManager.MIX_RATE / (TAU * float(near))
-    var raw: float = _phase_at(buf, far, m, f0) - p0
-    var turns: float = round((TAU * df * float(far) / AudioManager.MIX_RATE - raw) / TAU)
-    var measured: float = f0 + (raw + turns * TAU) * AudioManager.MIX_RATE / (TAU * float(far))
-    return 1200.0 * log(measured / f0) / log(2.0)
-
-func test_the_bow_table_sticks_near_zero_and_slips_past_the_threshold():
-    # A mesa de fricção é a não-linearidade inteira do modelo. Com a corda
-    # acompanhando o arco (diferença de velocidade perto de zero) ela GRUDA: o
-    # atrito satura em 1 e a corda é arrastada junto. Passando do limiar
-    # (0,25/inclinação) ela ESCORREGA e o atrito despenca.
-    var limiar: float = 0.25 / AudioManager.WG_BOW_TABLE_SLOPE
-    assert_eq(AudioManager._bow_friction(0.0), 1.0, "parado em relação ao arco, a corda gruda")
-    assert_eq(AudioManager._bow_friction(limiar * 0.99), 1.0, "dentro do limiar ainda é grude")
-    assert_lt(AudioManager._bow_friction(limiar * 2.0), 0.5, "passando do limiar, escorrega")
-    assert_lt(AudioManager._bow_friction(limiar * 8.0), 0.02, "e escorrega cada vez mais")
-    assert_almost_eq(AudioManager._bow_friction(-0.3), AudioManager._bow_friction(0.3), 1e-9,
-        "o atrito não sabe pra que lado a corda está indo")
-
-func test_the_bow_table_force_falls_after_its_peak():
-    # É ESTE trecho de inclinação NEGATIVA -- puxar mais forte transmitindo menos
-    # força -- que faz a corda oscilar em vez de só ser arrastada. Uma mesa
-    # monótona (força sempre crescendo com a diferença de velocidade) é o que uma
-    # implementação "simplificada" produziria, e ela não tem stick-slip nenhum:
-    # a corda grudaria no arco e ficaria lá.
+## Float64 e não Float32 de propósito: um degrau medido aqui é a diferença de dois
+## números quase iguais, e é justamente aí que os 1e-5 do float32 aparecem.
+func _pior_degrau(valores: PackedFloat64Array) -> Array:
+    var pior := 0.0
+    var pior_idx := 0
     var pico := 0.0
-    var pico_em := 0.0
-    for i in range(1, 400):
-        var dv: float = float(i) * 0.005
-        var forca: float = AudioManager._bow_friction(dv) * dv
-        if forca > pico:
-            pico = forca
-            pico_em = dv
-    assert_gt(pico, 0.0)
-    assert_lt(pico_em, 1.9, "o pico de força tem que ficar dentro da faixa varrida")
-    assert_lt(AudioManager._bow_friction(pico_em * 3.0) * pico_em * 3.0, pico * 0.6,
-        "longe do pico a força tem que CAIR -- sem isso não existe escorregada")
+    var anterior := 0.0
+    for idx in range(valores.size() + 1):
+        var atual: float = 0.0 if idx == valores.size() else valores[idx]
+        var degrau: float = absf(atual - anterior)
+        if degrau > pior:
+            pior = degrau
+            pior_idx = idx
+        pico = maxf(pico, atual)
+        anterior = atual
+    return [pior, pior_idx, pico]
 
-func test_pitch_timbre_defaults_to_the_sound_the_game_already_had():
-    # O timbre alternativo existe pra ser COMPARADO. Qual dos dois vira o padrão
-    # é decisão do jogador depois de ouvir os dois -- até lá, quem abre o jogo
-    # ouve exatamente o que ouvia antes.
-    assert_eq(AudioManager.pitch_timbre, AudioManager.Timbre.ADDITIVE)
-
-func test_waveguide_oscillates_instead_of_converging_to_dc():
-    # A armadilha central deste algoritmo: um laço ÚNICO de Karplus-Strong foi
-    # medido e não oscila -- converge para uma constante (DC 0,2786), porque o
-    # filtro de perdas tem ganho 1 em DC e o que volta ao laço nunca troca de
-    # sinal. Só a estrutura de guia de onda (duas linhas de delay, reflexão
-    # inversora nas duas pontas) produz som. Um sinal preso em DC passaria por
-    # "sem estouro de amplitude" e por "não estoura o clamp" sem tossir: este é
-    # o teste que separa som de silêncio.
-    var buf := _waveguide_ring(440.0, 2205, 2048)
-    var lo := INF
-    var hi := -INF
-    var mean := 0.0
-    for v in buf:
-        lo = minf(lo, v)
-        hi = maxf(hi, v)
-        mean += v
-    mean /= float(buf.size())
-    var swing: float = hi - lo
-    assert_gt(swing, 0.01,
-        "a corda tem que continuar balançando 2048 amostras depois do impulso, não parar num valor fixo")
-    assert_lt(absf(mean), swing * 0.2,
-        "o sinal oscila EM VOLTA de zero -- média perto do pico é sinal de que virou DC")
-
-func test_waveguide_is_in_tune_within_half_a_cent_for_all_12_notes():
-    # Sem descontar o atraso que WG_LOSS_DELAY_COMP mede, o tom sai BAIXO -- 15 a
-    # 23 cents. É inaudível como bug de código e fatal num jogo cuja mecânica
-    # inteira é reconhecer qual nota soou.
+func test_the_envelope_has_no_step_between_neighbouring_samples():
+    # O click do SFX de erro e do de colisão era ISTO: com 0,2s de duração o
+    # sustain saía -11466 amostras, o release começava já em t=0,867 da própria
+    # curva, e a envoltória caía de 0,4001 (amostra 7055) pra 0,0995 (7056) --
+    # 12dB num passo, no feedback de erro de que o público-alvo depende.
     #
-    # E o que é medido é o SOM COM O ARCO CORRENDO, não a resposta ao impulso. A
-    # versão anterior media o impulso (por causa do randf do arco a ruído) e
-    # passava com 0,5 cent enquanto o tom que saía pelo alto-falante passeava de
-    # -6 a +17 cents entre as notas: o laço de atraso estava certo, o que não
-    # tinha período estável era a excitação. Medido agora: -0,28 a +0,29 cent.
-    #
-    # Meio cent e não um cent porque a compensação depende de ONDE o arco toca a
-    # corda, e isso não se deduz: com a compensação calibrada pro arco a 0,25 e o
-    # arco a 0,125, as 12 notas saem 1,1 a 2,5 cents baixas. Um teto de meio cent
-    # é o que obriga quem mexer em WG_BOW_POSITION (ou em WG_REFLECTION_GAIN, ou
-    # no peso do arco) a re-medir WG_LOSS_DELAY_COMP em vez de deixar passar.
-    for key in NoteMapping.NOTES:
-        var freq := float(NoteMapping.NOTES[key]["freq"])
-        var buf := _waveguide_ring(freq, int(AudioManager.MIX_RATE * 0.5), int(AudioManager.MIX_RATE))
-        var cents := _cents_off(buf, freq, 8192, 4000)
-        assert_lt(absf(cents), 0.5,
-            "%s deveria soar a %.0fHz e sai %+.2f cents fora" % [key, freq, cents])
+    # O teste que existia antes (fades_near_silence_by_last_sample) olhava só a
+    # ÚLTIMA amostra e passou por cima do degrau; este varre o buffer inteiro, nas
+    # três durações que o jogo realmente toca.
+    for som in _sons_do_jogo():
+        var nome: String = som[0]
+        var seg := AudioManager._envelope_segments(som[1])
+        var total: int = seg[0] + seg[1] + seg[2] + seg[3]
+        var env := PackedFloat64Array()
+        env.resize(total)
+        for idx in range(total):
+            env[idx] = AudioManager._envelope_at(idx, seg[0], seg[1], seg[2], seg[3])
+        var medido := _pior_degrau(env)
+        assert_lt(medido[0], MAX_ENVELOPE_STEP,
+            "%s (%s s, %d amostras): degrau de %.4f na amostra %d" % [
+                nome, som[1], total, medido[0], medido[1]])
+        assert_almost_eq(float(medido[2]), 1.0, 0.01,
+            "%s: pré-condição -- a envoltória chega a 1 no fim do ataque. Sem isso os degraus seriam pequenos por o som estar baixo, não por ser contínuo" % nome)
 
-func test_waveguide_stays_well_below_the_clamp_with_the_bow_running():
-    # Ressoador de Q alto excitado continuamente: a energia se acumula ao longo
-    # de segundos, então o pico não aparece nas primeiras amostras. Se a saída
-    # encostasse em +-1 o clampf() salvaria a asserção e esconderia a distorção,
-    # como já tinha acontecido no teste do timbre aditivo -- por isso a margem
-    # aqui é bem abaixo do clamp, não igual a ele.
-    #
-    # AS 12 NOTAS, e não uma só: desde que WG_OUTPUT_GAIN passou a ser calibrado
-    # por RMS, o pico virou a restrição que limita o ganho. Pico é estatística de
-    # extremo: uma nota só, medida uma vez, é um sorteio, e é exatamente assim
-    # que uma margem some sem ninguém ver.
-    #
-    # O teto é 0,6 e não 0,9 porque a mesa de arco devolveu a folga que a
-    # excitação a ruído tinha comido: o pico medido nas 12 notas é 0,540 (contra
-    # 0,648 do ruído), e o que sobra ainda tem que sobreviver ao +2,5dB do EQ do
-    # bus Strings -- que leva esse pico a 0,720.
-    #
-    # A margem encolheu junto com a mudança do arco pra 0,125: a 0,25 o pico era
-    # 0,417, quase o mesmo 0,402 do aditivo. O que subiu foi a CRISTA (1,81 ->
-    # 2,03, ver test_the_two_timbres_have_the_same_crest_factor), ou seja o mesmo
-    # RMS agora custa mais pico.
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.WAVEGUIDE)
-    var peak := 0.0
-    for key in NoteMapping.NOTES:
-        var freq := float(NoteMapping.NOTES[key]["freq"])
-        AudioManager.play_continuous_pitch(freq)
-        for i in range(int(AudioManager.MIX_RATE * 1.5)):
-            peak = maxf(peak, absf(AudioManager._pitch_step(freq)))
-    assert_lt(peak, 0.6, "pico do guia de onda com arco contínuo nas 12 notas: %.3f" % peak)
-    assert_gt(peak, 0.02, "e não pode estar mudo -- pico medido: %.3f" % peak)
+func test_the_envelope_never_asks_for_a_negative_sustain():
+    # A causa, e não o sintoma. Com os quatro trechos em tamanho fixo, uma duração
+    # menor que ataque+decay+release (0,46s -- e dois dos três sons duram 0,2s)
+    # deixava o sustain negativo; sustain negativo não encurta a envoltória, ele
+    # ADIANTA o release. Em _envelope_at o ramo do sustain nunca fica verdadeiro
+    # e o release entra pelo meio da curva.
+    for som in _sons_do_jogo():
+        var nome: String = som[0]
+        var seg := AudioManager._envelope_segments(som[1])
+        assert_gte(seg[2], 0, "%s: sustain de %d amostras" % [nome, seg[2]])
+        for i in [0, 1, 3]:
+            assert_gt(seg[i], 0,
+                "%s: o trecho %d tem %d amostras, e _envelope_at divide por ele" % [nome, i, seg[i]])
+        assert_eq(seg[0] + seg[1] + seg[2] + seg[3], int(AudioManager.MIX_RATE * som[1]),
+            "%s: os quatro trechos têm que somar o buffer inteiro -- sobrando release fora dele, o som é cortado antes de esmaecer" % nome)
 
-## Um trecho do timbre dado, começando com a síntese ZERADA -- que é como um
-## arrasto de verdade começa (play_continuous_pitch reseta fase e corda).
-func _timbre_buffer(timbre: int, freq: float, n: int) -> PackedFloat32Array:
-    AudioManager.set_pitch_timbre(timbre)
-    AudioManager._timbre_fade = 0.0
-    AudioManager._pitch_phase = 0.0
-    AudioManager._pitch_lfo_phase = 0.0
-    AudioManager._reset_waveguide(freq)
-    var buf := PackedFloat32Array()
-    buf.resize(n)
-    for i in range(n):
-        buf[i] = AudioManager._pitch_step(freq)
-    return buf
-
-## RMS de uma janela do timbre dado. `skip` descarta as amostras iniciais pra
-## medir um trecho mais adiante.
-func _timbre_rms(timbre: int, freq: float, skip: int, n: int) -> float:
-    var buf := _timbre_buffer(timbre, freq, skip + n)
-    var acc := 0.0
-    for i in range(skip, skip + n):
-        acc += buf[i] * buf[i]
-    return sqrt(acc / float(n))
-
-## Média do RMS de uma janela sobre as 12 notas, com SEMENTE FIXA.
-##
-## O guia de onda não sorteia mais nada (a mesa de arco é determinística), mas o
-## ADITIVO ainda soma ruído de arco por cima -- BOW_NOISE_GAIN --, então a
-## semente continua valendo pro lado que ela sempre defendeu: troca "distribuição
-## que eu espero" por "número que eu medi". randomize() no fim devolve o RNG
-## global pros testes seguintes (é global de verdade: randf_range() do
-## AudioManager bebe dele).
-func _mean_rms_over_the_octave(timbre: int, skip_sec: float, win_sec: float) -> float:
-    seed(20260909)
-    var total := 0.0
-    for key in NoteMapping.NOTES:
-        total += _timbre_rms(timbre, float(NoteMapping.NOTES[key]["freq"]),
-            int(AudioManager.MIX_RATE * skip_sec), int(AudioManager.MIX_RATE * win_sec))
-    randomize()
-    return total / float(NoteMapping.NOTES.size())
-
-func test_the_two_timbres_come_out_at_the_same_volume_in_the_first_200ms():
-    # O interruptor de timbre existe só pra comparar os dois de ouvido, e uma
-    # comparação em que um lado é mais alto sai enviesada pra ele -- é o que
-    # WG_OUTPUT_GAIN promete impedir. Casar os PICOS (a primeira calibração) mede
-    # a grandeza errada: sonoridade segue RMS.
-    #
-    # A janela é curta de propósito: num arrasto curto (desliza e solta) é nos
-    # primeiros 200ms que o jogador precisa reconhecer a altura. O teste de pico
-    # que já existia passa com o sinal 14dB abaixo, então não pega nada disto.
-    #
-    # A faixa era -6 a +2dB e o teste se chamava "não afoga", porque com a
-    # excitação a ruído era em -4dB que a coisa REALMENTE estava: fator de crista
-    # 3,8 contra 1,8 do aditivo não deixava subir o ganho sem clipar. Com a mesa
-    # de arco casa: medido, -0,82dB nesta janela (e +0,27dB na de 500ms, o
-    # arrasto típico).
-    #
-    # A folga sobre o medido caiu de 5x pra 1,8x quando o arco foi pra 0,125,
-    # porque lá a corda leva ~150ms pra alcançar o volume dela e nenhum ganho
-    # casa as duas janelas ao mesmo tempo -- WG_OUTPUT_GAIN escolhe o minimax.
-    # A faixa continua reprovando o defeito que este teste existe pra pegar (o
-    # guia de onda 4dB abaixo do aditivo).
-    var add := _mean_rms_over_the_octave(AudioManager.Timbre.ADDITIVE, 0.0, 0.2)
-    var wg := _mean_rms_over_the_octave(AudioManager.Timbre.WAVEGUIDE, 0.0, 0.2)
-    var db: float = 20.0 * log(wg / add) / log(10.0)
-    assert_between(db, -1.5, 1.5,
-        "guia de onda %+.1fdB do aditivo nos primeiros 200ms (RMS %.4f contra %.4f)" % [db, wg, add])
-
-func test_the_two_timbres_have_the_same_crest_factor():
-    # É a crista que decide se dá pra casar o volume dos dois sem clipar, e foi
-    # ela que a excitação a ruído estragava: 3,80 contra 1,80 do aditivo, ou seja
-    # o guia de onda gastava o dobro de margem de pico pra entregar o mesmo RMS,
-    # e sobravam 4dB de diferença de volume que nenhuma calibração fechava.
-    #
-    # Uma onda periódica tipo dente-de-serra -- que é o que o movimento de
-    # Helmholtz produz -- tem crista perto de 1,7; uma envoltória de ruído não
-    # tem crista nenhuma, tem sorteio. Este teste é o que separa "a mesa de arco
-    # está funcionando" de "voltei a raspar ruído na corda".
-    #
-    # Medido agora: 2,03 contra 1,80 do aditivo. Com o arco a 0,25 era 1,81 --
-    # empate. A quina do dente-de-serra fica mais afiada com o arco perto do
-    # cavalete, e o preço disso é margem de pico (ver
-    # test_waveguide_stays_well_below_the_clamp_with_the_bow_running).
-    seed(20260909)
-    var crests := {}
-    for timbre in [AudioManager.Timbre.ADDITIVE, AudioManager.Timbre.WAVEGUIDE]:
-        var total := 0.0
-        for key in NoteMapping.NOTES:
-            var freq := float(NoteMapping.NOTES[key]["freq"])
-            var buf := _timbre_buffer(timbre, freq, int(AudioManager.MIX_RATE * 1.5))
-            var peak := 0.0
-            var acc := 0.0
-            for s in buf:
-                peak = maxf(peak, absf(s))
-                acc += s * s
-            total += peak / sqrt(acc / float(buf.size()))
-        crests[timbre] = total / float(NoteMapping.NOTES.size())
-    randomize()
-    var add: float = crests[AudioManager.Timbre.ADDITIVE]
-    var wg: float = crests[AudioManager.Timbre.WAVEGUIDE]
-    assert_almost_eq(wg, add, 0.35,
-        "crista do guia de onda %.2f contra %.2f do aditivo" % [wg, add])
-
-func test_the_bowed_string_reaches_its_own_volume_inside_the_first_200ms():
-    # Este é sobre a SUBIDA, não sobre o nível: num arrasto curto (desliza e
-    # solta) o jogador ouve quase só os primeiros 200ms, e uma corda que ainda
-    # está subindo nesse trecho entrega a nota fraca justamente na hora de
-    # reconhecê-la.
-    #
-    # A medição é direta -- RMS dos primeiros 200ms contra o do regime -- porque
-    # agora ela PODE ser: a mesa de arco não sorteia nada, então o número é
-    # reprodutível. Enquanto o arco era ruído isso não dava: a razão passeava
-    # tanto entre rodadas (-0,7 contra -2,2dB no MESMO build) que a asserção
-    # reprovava build bom, e o teste tinha que medir o decaimento de um impulso
-    # como proxy.
-    #
-    # É este teste que segura WG_REFLECTION_GAIN. Com o arco a 0,25 aquela
-    # constante não mudava nada aqui (0,98 e 0,998 davam os mesmos -0,5dB) e
-    # ficou sem guarda nenhuma; com o arco a 0,125 ela volta a mandar na subida,
-    # porque perto do cavalete o movimento de Helmholtz precisa de mais voltas
-    # pra se formar e um laço que guarda mais energia chega lá antes. Medido no
-    # Dó4, que é o pior caso das 12 notas: 0,98 -> -5,89dB, 0,99 -> -4,19,
-    # 0,995 -> -3,13, 0,998 (o valor de agora) -> -2,73.
-    #
-    # Daí o teto ser -3,0dB e não os -1,5dB de antes: a 0,125 a corda leva ~150ms
-    # pra alcançar o volume dela em vez de 40ms, e esse é o preço medido da
-    # posição de arco que tirou a aspereza (ver WG_BOW_POSITION). -3,0dB é folga
-    # de 0,3dB sobre o Dó4 e reprova qualquer valor de reflexão abaixo de 0,995 --
-    # e continua pegando o que estraga a subida de outros jeitos: uma inclinação
-    # de arco 4x maior põe a razão em -8,1dB, e dobrar a velocidade do arco,
-    # em -9,5dB.
-    for key in ["C4", "E4", "B4"]:
-        var freq := float(NoteMapping.NOTES[key]["freq"])
-        var buf := _timbre_buffer(AudioManager.Timbre.WAVEGUIDE, freq,
-            int(AudioManager.MIX_RATE * 1.5))
-        var ataque := _window_rms(buf, 0.0, 0.2)
-        var regime := _window_rms(buf, 0.5, 1.5)
-        var db: float = 20.0 * log(ataque / regime) / log(10.0)
-        assert_gt(db, -3.0,
-            "%s: os primeiros 200ms saem %+.2fdB do regime -- a corda ainda está subindo" % [key, db])
-
-## Amplitude das `k` primeiras harmônicas de `f0` no buffer (DFT direto em cada
-## uma), normalizadas pela fundamental.
-func _harmonic_amplitudes(buf: PackedFloat32Array, f0: float, k: int) -> Array:
-    var amps := []
-    for h in range(1, k + 1):
-        var re := 0.0
-        var im := 0.0
-        var w: float = TAU * f0 * float(h) / AudioManager.MIX_RATE
-        for i in range(buf.size()):
-            re += buf[i] * cos(w * float(i))
-            im -= buf[i] * sin(w * float(i))
-        amps.append(sqrt(re * re + im * im))
-    var fund: float = maxf(amps[0], 1e-12)
-    var norm := []
-    for a in amps:
-        norm.append(a / fund)
-    return norm
-
-func test_the_bowed_string_sounds_the_note_asked_for_and_not_its_octave():
-    # O modo de falha mais caro deste modelo não é ruído nem estalo: é a corda
-    # travar num HARMÔNICO. Com o laço perdendo energia demais nas pontas, ou com
-    # o arco pesado demais, o movimento de Helmholtz não se sustenta na
-    # fundamental e a corda passa a vibrar em dois meios-comprimentos -- sai a
-    # OITAVA da nota pedida. Medido com o arco a 0,125: a WG_REFLECTION_GAIN 0,95
-    # o 2º harmônico sai 85x a fundamental no Dó4 e o RMS cai pela metade; com o
-    # produto velocidade x inclinação em 0,8 (contra 0,4) sai 2,5x, e com a
-    # inclinação em 8,0, 46x. Num jogo cuja mecânica é reconhecer qual nota soou,
-    # tocar a oitava certa-mas-errada é pior que não tocar nada.
-    #
-    # Nenhum outro teste pega isso: afinação mede a fase da FUNDAMENTAL (que
-    # continua lá, só que fraquinha, e o medidor a encontra), volume e crista
-    # medem a onda inteira, e a oitava passa por todos eles.
-    for key in NoteMapping.NOTES:
-        var freq := float(NoteMapping.NOTES[key]["freq"])
-        var buf := _waveguide_ring(freq, int(AudioManager.MIX_RATE * 0.5), 4096)
-        var h := _harmonic_amplitudes(buf, freq, 5)
-        for k in range(1, 5):
-            assert_lt(h[k], 1.0,
-                "%s: o %dº harmônico sai %.2fx a fundamental -- a corda travou no harmônico" % [
-                    key, k + 1, h[k]])
-
-## RMS de um trecho do buffer, delimitado em SEGUNDOS.
-func _window_rms(buf: PackedFloat32Array, de_sec: float, ate_sec: float) -> float:
-    var de := int(AudioManager.MIX_RATE * de_sec)
-    var ate := int(AudioManager.MIX_RATE * ate_sec)
-    var acc := 0.0
-    for i in range(de, ate):
-        acc += buf[i] * buf[i]
-    return sqrt(acc / float(ate - de))
-
-func test_switching_timbre_with_no_tone_playing_does_not_arm_the_crossfade():
-    # _timbre_fade só decai dentro de _pitch_step(), que só roda enquanto há tom
-    # no ar. Apertar o interruptor SEM nada tocando -- o fluxo mais provável do
-    # recurso: aperta e só então arrasta -- deixava o fade armado em 1,0, e os
-    # primeiros 20ms do arrasto seguinte saíam com 100% do timbre ANTERIOR por
-    # cima do novo (medido: RMS 0,142 na primeira janela de 20ms contra 0,093 na
-    # seguinte). test_switching_timbre_mid_note_crossfades_instead_of_jumping não
-    # pega isto porque só troca DURANTE um tom já tocando.
-    AudioManager.stop_continuous_pitch()
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.WAVEGUIDE)
-    assert_eq(AudioManager._timbre_fade, 1.0,
-        "trocar de timbre arma o crossfade -- é o passo anterior ao que este teste vigia")
-    AudioManager.play_continuous_pitch(330.0)
-    assert_eq(AudioManager._timbre_fade, 0.0,
-        "começar um arrasto tem que zerar o crossfade pendente, como já zera fase e corda")
-
-func test_waveguide_keeps_the_string_ringing_across_a_frequency_change():
-    # A mesma garantia de glissando que o timbre aditivo já tinha, no timbre
-    # novo: arrastar o dedo muda o comprimento da corda, não troca de corda.
-    # Zerar as linhas de delay a cada frequência nova mataria a energia
-    # acumulada e o glissando viraria uma sequência de ataques.
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.WAVEGUIDE)
-    var p1 = AudioManager.play_continuous_pitch(440.0)
-    for i in range(500):
-        AudioManager._pitch_step(440.0)
-    var delay_before = AudioManager._wg_delay
-    var p2 = AudioManager.play_continuous_pitch(494.0)
-    assert_eq(p1, p2, "mudar de frequência não deve recriar o player")
-    assert_eq(AudioManager._wg_delay, delay_before,
-        "trocar de frequência não pode ressetar a corda (senão o glissando vira ataque)")
-
-func test_waveguide_delay_slews_instead_of_jumping_to_the_new_length():
-    # O dedo é amostrado por FRAME e o áudio por AMOSTRA: entre dois eventos de
-    # arrasto a frequência chega como um degrau. Aplicar o degrau direto no
-    # comprimento da linha de delay foi medido -- numa varredura Dó4->Si4 o pulo
-    # máximo amostra-a-amostra salta de 0,132 (o mesmo tom parado) para 0,282,
-    # que é o estalo. Com o slew de WG_DELAY_SLEW por amostra fica em 0,139.
-    AudioManager._reset_waveguide(262.0)
-    var start = AudioManager._wg_delay
-    AudioManager._waveguide_step(494.0)
-    assert_almost_eq(AudioManager._wg_delay, start - AudioManager.WG_DELAY_SLEW, 1e-6,
-        "uma amostra só pode andar WG_DELAY_SLEW em direção ao novo comprimento")
-    var target = AudioManager._wg_target_delay(494.0)
-    for i in range(4000):
-        AudioManager._waveguide_step(494.0)
-    assert_almost_eq(AudioManager._wg_delay, target, 1e-4,
-        "e o slew tem que CHEGAR: um arrasto inteiro não pode terminar desafinado")
-
-func test_switching_timbre_mid_note_crossfades_instead_of_jumping():
-    # Trocar de timbre no meio de um arrasto é o ponto do interruptor. Sem
-    # crossfade, a amostra pula do valor de uma síntese pro da outra num único
-    # frame de áudio -- estalo garantido, e justamente na hora em que o jogador
-    # está prestando atenção na diferença entre os dois sons.
-    #
-    # A referência é o pulo natural do MAIS ÍNGREME dos dois timbres, e não o do
-    # aditivo como antes: o guia de onda com mesa de arco tem quina de
-    # dente-de-serra e pula 0,132 por amostra sozinho, contra 0,079 do aditivo --
-    # é a forma de onda dele, não um estalo. Medir a troca contra o timbre liso
-    # reprovaria o guia de onda por existir.
-    AudioManager.play_continuous_pitch(440.0)
-    var steady_add := _max_sample_jump(2000, 440.0)
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.WAVEGUIDE)
-    var into_waveguide := _max_sample_jump(2000, 440.0)
-    for i in range(20000):
-        AudioManager._pitch_step(440.0)  # deixa a corda com energia de verdade
-    var steady_wg := _max_sample_jump(2000, 440.0)
-    var teto: float = maxf(steady_add, steady_wg) * 1.5
-    assert_lt(into_waveguide, teto,
-        "entrar no guia de onda pulou %.4f, contra %.4f/%.4f dos tons estáveis" % [
-            into_waveguide, steady_add, steady_wg])
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.ADDITIVE)
-    var back_to_additive := _max_sample_jump(2000, 440.0)
-    assert_lt(back_to_additive, teto,
-        "voltar pro aditivo pulou %.4f, contra %.4f/%.4f dos tons estáveis" % [
-            back_to_additive, steady_add, steady_wg])
-
-func _max_sample_jump(n: int, freq: float) -> float:
-    var prev: float = AudioManager._pitch_step(freq)
-    var worst := 0.0
-    for i in range(n):
-        var s: float = AudioManager._pitch_step(freq)
-        worst = maxf(worst, absf(s - prev))
-        prev = s
-    return worst
-
-func test_set_pitch_timbre_ignores_a_value_that_is_not_a_timbre():
-    AudioManager.set_pitch_timbre(99)
-    assert_eq(AudioManager.pitch_timbre, AudioManager.Timbre.ADDITIVE)
-
-func test_setting_the_timbre_it_already_has_does_not_start_a_crossfade():
-    # Sem essa guarda, tocar no interruptor sem mudar nada (ou qualquer código
-    # que reafirme o timbre atual) faria o crossfade misturar o timbre CONSIGO
-    # MESMO -- e as duas chamadas por amostra avançariam a fase duas vezes,
-    # dobrando a frequência que sai.
-    AudioManager.set_pitch_timbre(AudioManager.Timbre.ADDITIVE)
-    assert_eq(AudioManager._timbre_fade, 0.0)
-
-func test_continuous_pitch_still_uses_the_additive_synthesis_by_default():
-    # Pinning: o despacho por timbre não pode ter trocado o caminho padrão. Uma
-    # amostra do caminho default tem que bater com _continuous_pitch_sample(),
-    # que é a síntese aditiva de sempre.
-    AudioManager._pitch_phase = 0.11
-    AudioManager._pitch_lfo_phase = 0.0
-    AudioManager._noise_lp = 0.0
-    var expected = AudioManager._continuous_pitch_sample(0.11, 0.0, 0.0)
-    var got = AudioManager._additive_step(440.0)
-    assert_almost_eq(got, expected, 1e-6)
+func test_the_collision_sfx_the_player_hears_has_no_step_in_it():
+    # A onda da colisão é QUADRADA: |amostra| é exatamente 1 em todo ponto, então
+    # o módulo do PCM que _make_stream escreve É a envoltória. Isso deixa medir o
+    # caminho de produção INTEIRO -- _envelope_segments, _envelope_at e o laço que
+    # escreve os bytes -- em vez de só a conta da envoltória isolada, que é onde
+    # os dois testes acima param.
+    var stream: AudioStreamWAV = AudioManager._make_stream(
+        AudioManager.COLLISION_FREQ, true, AudioManager.COLLISION_DURATION_SEC)
+    var total: int = stream.data.size() / 2
+    assert_eq(total, int(AudioManager.MIX_RATE * AudioManager.COLLISION_DURATION_SEC),
+        "o SFX tem que continuar durando o que a constante diz: esticar o buffer até caber ataque+decay+release trocaria o click por uma colisão de 0,46s")
+    var env := PackedFloat64Array()
+    env.resize(total)
+    for idx in range(total):
+        env[idx] = absf(float(stream.data.decode_s16(idx * 2))) / PCM_AT_FULL_ENVELOPE
+    var medido := _pior_degrau(env)
+    assert_lt(medido[0], MAX_ENVELOPE_STEP,
+        "PCM da colisão: degrau de %.4f na amostra %d de %d" % [medido[0], medido[1], total])
+    assert_almost_eq(float(medido[2]), 1.0, 0.01,
+        "pré-condição: o PCM chega ao pico da envoltória (senão os degraus seriam pequenos por o som estar baixo)")

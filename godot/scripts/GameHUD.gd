@@ -19,7 +19,6 @@ var _mode_opt: OptionButton
 var _start_btn: Button
 var _color_btn: Button
 var _cues_btn: Button
-var _timbre_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -99,21 +98,6 @@ func _ready() -> void:
 	_cues_btn.toggled.connect(_on_cues_toggled)
 	row2.add_child(_cues_btn)
 
-	# Timbre do Scroll. É um INTERRUPTOR, e não mais um item nos dropdowns do
-	# lado: _cue_opt e _mode_opt só entram em vigor quando "Começar" é apertado
-	# (Playground._begin_preset), e o pedido aqui era ouvir os dois timbres
-	# ENQUANTO o dedo desliza pelo braço. Mesma linha e mesma posição relativa do
-	# botão de pistas, pelo mesmo motivo: _progress come toda a sobra da linha, e
-	# uma terceira linha cobriria o NotePanel.
-	_timbre_btn = Button.new()
-	_timbre_btn.toggle_mode = true
-	_timbre_btn.button_pressed = AudioManager.pitch_timbre == AudioManager.Timbre.WAVEGUIDE
-	# O rótulo nomeia o que LIGAR o interruptor faz, não o par de opções: solto é
-	# o timbre que o jogo já tinha, apertado é a corda físico-modelada.
-	_timbre_btn.text = "Corda friccionada"
-	_timbre_btn.toggled.connect(_on_timbre_toggled)
-	row2.add_child(_timbre_btn)
-
 	_progress = Label.new()
 	_progress.text = "—"
 	_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -170,14 +154,6 @@ func _on_cues_toggled(enabled: bool) -> void:
 ## configuração do jogador só por ter lido a configuração do jogador.
 func _on_control_cues_changed(enabled: bool) -> void:
 	_cues_btn.set_pressed_no_signal(enabled)
-
-## Aplica na hora, no player que já está tocando -- sem save_to_disk() e sem
-## esperar o próximo "Começar". A escolha é um comparador de ouvido, não uma
-## preferência: qual timbre vira o padrão do jogo se decide DEPOIS de ouvir os
-## dois, e aí vira uma linha de código e não um arquivo de configuração.
-func _on_timbre_toggled(bowed: bool) -> void:
-	AudioManager.set_pitch_timbre(
-		AudioManager.Timbre.WAVEGUIDE if bowed else AudioManager.Timbre.ADDITIVE)
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()
