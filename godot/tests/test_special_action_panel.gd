@@ -19,6 +19,9 @@ func before_each():
 	ColorSchemeSettings.reset_to_defaults()
 
 func after_each():
+	# O painel não consulta mais o nível de pista, mas há teste aqui que o sobe
+	# justamente para provar isso -- e CueSettings é autoload, não se reseta
+	# sozinho. reset_to_defaults() religa o interruptor de pistas junto.
 	CueSettings.set_level(0)
 	ColorSchemeSettings.reset_to_defaults()
 
@@ -60,32 +63,41 @@ func test_panel_visible_in_all_cue_levels():
 		CueSettings.set_level(lvl)
 		assert_true(p.visible, "nível %d: painel visível" % lvl)
 
-func test_level_zero_shows_name_and_color():
-	CueSettings.set_level(0)
+func test_control_cues_on_shows_name_and_color():
 	var p = _make()
 	assert_eq(p._labels[0].text, NoteMapping.label_for("Gs4"))
 	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
-func test_level_one_hides_name_keeps_color():
-	CueSettings.set_level(0)
+func test_control_cues_off_is_neutral_and_empty():
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
-	CueSettings.set_level(1)
-	assert_eq(p._labels[0].text, "")
-	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
-
-func test_level_three_neutral_and_empty():
-	CueSettings.set_level(0)
-	var p = _make()
-	CueSettings.set_level(3)
 	assert_eq(p._labels[0].text, "")
 	assert_eq(_bg(p._buttons[0]), p.NEUTRAL_BUTTON)
 
-func test_level_two_hides_name_keeps_color():
-	CueSettings.set_level(0)
+func test_flipping_the_switch_repaints_without_restarting():
+	# Este painel NÃO escutava o interruptor: só se repintava de carona no sinal
+	# do nível de pista. Sem a conexão de control_cues_changed, virar a chave não
+	# mexeria nas 4 placas até a fase reiniciar -- e nenhum outro teste pega isso.
 	var p = _make()
-	CueSettings.set_level(2)
-	assert_eq(p._labels[0].text, "")
-	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
+	ColorSchemeSettings.set_control_cues(false)
+	assert_eq(_bg(p._buttons[0]), p.NEUTRAL_BUTTON, "a placa tem que ficar neutra na hora")
+	assert_eq(p._labels[0].text, "", "o nome tem que sumir na hora")
+	ColorSchemeSettings.set_control_cues(true)
+	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"), "e voltar na hora")
+	assert_eq(p._labels[0].text, NoteMapping.label_for("Gs4"))
+
+func test_the_cue_level_no_longer_touches_the_plates():
+	# A consequência deliberada da inversão: em TODOS os níveis, inclusive o "só
+	# som", as placas continuam coloridas e nomeadas se o interruptor estiver
+	# ligado. Parece bug e alguém vai querer "consertar" um dia -- não é: o
+	# desafio é reconhecer a nota tocada de ouvido, não adivinhar onde ela mora.
+	var p = _make()
+	for lvl in range(4):
+		CueSettings.set_level(lvl)
+		assert_eq(p._labels[0].text, NoteMapping.label_for("Gs4"),
+			"nível %d: o nome da placa é material didático, não dificuldade" % lvl)
+		assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"),
+			"nível %d: a cor da placa é material didático, não dificuldade" % lvl)
 
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 
@@ -121,7 +133,6 @@ func test_action_icon_ignores_unknown_action():
 	assert_eq(icon.action_id, "inexistente")
 
 func test_on_armed_state_changed_brightens_correr_button():
-	CueSettings.set_level(0)  # cor visível
 	var p = _make()
 	var base = _bg(p._buttons[2])  # As4 = correr (índice 2)
 	p.on_armed_state_changed(true, false)
@@ -129,7 +140,6 @@ func test_on_armed_state_changed_brightens_correr_button():
 	assert_eq(p._armed, [false, false, true, false])
 
 func test_on_armed_state_changed_brightens_pular_button():
-	CueSettings.set_level(0)
 	var p = _make()
 	var base = _bg(p._buttons[3])  # B4 = pular (índice 3)
 	p.on_armed_state_changed(false, true)
@@ -137,18 +147,17 @@ func test_on_armed_state_changed_brightens_pular_button():
 	assert_eq(p._armed, [false, false, false, true])
 
 func test_disarm_restores_plate_color_to_cue_base():
-	CueSettings.set_level(0)
 	var p = _make()
 	var base = _bg(p._buttons[2])
 	p.on_armed_state_changed(true, false)
 	p.on_armed_state_changed(false, false)
 	assert_eq(_bg(p._buttons[2]), base, "a placa volta ao base após disarm")
 
-func test_armed_brighten_respects_neutral_at_cue_3():
-	# Em cue 3 a cor base é NEUTRAL_BUTTON; armed multiplica em cima.
-	CueSettings.set_level(0)
+func test_armed_brighten_respects_the_neutral_plate():
+	# Com o interruptor desligado a cor base é NEUTRAL_BUTTON; armed multiplica
+	# em cima dela, e não da cor da nota.
 	var p = _make()
-	CueSettings.set_level(3)
+	ColorSchemeSettings.set_control_cues(false)
 	p.on_armed_state_changed(true, false)
 	var expected = Color(p.NEUTRAL_BUTTON.r * p.ARMED_BRIGHTNESS,
 		p.NEUTRAL_BUTTON.g * p.ARMED_BRIGHTNESS,
@@ -156,7 +165,6 @@ func test_armed_brighten_respects_neutral_at_cue_3():
 	assert_eq(_bg(p._buttons[2]), expected)
 
 func test_buttons_repaint_when_scheme_changes():
-	CueSettings.set_level(0)
 	var p = _make()
 	var antes = _bg(p._buttons[0])
 	ColorSchemeSettings.set_scheme("alto_contraste")
@@ -179,13 +187,11 @@ func test_action_icons_have_nonzero_width():
 func test_button_color_is_in_the_stylebox_not_in_modulate():
 	# modulate propaga pros filhos: com a cor da nota no modulate, o ícone
 	# branco vira exatamente a cor do fundo do botão.
-	CueSettings.set_level(0)
 	var p = _make()
 	assert_eq(p._buttons[0].modulate, Color.WHITE, "a cor não pode morar no modulate")
 	assert_eq(_bg(p._buttons[0]), NoteMapping.color_for("Gs4"))
 
 func test_icon_tint_contrasts_with_its_own_button():
-	CueSettings.set_level(0)
 	var p = _make()
 	for i in range(p._buttons.size()):
 		var fundo = _bg(p._buttons[i])
@@ -208,8 +214,8 @@ func test_note_name_contrasts_with_its_own_plate():
 	# NÃO está sob blindtuner_theme.tres, é irmão do GameHUD na CanvasLayer.
 	# Medido no esquema de fábrica: 1,25:1 no Si, 1,36:1 no Lá. Ilegível.
 	#
-	# Só o nível 0 mostra nome, e é o padrão do dropdown.
-	CueSettings.set_level(0)
+	# O nome aparece sempre que o interruptor de pistas estiver ligado, que é o
+	# padrão de fábrica -- ou seja, este é o caso comum, não o caso de borda.
 	var p = _make()
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
@@ -226,7 +232,6 @@ func test_note_name_stays_legible_while_the_action_is_armed():
 	# barra é a de elemento gráfico (3:1) e não a de texto (4,5:1): o pior caso
 	# medido é o azul #3949ab do Clássico clareado, que dá 3,70:1, e o estado é
 	# transitório -- some assim que a ação dispara.
-	CueSettings.set_level(0)
 	var p = _make()
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
@@ -240,7 +245,6 @@ func test_note_name_stays_legible_while_the_action_is_armed():
 func test_icon_and_label_have_breathing_room_between_them():
 	# O nome colava no glifo: o ícone era ancorado na faixa de cima do botão e
 	# o nome era o text do Button, que o Godot centra no botão INTEIRO.
-	CueSettings.set_level(0)
 	var p = _make()
 	await wait_frames(2)
 	for i in range(p._buttons.size()):
@@ -250,7 +254,6 @@ func test_icon_and_label_have_breathing_room_between_them():
 			"botão %d: glifo e nome sem respiro entre eles" % i)
 
 func test_icon_and_label_are_centered_as_a_group():
-	CueSettings.set_level(0)
 	var p = _make()
 	await wait_frames(2)
 	for i in range(p._buttons.size()):
@@ -270,11 +273,10 @@ func test_children_do_not_swallow_the_press():
 		assert_eq(p._icons[i].mouse_filter, Control.MOUSE_FILTER_IGNORE)
 		assert_eq(p._labels[i].get_parent().mouse_filter, Control.MOUSE_FILTER_IGNORE)
 
-func test_label_is_hidden_when_the_cue_hides_names():
+func test_label_is_hidden_when_the_control_cues_are_off():
 	# Escondida, não só vazia: uma Label vazia ainda reserva a altura da linha
 	# na VBox e o glifo ficaria alto em vez de centrado sozinho.
-	CueSettings.set_level(0)
 	var p = _make()
-	CueSettings.set_level(3)
+	ColorSchemeSettings.set_control_cues(false)
 	for lbl in p._labels:
 		assert_false(lbl.visible)

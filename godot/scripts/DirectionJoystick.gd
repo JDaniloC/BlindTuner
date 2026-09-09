@@ -21,7 +21,7 @@ const SLICE_ANGLE_DEG := 45.0
 const THUMB_RADIUS := RADIUS * 0.35
 const SLICE_VERTICES := 16  # vértices ao longo do arco
 const BACKDROP_SEGMENTS := 64  # era 32: a 138px de raio, 32 lados leem como polígono
-const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # usado quando a pista de cor some
+const NEUTRAL_SLICE := Color(0.55, 0.55, 0.58)  # aparência com o interruptor de pistas desligado
 
 ## Geometria interna da fatia, toda em fração do raio: seta no anel de dentro,
 ## nome da nota no anel de fora. Frações em vez de pixels para o conteúdo
@@ -68,9 +68,12 @@ func _ready() -> void:
 	_build_slices()
 	_build_thumb()
 	_refresh_slice_alphas()
-	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	# Quem manda nas pistas DO CONTROLE é o interruptor, não o nível de pista:
+	# aquele governa o que o HUD conta sobre a nota tocada (a dificuldade), este
+	# aqui é material didático sobre onde cada nota mora.
+	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 	_apply_cue()
 
 ## Centro do desenho colado no centro da caixa de toque, em qualquer tamanho.
@@ -142,8 +145,8 @@ func _build_slice_icons() -> void:
 		_slice_icons.append(icon)
 
 ## Um rótulo por fatia, no anel externo. O texto em si é preenchido por
-## _apply_cue(): é identidade da nota, então segue o nível de pista. A seta não
-## segue -- ela é afordância e só repete o que a posição da fatia já dizia.
+## _apply_cue(): é pista da nota, então segue o interruptor de pistas. A seta
+## não segue -- ela é afordância e só repete o que a posição da fatia já dizia.
 func _build_slice_labels() -> void:
 	_slice_labels.clear()
 	var box := LABEL_SIZE_FRAC * RADIUS
@@ -182,26 +185,27 @@ func _place_label(slice_index: int) -> void:
 	lbl.position = _slice_anchor(slice_index, LABEL_RADIUS_FRAC) - lbl.size * 0.5
 
 func slice_display_color(note_key: String) -> Color:
-	if CueSettings.shows_color():
+	if ColorSchemeSettings.shows_control_cues():
 		return NoteMapping.color_for(note_key)
 	return NEUTRAL_SLICE
 
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()
 
-func _on_cue_changed(_level: int) -> void:
+func _on_control_cues_changed(_enabled: bool) -> void:
 	_apply_cue()
 
-## Aplica o nível de pista na fatia inteira: cor no polígono, nome no rótulo.
-## Cor e nome são pistas diferentes e somem em níveis diferentes -- shows_color()
-## aguenta até o nível 2, shows_name() só o nível 0.
+## Aplica o interruptor de pistas na fatia inteira: cor no polígono, nome no
+## rótulo. Cor e nome são a MESMA condição -- o interruptor é único de propósito
+## (seis chaves numa tela para quem tem baixa visão custam mais do que a
+## granularidade entrega).
 func _apply_cue() -> void:
-	var show_name := CueSettings.shows_name()
+	var show_cues := ColorSchemeSettings.shows_control_cues()
 	for i in range(_slice_polygons.size()):
 		var c := slice_display_color(_slice_note_keys[i])
 		c.a = _slice_polygons[i].color.a  # preserva alpha atual (gerido por _refresh_slice_alphas)
 		_slice_polygons[i].color = c
-		_slice_labels[i].text = NoteMapping.label_for(_slice_note_keys[i]) if show_name else ""
+		_slice_labels[i].text = NoteMapping.label_for(_slice_note_keys[i]) if show_cues else ""
 		# Depois do texto: ele entra no mínimo do Label e pode mudar o tamanho.
 		_place_label(i)
 

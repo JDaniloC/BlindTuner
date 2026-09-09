@@ -2,10 +2,10 @@ extends GutTest
 
 const HudScene := preload("res://scenes/GameHUD.tscn")
 
-## Arquivo próprio para o teste do botão de pintura, que dispara save_to_disk()
+## Arquivo próprio para o teste do botão de pistas, que dispara save_to_disk()
 ## no autoload de verdade. Sem a redireção a suíte sobrescreveria o
 ## color_scheme.cfg REAL de quem joga na mesma máquina.
-const PAINT_TEST_PATH := "user://test_hud_paint.cfg"
+const CUES_TEST_PATH := "user://test_hud_cues.cfg"
 
 func _hud() -> Node:
 	var h = HudScene.instantiate()
@@ -16,7 +16,7 @@ func _hud() -> Node:
 ## redireção vazaria para os outros scripts da suíte -- e o próximo save_to_disk()
 ## de qualquer um deles cairia no arquivo do jogador.
 func after_each():
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(PAINT_TEST_PATH))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CUES_TEST_PATH))
 	ColorSchemeSettings.config_path = ColorSchemeSettings.CONFIG_PATH
 	ColorSchemeSettings.reset_to_defaults()
 
@@ -87,62 +87,68 @@ func test_color_button_emits_request():
 	h._color_btn.pressed.emit()
 	assert_signal_emitted(h, "color_settings_requested")
 
-# --- Botão "Piano colorido" ----------------------------------------------------
+# --- Botão "Pistas nos controles" ----------------------------------------------
 
-func test_paint_toggle_starts_in_sync_with_the_setting():
+func test_cues_toggle_starts_in_sync_with_the_setting():
 	var h = _hud()
-	assert_not_null(h._paint_btn)
-	assert_true(h._paint_btn.toggle_mode, "é um interruptor, não um botão de ação")
-	assert_eq(h._paint_btn.button_pressed, ColorSchemeSettings.paints_piano_keys())
+	assert_not_null(h._cues_btn)
+	assert_true(h._cues_btn.toggle_mode, "é um interruptor, não um botão de ação")
+	assert_eq(h._cues_btn.button_pressed, ColorSchemeSettings.shows_control_cues())
 
-func test_paint_toggle_sits_before_the_progress_label():
+func test_cues_toggle_is_named_after_what_it_governs():
+	# Deixou de ser só do piano: hoje governa cor e nome no joystick, no piano e
+	# nos botões de ação. "Piano colorido" mentia sobre dois dos três.
+	var h = _hud()
+	assert_eq(h._cues_btn.text, "Pistas nos controles")
+
+func test_cues_toggle_sits_before_the_progress_label():
 	# _progress tem SIZE_EXPAND_FILL e come toda a sobra da linha: inserido
 	# depois dele, o botão seria empurrado pra borda da tela.
 	var h = _hud()
-	assert_eq(h._paint_btn.get_parent(), h._progress.get_parent(),
+	assert_eq(h._cues_btn.get_parent(), h._progress.get_parent(),
 		"o botão mora na segunda linha -- uma terceira cobriria o NotePanel")
-	assert_lt(h._paint_btn.get_index(), h._progress.get_index())
+	assert_lt(h._cues_btn.get_index(), h._progress.get_index())
 
-func test_paint_toggle_applies_and_persists_the_choice():
-	ColorSchemeSettings.config_path = PAINT_TEST_PATH
+func test_cues_toggle_applies_and_persists_the_choice():
+	ColorSchemeSettings.config_path = CUES_TEST_PATH
 	var h = _hud()
-	h._paint_btn.button_pressed = false  # o setter do Button já emite toggled
-	assert_false(ColorSchemeSettings.paints_piano_keys(), "o botão tem que mandar na preferência")
-	assert_true(FileAccess.file_exists(PAINT_TEST_PATH),
+	h._cues_btn.button_pressed = false  # o setter do Button já emite toggled
+	assert_false(ColorSchemeSettings.shows_control_cues(), "o botão tem que mandar na preferência")
+	assert_true(FileAccess.file_exists(CUES_TEST_PATH),
 		"a escolha é ajuste de acessibilidade: tem que sobreviver a fechar o jogo")
 
-func test_paint_toggle_does_not_write_to_disk_just_by_being_created():
+func test_cues_toggle_does_not_write_to_disk_just_by_being_created():
 	# button_pressed é setado ANTES do connect de propósito: o setter emite
 	# `toggled`, e conectar primeiro faria o HUD gravar em disco só por nascer.
-	ColorSchemeSettings.config_path = PAINT_TEST_PATH
+	ColorSchemeSettings.config_path = CUES_TEST_PATH
 	_hud()
-	assert_false(FileAccess.file_exists(PAINT_TEST_PATH),
+	assert_false(FileAccess.file_exists(CUES_TEST_PATH),
 		"montar o HUD não pode escrever a configuração do jogador")
 
-func test_paint_toggle_follows_a_change_made_somewhere_else():
+func test_cues_toggle_follows_a_change_made_somewhere_else():
 	# O interruptor não é a única porta pra essa preferência: "Restaurar tudo ao
-	# padrão", na tela de Cores, religa a pintura. Sem escutar paint_mode_changed,
-	# o botão ficava mostrando "desligado" com a pintura ligada -- e o toque
-	# seguinte era um toque MORTO: button_pressed ia pra true, set_paints_piano
-	# recebia o valor que já estava lá e não emitia nada, então o jogador
-	# precisava apertar duas vezes pra ver qualquer coisa acontecer.
-	ColorSchemeSettings.set_paints_piano(false)
+	# padrão", na tela de Cores, religa as pistas. Sem escutar
+	# control_cues_changed, o botão ficava mostrando "desligado" com as pistas
+	# ligadas -- e o toque seguinte era um toque MORTO: button_pressed ia pra
+	# true, set_control_cues recebia o valor que já estava lá e não emitia nada,
+	# então o jogador precisava apertar duas vezes pra ver qualquer coisa.
+	ColorSchemeSettings.set_control_cues(false)
 	var h = _hud()
-	assert_false(h._paint_btn.button_pressed, "pré-condição: nasce desligado")
+	assert_false(h._cues_btn.button_pressed, "pré-condição: nasce desligado")
 	ColorSchemeSettings.reset_to_defaults()  # é o que _on_reset_confirmed chama
-	assert_true(ColorSchemeSettings.paints_piano_keys(), "pré-condição: o reset religa a pintura")
-	assert_true(h._paint_btn.button_pressed,
+	assert_true(ColorSchemeSettings.shows_control_cues(), "pré-condição: o reset religa as pistas")
+	assert_true(h._cues_btn.button_pressed,
 		"o interruptor tem que refletir a preferência, não a última vez que foi tocado")
 
 func test_reflecting_an_external_change_does_not_write_to_disk():
-	# set_pressed_no_signal, não button_pressed: reentrar em _on_paint_toggled
+	# set_pressed_no_signal, não button_pressed: reentrar em _on_cues_toggled
 	# gravaria a configuração do jogador a cada mudança vinda de outra tela -- e,
 	# no boot, gravaria só por ter LIDO a configuração dele.
-	ColorSchemeSettings.config_path = PAINT_TEST_PATH
-	ColorSchemeSettings.set_paints_piano(false)
+	ColorSchemeSettings.config_path = CUES_TEST_PATH
+	ColorSchemeSettings.set_control_cues(false)
 	_hud()
-	ColorSchemeSettings.set_paints_piano(true)
-	assert_false(FileAccess.file_exists(PAINT_TEST_PATH),
+	ColorSchemeSettings.set_control_cues(true)
+	assert_false(FileAccess.file_exists(CUES_TEST_PATH),
 		"refletir uma mudança externa não é o jogador tocando no interruptor")
 
 # --- Layout na largura de projeto (720px) --------------------------------------

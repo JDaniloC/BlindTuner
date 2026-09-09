@@ -6,7 +6,8 @@ signal note_triggered(note_key: String)
 
 const ACTION_NOTES := ["Gs4", "A4", "As4", "B4"]
 const BUTTON_SIZE := Vector2(96, 96)
-const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)  # espelha DirectionJoystick.NEUTRAL_SLICE
+## Aparência com o interruptor de pistas desligado. Espelha DirectionJoystick.NEUTRAL_SLICE.
+const NEUTRAL_BUTTON := Color(0.55, 0.55, 0.58)
 const ARMED_BRIGHTNESS := 1.6  # multiplicador da cor da placa quando a ação está armada
 const CORNER_RADIUS := 8
 ## Faixa reservada ao glifo e respiro até o nome. O ActionIcon desenha o glifo
@@ -68,9 +69,13 @@ func _ready() -> void:
 		_button_notes.append(note_key)
 		_icons.append(icon)
 		_labels.append(lbl)
-	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	# Quem manda nas pistas DO CONTROLE é o interruptor, não o nível de pista --
+	# e este painel não escutava nada disso antes: só se repintava porque o
+	# nível de pista mudava. Sem esta conexão, virar o interruptor não teria
+	# efeito nenhum nas 4 placas até a fase reiniciar.
+	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 	_apply_cue()
 
 func _emit_note(note_key: String) -> void:
@@ -79,19 +84,22 @@ func _emit_note(note_key: String) -> void:
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()
 
-func _on_cue_changed(_level: int) -> void:
+func _on_control_cues_changed(_enabled: bool) -> void:
 	_apply_cue()
 
 func _apply_cue() -> void:
-	var show_name := CueSettings.shows_name()
-	var show_color := CueSettings.shows_color()
+	# Cor e nome são a MESMA condição: um interruptor único, que NÃO é o nível
+	# de pista. Aquele governa o que o HUD conta sobre a nota tocada (é a
+	# dificuldade); as placas são material didático permanente e continuam
+	# coloridas e nomeadas no "só som" se o jogador quiser.
+	var show_cues := ColorSchemeSettings.shows_control_cues()
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
-		_labels[i].text = NoteMapping.label_for(note_key) if show_name else ""
+		_labels[i].text = NoteMapping.label_for(note_key) if show_cues else ""
 		# Escondida (não só vazia) para a VBox não reservar a altura da linha:
 		# assim, sem o nome, o glifo fica centrado sozinho em vez de alto.
-		_labels[i].visible = show_name
-		var base_color: Color = NoteMapping.color_for(note_key) if show_color else NEUTRAL_BUTTON
+		_labels[i].visible = show_cues
+		var base_color: Color = NoteMapping.color_for(note_key) if show_cues else NEUTRAL_BUTTON
 		if _armed[i]:
 			base_color = Color(base_color.r * ARMED_BRIGHTNESS,
 				base_color.g * ARMED_BRIGHTNESS,

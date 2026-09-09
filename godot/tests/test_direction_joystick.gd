@@ -12,9 +12,13 @@ func before_each():
 	CueSettings.set_level(0)
 
 func after_each():
+	# reset_to_defaults() religa o interruptor de pistas junto com a paleta: é o
+	# contrato que impede um teste de contaminar o próximo.
 	ColorSchemeSettings.reset_to_defaults()
 	# CueSettings é autoload e não se reseta sozinho: sem isto, um teste que sobe
-	# o nível de pista vaza para os seguintes (deste arquivo e dos próximos).
+	# o nível de pista vaza para os seguintes (deste arquivo e dos próximos). O
+	# joystick não consulta mais o nível, mas há teste aqui que o sobe justamente
+	# para provar que ele deixou de mandar nas fatias.
 	CueSettings.set_level(0)
 
 func test_vector_to_note_snaps_to_north():
@@ -58,24 +62,35 @@ func test_slice_index_for_angle_negative_wraps():
 	# -30° = 330°: mais próximo de G4 (315°, 15° away) que C4 (360°, 30° away). G4 = índice 7.
 	assert_eq(_make_joystick().slice_index_for_angle(-30.0), 7)
 
-func test_slice_color_uses_note_color_when_cue_shows_color():
-	CueSettings.set_level(0)
+func test_slice_color_uses_note_color_when_control_cues_are_on():
 	var j = _make_joystick()
 	assert_eq(j.slice_display_color("C4"), NoteMapping.color_for("C4"))
-	CueSettings.set_level(0)
 
-func test_slice_color_neutral_at_level_three():
-	CueSettings.set_level(3)
+func test_slice_color_is_neutral_when_control_cues_are_off():
+	ColorSchemeSettings.set_control_cues(false)
 	var j = _make_joystick()
 	assert_eq(j.slice_display_color("C4"), j.NEUTRAL_SLICE)
-	CueSettings.set_level(0)
 
-func test_slices_recolor_on_cue_level_changed():
-	CueSettings.set_level(0)
+func test_slices_recolor_when_the_control_cues_switch_flips():
+	# Vira o interruptor com o joystick JÁ VIVO: é o caminho do sinal, e o único
+	# que pega a conexão de control_cues_changed estar faltando.
 	var j = _make_joystick()
-	CueSettings.set_level(3)  # sinal dispara com joystick já vivo
+	ColorSchemeSettings.set_control_cues(false)
 	assert_eq(Color(j._slice_polygons[0].color.r, j._slice_polygons[0].color.g, j._slice_polygons[0].color.b), j.NEUTRAL_SLICE)
-	CueSettings.set_level(0)
+
+func test_the_cue_level_no_longer_touches_the_slices():
+	# A inversão: o nível de pista governa só o que o HUD conta sobre a nota
+	# TOCADA. No "só som" as fatias continuam coloridas e nomeadas -- parece bug,
+	# é o ponto da mudança.
+	var j = _make_joystick()
+	var i: int = j._slice_note_keys.find("C4")
+	CueSettings.set_level(3)
+	var pintada: Color = j._slice_polygons[i].color
+	var esperada: Color = NoteMapping.color_for("C4")
+	assert_eq(Color(pintada.r, pintada.g, pintada.b), Color(esperada.r, esperada.g, esperada.b),
+		"no 'só som' a fatia continua com a cor da nota")
+	assert_eq(j._slice_labels[i].text, NoteMapping.label_for("C4"),
+		"no 'só som' a fatia continua nomeada")
 
 func test_only_eight_slices_built():
 	var j = _make_joystick()
@@ -142,31 +157,30 @@ func test_each_slice_has_a_note_label():
 	var j = _make_joystick()
 	assert_eq(j._slice_labels.size(), 8, "um rótulo por fatia de movimento")
 
-func test_labels_show_note_names_at_cue_level_zero():
-	CueSettings.set_level(0)
+func test_labels_show_note_names_when_control_cues_are_on():
 	var j = _make_joystick()
 	for i in range(j._slice_labels.size()):
 		assert_eq(j._slice_labels[i].text, NoteMapping.label_for(j._slice_note_keys[i]))
 
-func test_labels_are_empty_when_cue_hides_names():
-	CueSettings.set_level(0)
+func test_labels_are_empty_when_the_control_cues_switch_is_flipped_off():
 	var j = _make_joystick()
-	CueSettings.set_level(3)  # sinal dispara com o joystick já vivo
+	ColorSchemeSettings.set_control_cues(false)  # sinal dispara com o joystick já vivo
 	for lbl in j._slice_labels:
-		assert_eq(lbl.text, "", "o nome é identidade e some nos níveis avançados")
+		assert_eq(lbl.text, "", "o nome é pista e some com o interruptor")
 
-func test_labels_are_empty_when_built_with_names_already_hidden():
-	# Complemento do teste acima: lá o nível muda com o joystick vivo (caminho do
-	# sinal); aqui ele já está alto quando o joystick nasce (caminho do _ready).
-	CueSettings.set_level(3)
+func test_labels_are_empty_when_built_with_the_control_cues_already_off():
+	# Complemento do teste acima: lá o interruptor vira com o joystick vivo
+	# (caminho do sinal); aqui ele já está desligado quando o joystick nasce
+	# (caminho do _ready).
+	ColorSchemeSettings.set_control_cues(false)
 	var j = _make_joystick()
 	for lbl in j._slice_labels:
 		assert_eq(lbl.text, "")
 
-func test_icons_stay_visible_even_when_names_are_hidden():
-	# Ícone é afordância, não identidade: a seta diz a mesma coisa que a
-	# posição da fatia já dizia, então não revela nada e fica sempre.
-	CueSettings.set_level(3)
+func test_icons_stay_visible_even_when_the_control_cues_are_off():
+	# Ícone é afordância, não pista: a seta diz a mesma coisa que a posição da
+	# fatia já dizia, então não revela nada e fica sempre.
+	ColorSchemeSettings.set_control_cues(false)
 	var j = _make_joystick()
 	for icon in j._slice_icons:
 		assert_not_null(icon._texture)
@@ -214,7 +228,6 @@ func test_labels_are_centred_on_their_slice_anchor():
 	# de pelo tamanho real deixava o rótulo meio pixel fora de centro, e o desvio
 	# cresce em (size - box)/2 a cada aumento de RADIUS, de LABEL_FONT_FRAC ou da
 	# fonte do sistema por acessibilidade.
-	CueSettings.set_level(0)
 	var j = _make_joystick()
 	for i in range(8):
 		var lbl: Label = j._slice_labels[i]
@@ -241,7 +254,6 @@ func test_labels_do_not_bleed_into_the_neighbouring_slice():
 	# cunha: nas 4 fatias diagonais ela entra torta, e quem encosta na fronteira é
 	# um canto, não a meia-largura no raio do centro (o que a versão anterior
 	# media, concedendo folga fantasma pelo mesmo motivo do teste acima).
-	CueSettings.set_level(0)
 	var j = _make_joystick()
 	var meia_cunha: float = j.SLICE_ANGLE_DEG * 0.5
 	for i in range(8):
@@ -257,7 +269,6 @@ func test_labels_do_not_bleed_into_the_neighbouring_slice():
 func test_labels_repaint_when_scheme_changes():
 	# O texto some/volta pelo mesmo caminho que repinta as fatias; trocar o
 	# esquema não pode zerar o nome de tabela.
-	CueSettings.set_level(0)
 	var j = _make_joystick()
 	ColorSchemeSettings.set_scheme("alto_contraste")
 	for i in range(j._slice_labels.size()):
@@ -307,7 +318,6 @@ func test_slices_repaint_when_scheme_changes():
 	# esquema ativo na hora): passava mesmo com a conexão de scheme_changed
 	# apagada, ou seja, com o defeito que ela deveria cobrir presente. Agora lê a
 	# cor do polígono DESENHADO.
-	CueSettings.set_level(0)
 	var j = _make_joystick()
 	var i: int = j._slice_note_keys.find("C4")
 	assert_gte(i, 0, "pré-condição: o Dó ocupa uma fatia do joystick")

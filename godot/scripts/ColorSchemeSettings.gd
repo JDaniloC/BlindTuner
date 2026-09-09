@@ -8,9 +8,9 @@ extends Node
 
 signal scheme_changed(scheme_id: String)
 ## Sinal próprio, e não uma segunda emissão de scheme_changed: "mudou a paleta"
-## e "mudou se o piano é pintado" são fatos diferentes, e há teste que assere os
-## parâmetros de scheme_changed.
-signal paint_mode_changed(enabled: bool)
+## e "mudaram as pistas nos controles" são fatos diferentes, e há teste que
+## assere os parâmetros de scheme_changed.
+signal control_cues_changed(enabled: bool)
 
 const DEFAULT_SCHEME := "pedagogico"
 const CUSTOM_ID := "personalizado"
@@ -36,13 +36,22 @@ var _custom: Array[Color] = []
 ## passar por "Restaurar tudo ao padrão".
 var _custom_edited: bool = false
 
-## As teclas do piano recebem a cor da nota, ou o preto/branco/âmbar de um
-## teclado de verdade? É escolha explícita do jogador e mora aqui, no mesmo
-## domínio de "qual paleta", porque precisa persistir e este autoload já tem o
-## fluxo de ConfigFile endurecido. Deliberadamente INDEPENDENTE do nível de
-## pista: antes a cor sumia junto com o nome, e quem quisesse o teclado
-## autêntico era obrigado a jogar sem o nome das notas também.
-var paints_piano: bool = true
+## Os CONTROLES de input mostram pista da nota (cor e nome), ou ficam neutros?
+## Vale hoje para o joystick, o piano e os botões de ação -- um interruptor só,
+## ligando cor e nome em todos ao mesmo tempo. Um por modo (ou um para cor e
+## outro para nome) foi descartado: seis chaves numa tela para quem tem baixa
+## visão custam mais do que a granularidade entrega.
+##
+## É escolha explícita do jogador e mora aqui, no mesmo domínio de "qual
+## paleta", porque precisa persistir e este autoload já tem o fluxo de
+## ConfigFile endurecido. Deliberadamente INDEPENDENTE do nível de pista: aquele
+## governa o que o HUD conta sobre a nota TOCADA (é a dificuldade), enquanto
+## isto aqui é material didático permanente sobre os controles -- ensina onde
+## cada nota mora e continua ensinando depois de o jogador dominar o ouvido.
+##
+## Nasce LIGADO: o público-alvo está aprendendo, e o material didático fica até
+## a pessoa escolher tirá-lo.
+var control_cues: bool = true
 
 func _ready() -> void:
 	# Guarda essencial: os testes instanciam este script solto
@@ -82,14 +91,14 @@ func _seed_custom_from_active() -> void:
 		return
 	_custom = base.duplicate()
 
-func paints_piano_keys() -> bool:
-	return paints_piano
+func shows_control_cues() -> bool:
+	return control_cues
 
-func set_paints_piano(enabled: bool) -> void:
-	if enabled == paints_piano:
+func set_control_cues(enabled: bool) -> void:
+	if enabled == control_cues:
 		return
-	paints_piano = enabled
-	paint_mode_changed.emit(paints_piano)
+	control_cues = enabled
+	control_cues_changed.emit(control_cues)
 
 func color_for(note_key: String) -> Color:
 	var idx := NoteMapping.chromatic_index_for(note_key)
@@ -137,11 +146,12 @@ func reset_to_defaults() -> void:
 	scheme_id = DEFAULT_SCHEME
 	_custom.clear()
 	_custom_edited = false
-	# A preferência de pintura volta junto: "estado global zerado" é o contrato
-	# de que a suíte inteira depende para um teste não contaminar o próximo.
-	paints_piano = true
+	# A preferência de pistas nos controles volta junto: "estado global zerado" é
+	# o contrato de que a suíte inteira depende para um teste não contaminar o
+	# próximo.
+	control_cues = true
 	scheme_changed.emit(scheme_id)
-	paint_mode_changed.emit(paints_piano)
+	control_cues_changed.emit(control_cues)
 
 ## Retorna false se a escrita falhar. Sem o retorno checado, um disco cheio ou
 ## sem permissão perdia a configuração do jogador em silêncio absoluto.
@@ -154,7 +164,10 @@ func save_to_disk() -> bool:
 	# Sem este campo não dá para distinguir "o jogador pintou as 12 cores" de "a
 	# tela semeou as 12 cores porque ele espiou o item Personalizado".
 	cfg.set_value("cor", "custom_editada", _custom_edited)
-	cfg.set_value("cor", "pinta_piano", paints_piano)
+	# A CHAVE continua "pinta_piano" mesmo depois de a preferência ter sido
+	# generalizada para todos os controles: renomeá-la faria todo arquivo já
+	# gravado cair no default e o jogador perderia a escolha em silêncio.
+	cfg.set_value("cor", "pinta_piano", control_cues)
 	var err := cfg.save(config_path)
 	if err != OK:
 		push_warning("ColorSchemeSettings: falha ao salvar em %s (erro %d)" % [config_path, err])
@@ -211,12 +224,12 @@ func load_from_disk() -> bool:
 	# meia carga. Chave ausente é o caso NORMAL (todo arquivo gravado antes desta
 	# versão não a tem) e tipo errado também cai no default -- nunca `return
 	# false`, que descartaria a paleta personalizada do jogador junto.
-	var pinta_raw = cfg.get_value("cor", "pinta_piano", true)
-	paints_piano = pinta_raw if typeof(pinta_raw) == TYPE_BOOL else true
+	var pistas_raw = cfg.get_value("cor", "pinta_piano", true)
+	control_cues = pistas_raw if typeof(pistas_raw) == TYPE_BOOL else true
 
 	scheme_id = id
 	scheme_changed.emit(scheme_id)
-	paint_mode_changed.emit(paints_piano)
+	control_cues_changed.emit(control_cues)
 	return true
 
 func _matches_stock_scheme(cores: Array) -> bool:

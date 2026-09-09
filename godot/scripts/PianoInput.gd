@@ -83,13 +83,12 @@ func _ready() -> void:
 		if is_black_key(i):
 			move_child(_buttons[i], -1)
 
-	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
-	# Sinal separado de propósito: ligar/desligar a pintura não é trocar de
+	# Sinal separado de propósito: ligar/desligar as pistas não é trocar de
 	# paleta, e reaproveitar scheme_changed quebraria o teste que assere os
 	# parâmetros daquele sinal.
-	ColorSchemeSettings.paint_mode_changed.connect(_on_paint_mode_changed)
+	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 	_apply_cue()
 
 func _emit_note(note_key: String) -> void:
@@ -98,30 +97,27 @@ func _emit_note(note_key: String) -> void:
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()
 
-func _on_cue_changed(_level: int) -> void:
-	_apply_cue()
-
-func _on_paint_mode_changed(_enabled: bool) -> void:
+func _on_control_cues_changed(_enabled: bool) -> void:
 	_apply_cue()
 
 func _apply_cue() -> void:
-	var show_name := CueSettings.shows_name()
-	# A COR das teclas é escolha explícita do jogador (ColorSchemeSettings), o
-	# NOME continua sendo assunto do nível de pista. Antes as duas coisas saíam
-	# de CueSettings.shows_color()/shows_name(), e quem quisesse o teclado
-	# autêntico (preto/branco) era obrigado a subir pro nível 3 e jogar sem o
-	# nome das notas também.
-	var show_color := ColorSchemeSettings.paints_piano_keys()
+	# Cor E nome das teclas são o mesmo interruptor, e ele NÃO é o nível de
+	# pista: aquele governa o que o HUD conta sobre a nota tocada (a
+	# dificuldade), este aqui é material didático permanente sobre o controle.
+	# No "só som" com o interruptor ligado o teclado continua colorido e
+	# nomeado, de propósito -- o desafio é reconhecer a nota de ouvido, não
+	# adivinhar onde ela mora no teclado.
+	var show_cues := ColorSchemeSettings.shows_control_cues()
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
-		_buttons[i].text = NoteMapping.label_for(note_key) if show_name else ""
+		_buttons[i].text = NoteMapping.label_for(note_key) if show_cues else ""
 		var armed_idx := _armed_index_for(note_key)
 		var is_armed := armed_idx >= 0 and _armed[armed_idx]
 		var sb := StyleBoxFlat.new()
 		sb.corner_radius_bottom_left = CORNER_RADIUS
 		sb.corner_radius_bottom_right = CORNER_RADIUS
-		if show_color:
-			# Pintura ligada: prioriza a cor distintiva por nota (igual
+		if show_cues:
+			# Pistas ligadas: prioriza a cor distintiva por nota (igual
 			# aos outros modos de input) sobre o realismo do teclado -- a cor
 			# vai direto no fundo da tecla (bg_color). O tint do nó fica neutro
 			# (Color.WHITE): tingir o botão multiplicaria também o texto do
@@ -134,7 +130,7 @@ func _apply_cue() -> void:
 				sb.bg_color = Color(sb.bg_color.r * ARMED_BRIGHTNESS, sb.bg_color.g * ARMED_BRIGHTNESS, sb.bg_color.b * ARMED_BRIGHTNESS, sb.bg_color.a)
 			_buttons[i].self_modulate = Color.WHITE
 		else:
-			# Pintura desligada: teclado autêntico, branco e preto pela posição
+			# Pistas desligadas: teclado autêntico, branco e preto pela posição
 			# cromática -- inclusive nas 4 notas de ação, que num piano de verdade
 			# não teriam cor especial. O que as distingue é o ícone.
 			sb.bg_color = _key_base_color(i, note_key)
@@ -146,8 +142,8 @@ func _apply_cue() -> void:
 		# 3:1 do WCAG pra elemento gráfico, o que anulava a redundância
 		# visual que o ícone existe pra dar. Escolhe o tint pela luminância
 		# perceptual (Rec. 709) do fundo efetivo da tecla; como _apply_cue()
-		# roda de novo a cada troca de nível de pista ou de estado armado,
-		# o tint acompanha a troca de fundo sozinho. A regra mora em
+		# roda de novo a cada virada do interruptor de pistas, troca de esquema
+		# ou de estado armado, o tint acompanha o fundo sozinho. A regra mora em
 		# ColorDistance porque o SpecialActionPanel precisa da mesma decisão.
 		var bg: Color = sb.bg_color * _buttons[i].self_modulate
 		var ink := ColorDistance.icon_tint_for(bg)

@@ -14,6 +14,9 @@ func before_each():
 	ColorSchemeSettings.reset_to_defaults()
 
 func after_each():
+	# O piano não consulta mais o nível de pista, mas há teste aqui que o sobe
+	# justamente para provar isso -- e CueSettings é autoload, não se reseta
+	# sozinho. reset_to_defaults() religa o interruptor de pistas junto.
 	CueSettings.set_level(0)
 	ColorSchemeSettings.reset_to_defaults()
 
@@ -39,8 +42,7 @@ func test_button_press_emits_note_triggered_for_action_note():
 	p._buttons[idx].pressed.emit()
 	assert_signal_emitted_with_parameters(p, "note_triggered", ["A4"])
 
-func test_level_zero_shows_name_and_color():
-	CueSettings.set_level(0)
+func test_control_cues_on_shows_name_and_color():
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._buttons[idx].text, NoteMapping.label_for("C4"))
@@ -53,55 +55,59 @@ func test_level_zero_shows_name_and_color():
 	var sb = p._buttons[idx].get_theme_stylebox("normal")
 	assert_eq(sb.bg_color, NoteMapping.color_for("C4"))
 
-func test_keys_are_authentic_when_painting_is_off():
-	# Quem manda na pintura das teclas é ColorSchemeSettings, não o nível de
-	# pista: antes estes dois testes desligavam a cor subindo pro nível 3, o que
-	# amarrava "teclado autêntico" a "esconder o nome da nota".
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(false)
+func test_keys_are_authentic_when_control_cues_are_off():
+	# Quem manda nas pistas das teclas é ColorSchemeSettings, não o nível de
+	# pista: aquele governa o que o HUD conta sobre a nota TOCADA, e amarrar as
+	# duas coisas obrigava quem quisesse o teclado autêntico a jogar sem o nome
+	# das notas -- e vice-versa.
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._buttons[idx].self_modulate, Color.WHITE)
 	assert_eq(p._buttons[idx].modulate, Color.WHITE, "modulate tem que ficar neutro: ele se propaga pro ícone filho")
 	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.WHITE_KEY_COLOR)
 
-func test_black_key_is_authentic_when_painting_is_off():
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(false)
+func test_black_key_is_authentic_when_control_cues_are_off():
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	var idx = p._button_notes.find("Cs4")
 	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.BLACK_KEY_COLOR)
 
-func test_painting_is_independent_of_the_cue_level():
-	# Nível de pista máximo com pintura ligada: some o NOME, fica a COR.
+func test_the_cue_level_no_longer_touches_the_keyboard():
+	# A consequência deliberada da inversão, e a que parece bug: no nível "só
+	# som", com o interruptor ligado, o teclado CONTINUA colorido e nomeado. O
+	# desafio é reconhecer a nota tocada de ouvido, não adivinhar onde ela mora
+	# no teclado. Alguém vai querer "consertar" isto um dia.
 	CueSettings.set_level(3)
-	ColorSchemeSettings.set_paints_piano(true)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
-	assert_eq(p._buttons[idx].text, "", "o nome continua sendo assunto do nível de pista")
+	assert_eq(p._buttons[idx].text, NoteMapping.label_for("C4"),
+		"o nome do controle é material didático, não dificuldade")
 	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, NoteMapping.color_for("C4"))
 
-func test_names_still_disappear_with_the_cue_level_while_painting_stays_off():
-	# O outro cruzamento: pintura desligada não pode ressuscitar o rótulo.
-	CueSettings.set_level(3)
-	ColorSchemeSettings.set_paints_piano(false)
+func test_the_cue_level_cannot_resurrect_the_name_either():
+	# O cruzamento oposto: nível 0 (tudo visível na nota tocada) com o
+	# interruptor desligado deixa o teclado autêntico e sem nome nenhum.
+	CueSettings.set_level(0)
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._buttons[idx].text, "")
 	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, p.WHITE_KEY_COLOR)
 
 func test_toggling_repaints_without_restarting():
-	CueSettings.set_level(0)
 	var p = _make()
 	var antes = p._buttons[0].get_theme_stylebox("normal").bg_color
-	ColorSchemeSettings.set_paints_piano(false)
+	var nome_antes = p._buttons[0].text
+	ColorSchemeSettings.set_control_cues(false)
 	assert_ne(p._buttons[0].get_theme_stylebox("normal").bg_color, antes,
-		"desligar a pintura tem que repintar na hora, sem reiniciar a fase")
+		"desligar as pistas tem que repintar na hora, sem reiniciar a fase")
+	assert_ne(p._buttons[0].text, nome_antes,
+		"o nome também some na hora: é o mesmo interruptor")
 
 func test_on_armed_state_changed_brightens_correr_button():
-	# No nível 0, quem clareia com o armed é o bg_color da tecla (não mais o
-	# tint do nó, que agora fica fixo em Color.WHITE -- ver I1).
-	CueSettings.set_level(0)
+	# Com as pistas ligadas, quem clareia com o armed é o bg_color da tecla (não
+	# mais o tint do nó, que agora fica fixo em Color.WHITE -- ver I1).
 	var p = _make()
 	var idx = p._button_notes.find("As4")
 	var base = p._buttons[idx].get_theme_stylebox("normal").bg_color
@@ -109,7 +115,6 @@ func test_on_armed_state_changed_brightens_correr_button():
 	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.get_luminance(), base.get_luminance(), "armed brighten")
 
 func test_on_armed_state_changed_brightens_pular_button():
-	CueSettings.set_level(0)
 	var p = _make()
 	var idx = p._button_notes.find("B4")
 	var base = p._buttons[idx].get_theme_stylebox("normal").bg_color
@@ -117,7 +122,6 @@ func test_on_armed_state_changed_brightens_pular_button():
 	assert_gt(p._buttons[idx].get_theme_stylebox("normal").bg_color.get_luminance(), base.get_luminance(), "armed brighten")
 
 func test_disarm_restores_modulate_to_cue_base():
-	CueSettings.set_level(0)
 	var p = _make()
 	var idx = p._button_notes.find("As4")
 	var base = p._buttons[idx].get_theme_stylebox("normal").bg_color
@@ -128,7 +132,6 @@ func test_disarm_restores_modulate_to_cue_base():
 func test_pressed_stylebox_is_darker_than_normal():
 	# Apertar uma tecla precisa mudar visualmente algo (feedback de toque) --
 	# antes, normal/hover/pressed compartilhavam o MESMO StyleBoxFlat. Ver I3.
-	CueSettings.set_level(0)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	var normal_color = p._buttons[idx].get_theme_stylebox("normal").bg_color
@@ -206,25 +209,22 @@ func test_icon_tint_is_dark_on_light_key():
 	# Ícone branco sobre tecla branca dá contraste ~1.25:1 -- abaixo do mínimo
 	# 3:1 do WCAG pra elemento gráfico, ou seja, a redundância visual que o
 	# ícone existe pra dar simplesmente não acontecia.
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(false)
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	assert_eq(p._key_icons[idx]._tint, ColorDistance.ICON_DARK, "tecla branca pede ícone escuro")
 
 func test_icon_tint_is_white_on_dark_key():
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(false)
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	var idx = p._button_notes.find("Cs4")
 	assert_eq(p._key_icons[idx]._tint, Color.WHITE, "tecla preta pede ícone branco")
 
 func test_icon_tint_follows_note_color_luminance():
-	# No nível 0 o fundo é a cor da nota, então o tint tem que variar nota a nota.
-	# Os hexadecimais citados aqui eram os do Clássico, mas o esquema padrão é o
-	# Pedagógico: as asserções passavam por acaso, documentando cores que o teste
-	# não estava usando. O esquema agora é escolhido explicitamente.
-	CueSettings.set_level(0)
+	# Com as pistas ligadas o fundo é a cor da nota, então o tint tem que variar
+	# nota a nota. Os hexadecimais citados aqui eram os do Clássico, mas o esquema
+	# padrão é o Pedagógico: as asserções passavam por acaso, documentando cores
+	# que o teste não estava usando. O esquema agora é escolhido explicitamente.
 	ColorSchemeSettings.set_scheme("pedagogico")
 	var p = _make()
 	assert_eq(NoteMapping.color_for("E4"), Color("#FFF200"), "pré-condição: o Mi é o amarelo claro")
@@ -246,7 +246,7 @@ func _pior_contraste_do_rotulo(btn: Button) -> float:
 		pior = minf(pior, ColorDistance.contrast_ratio(fundo, btn.get_theme_color(nome)))
 	return pior
 
-func test_key_name_contrasts_with_its_own_key_when_painted():
+func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
 	# Mesmo defeito que o SpecialActionPanel tinha: a cor mora no bg_color da
 	# stylebox (pinta só o FUNDO) e o PianoInput não está sob blindtuner_theme.tres,
 	# então o rótulo herdava o cinza claro do tema padrão do Godot. Numa tecla
@@ -259,8 +259,7 @@ func test_key_name_contrasts_with_its_own_key_when_painted():
 	# essas cores nas paletas, não mexer na regra de tinta. As 4 placas do
 	# SpecialActionPanel, que é onde o nome aparece sempre, cobram 4,5 de verdade
 	# (ver test_note_name_contrasts_with_its_own_plate).
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(true)
+	ColorSchemeSettings.set_control_cues(true)
 	var p = _make()
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
@@ -270,20 +269,24 @@ func test_key_name_contrasts_with_its_own_key_when_painted():
 				"%s: o nome da tecla %s dá %.2f:1 contra a própria tecla" % [
 					esquema, p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
 
-func test_key_name_contrasts_with_the_authentic_keyboard():
-	# Sem pintura o fundo é branco/preto/âmbar; o branco é o caso que o cinza
-	# claro do tema padrão estragava (13,92:1 com tinta escura, 1,25:1 sem ela).
-	CueSettings.set_level(0)
-	ColorSchemeSettings.set_paints_piano(false)
+func test_the_authentic_keyboard_has_no_names_and_keeps_the_glyphs_legible():
+	# Com o interruptor único, "teclado autêntico" e "sem nome" viraram o MESMO
+	# estado -- não há mais como ter as duas coisas separadas. O que sobra pra
+	# distinguir uma tecla da outra é o glifo, então ele é que precisa de
+	# contraste aqui: no fundo branco, ícone branco daria 1,25:1, abaixo do
+	# mínimo de 3:1 do WCAG pra elemento gráfico.
+	ColorSchemeSettings.set_control_cues(false)
 	var p = _make()
 	for i in range(p._buttons.size()):
-		assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.5,
-			"o nome da tecla %s dá %.2f:1 no teclado autêntico" % [
-				p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
+		assert_eq(p._buttons[i].text, "",
+			"a tecla %s não pode exibir nome com as pistas desligadas" % p._button_notes[i])
+		var fundo: Color = p._buttons[i].get_theme_stylebox("normal").bg_color
+		var razao: float = ColorDistance.contrast_ratio(fundo, p._key_icons[i]._tint)
+		assert_gte(razao, 3.0,
+			"o glifo da tecla %s dá %.2f:1 no teclado autêntico" % [p._button_notes[i], razao])
 
 func test_keys_repaint_when_scheme_changes():
 	# Trocar de esquema tem que repintar sem reiniciar a fase.
-	CueSettings.set_level(0)
 	var p = _make()
 	var idx = p._button_notes.find("C4")
 	# A cor da nota mora no bg_color da stylebox (o modulate fica neutro de

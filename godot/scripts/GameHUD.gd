@@ -18,7 +18,7 @@ var _cue_opt: OptionButton
 var _mode_opt: OptionButton
 var _start_btn: Button
 var _color_btn: Button
-var _paint_btn: Button
+var _cues_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -84,14 +84,19 @@ func _ready() -> void:
 	# barra do topo a 197px e cobriria 57 dos 82px do NotePanel, e o _progress
 	# tem SIZE_EXPAND_FILL -- inserido depois dele, o botão seria empurrado
 	# contra a borda da tela.
-	_paint_btn = Button.new()
-	_paint_btn.toggle_mode = true
+	_cues_btn = Button.new()
+	_cues_btn.toggle_mode = true
 	# button_pressed antes de conectar: o setter emite `toggled`, e conectar
 	# primeiro faria o HUD gravar em disco só por ter nascido.
-	_paint_btn.button_pressed = ColorSchemeSettings.paints_piano_keys()
-	_paint_btn.text = "Piano colorido"
-	_paint_btn.toggled.connect(_on_paint_toggled)
-	row2.add_child(_paint_btn)
+	_cues_btn.button_pressed = ColorSchemeSettings.shows_control_cues()
+	# "Pistas nos controles", e não mais "Piano colorido": o interruptor deixou
+	# de ser só do piano e hoje governa cor E nome no joystick, no piano e nos
+	# botões de ação. Cabe, medido em SubViewport 720x1280: o rótulo maior custa
+	# 43px (127 -> 170) numa segunda linha que tinha 437px de folga na linha útil
+	# de 656px, e ainda sobram 394 (ver test_top_rows_fit_the_design_width).
+	_cues_btn.text = "Pistas nos controles"
+	_cues_btn.toggled.connect(_on_cues_toggled)
+	row2.add_child(_cues_btn)
 
 	_progress = Label.new()
 	_progress.text = "—"
@@ -116,12 +121,12 @@ func _ready() -> void:
 	col.add_child(again)
 
 	# O interruptor não é a única porta pra essa preferência: "Restaurar tudo ao
-	# padrão", na tela de Cores, também religa a pintura. Sem escutar o sinal, o
-	# botão continuava mostrando "desligado" com a pintura ligada -- e o próximo
-	# toque virava um toque morto (button_pressed ia pra true, set_paints_piano
+	# padrão", na tela de Cores, também religa as pistas. Sem escutar o sinal, o
+	# botão continuava mostrando "desligado" com as pistas ligadas -- e o próximo
+	# toque virava um toque morto (button_pressed ia pra true, set_control_cues
 	# recebia o valor que já estava lá e não emitia nada), obrigando a apertar duas
-	# vezes. Conectado por ÚLTIMO, depois de _paint_btn existir.
-	ColorSchemeSettings.paint_mode_changed.connect(_on_paint_mode_changed)
+	# vezes. Conectado por ÚLTIMO, depois de _cues_btn existir.
+	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 
 ## Altura ocupada pela barra do topo, medida (não estimada): é o que separa o
 ## HUD de quem desenha logo abaixo dele.
@@ -139,16 +144,16 @@ func _on_color_pressed() -> void:
 
 ## Grava na hora: é ajuste de acessibilidade, feito uma vez, e o jogador não tem
 ## por que passar pela tela de Cores só para ele sobreviver ao próximo boot.
-func _on_paint_toggled(enabled: bool) -> void:
-	ColorSchemeSettings.set_paints_piano(enabled)
+func _on_cues_toggled(enabled: bool) -> void:
+	ColorSchemeSettings.set_control_cues(enabled)
 	ColorSchemeSettings.save_to_disk()
 
 ## A preferência mudou por fora (restaurar padrões, carga do disco). Reflete no
-## botão SEM emitir `toggled`: reentrar em _on_paint_toggled gravaria em disco a
+## botão SEM emitir `toggled`: reentrar em _on_cues_toggled gravaria em disco a
 ## cada mudança de estado vinda de outra tela -- e, no boot, gravaria a
 ## configuração do jogador só por ter lido a configuração do jogador.
-func _on_paint_mode_changed(enabled: bool) -> void:
-	_paint_btn.set_pressed_no_signal(enabled)
+func _on_control_cues_changed(enabled: bool) -> void:
+	_cues_btn.set_pressed_no_signal(enabled)
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()
