@@ -84,53 +84,90 @@ enum Timbre { ADDITIVE, WAVEGUIDE }
 #
 # A versão anterior excitava a corda com RUÍDO ALEATÓRIO, que é o atalho óbvio
 # (e o que o Karplus-Strong faz). Foi implementada, ouvida e reprovada -- "bem
-# bizarro", "pior que o normal". Medido, ruído contra mesa de arco:
-#   fator de crista       3,75  ->  1,80  (o do aditivo é 1,80: dente-de-serra
+# bizarro", "pior que o normal". Medido, ruído contra mesa de arco (o segundo
+# número é o do modelo como ele está hoje, com o arco onde WG_BOW_POSITION diz):
+#   fator de crista       3,75  ->  2,03  (o do aditivo é 1,80: dente-de-serra
 #                                          contra envoltória de ruído)
 #   passeio de janelas de
-#   100ms depois do ataque 7,9dB -> 0,2dB (o "instável" que se ouvia)
+#   100ms depois do ataque 7,9dB -> 0,10dB (o "instável" que se ouvia)
 #   afinação real das 12
-#   notas                 -28,6 a +6,1 cents  ->  -0,2 a +0,3 cents
+#   notas                 -28,6 a +6,1 cents  ->  -0,28 a +0,29 cent
 # A afinação é a diferença que mais importa num jogo cuja mecânica é reconhecer
 # qual nota soou: o laço de atraso sempre esteve afinado, mas ruído não é
 # periódico, então o que saía não tinha período estável -- o teste de afinação
 # media a resposta ao IMPULSO (o laço linear, correto) e por isso passava.
 
 # Onde o arco toca a corda, como fração do laço (0 = no cavalete, 0,5 = no meio).
-# É ele que divide o laço nos dois segmentos abaixo -- a soma dos dois é o laço
-# inteiro, então MUDAR A POSIÇÃO NÃO DESAFINA a corda, só muda o timbre.
+# É ele que divide o laço nos dois segmentos abaixo. 0,125 é a posição de um
+# violino de verdade, perto do cavalete -- e é o betaRatio padrão do Bowed do
+# STK (0,127), de onde este modelo veio.
 #
-# E muda MUITO. Medido, espectro do Lá4 (harmônicos 1 a 7, normalizados pelo
-# fundamental), com todo o resto igual:
-#   0,5    1,00 0,03 0,08 0,01 0,05 0,01 0,01  -- o arco no meio da corda não
+# MUDAR A POSIÇÃO DESAFINA. A soma dos dois segmentos é o laço inteiro, então a
+# dedução diz que não deveria; a mesa de arco encurta o laço de um jeito que
+# depende de ONDE ela está, e a dedução não vê isso. Medido: trocar 0,25 por
+# 0,125 sem mexer em mais nada põe as 12 notas 1,1 a 2,5 cents BAIXAS, e o erro
+# é proporcional à frequência (ou seja, é atraso fixo -- 0,12 amostra a mais no
+# laço). Quem paga é WG_LOSS_DELAY_COMP, que é re-medido a cada mexida aqui.
+#
+# E muda MUITO o timbre. Medido, espectro do Lá4 (harmônicos 1 a 7, normalizados
+# pelo fundamental), com todo o resto igual:
+#   0,5    1,00 0,03 0,07 0,00 0,05 0,01 0,00  -- o arco no meio da corda não
 #          consegue excitar modo nenhum de ordem par: sai quase uma senoide, e
-#          fator de crista 1,47. Timbre de flauta, não de corda.
-#   0,125  1,00 2,61 0,84 0,95 0,61 0,33 0,06  -- o 2º harmônico sai 2,6x MAIOR
-#          que o fundamental: nasalado, e a altura fica ambígua (é o oitavado
-#          que o jogador ouviria primeiro). É a posição de um violino de verdade
-#          (perto do cavalete), mas o modelo não a sustenta.
-#   0,25   1,00 0,52 0,40 0,11 0,16 0,16 0,16  -- série decrescente, parecida com
-#          a do aditivo (1 / 0,5 / 0,3 / 0,2 / 0,1) mas com corpo acima do 5º
-#          harmônico, que é o que o aditivo não tem.
-# 0,25 zera exatamente o 4º harmônico (0,11 contra 0,2 no aditivo), que é o preço
-# de bater numa fração inteira; 0,22 evita o zero mas põe o 2º harmônico de volta
-# em 0,30 e o passeio de envoltória em 0,9dB (contra 0,2), então não compensa.
-const WG_BOW_POSITION := 0.25
+#          fator de crista 1,57. Timbre de flauta, não de corda.
+#   0,25   1,00 0,52 0,39 0,15 0,15 0,14 0,13  -- a cauda NÃO decai: do 4º ao 7º
+#          harmônico fica tudo em 0,13-0,15. É essa fileira de parciais agudos do
+#          mesmo tamanho que soa áspera.
+#   0,125  1,00 0,49 0,31 0,22 0,16 0,11 0,03  -- quase a série do aditivo
+#          (1 / 0,5 / 0,3 / 0,2 / 0,1), decrescente até o fim, e sem o 4º
+#          harmônico quase zerado que 0,25 paga por bater numa fração inteira.
+# O comentário anterior descartava 0,125 dizendo que ali o 2º harmônico sai 2,6x
+# MAIOR que o fundamental ("nasalado, altura ambígua"). Não reproduz: medido nas
+# 12 notas, o maior parcial acima do fundamental é 0,50x -- a fundamental é a
+# parcial mais forte em todas elas. O que derruba a fundamental de verdade é
+# ganho de laço baixo ou arco pesado demais (ver WG_REFLECTION_GAIN), e disso o
+# jogo agora tem teste.
+#
+# Aspereza, que era a reclamação de ouvido. Comparando o som de antes (arco a
+# 0,25, reflexão 0,98) com o de agora, medido nas 12 notas: energia acima de 2kHz
+# cai de 4,76% pra 3,59%, acima de 4kHz de 0,70% pra 0,38%, e o brilho -- RMS da
+# diferença entre amostras vizinhas convertido em Hz, que é a frequência RMS do
+# espectro -- cai de 942Hz pra 826Hz (o aditivo dá 598Hz). Só a posição, com a
+# reflexão igual dos dois lados, vai de 987Hz (0,25) pra 826Hz (0,125).
+# Um centroide espectral ponderado por AMPLITUDE anda pro outro lado (2007 ->
+# 2249Hz) porque conta cada parcialzinha aguda com o mesmo peso da fundamental, e
+# a 0,125 há mais delas; as medidas que pesam ENERGIA, que é o que o ouvido faz,
+# dizem mais escuro.
+#
+# O preço é o ATAQUE. Perto do cavalete o movimento de Helmholtz precisa de mais
+# voltas pra se formar: os primeiros 200ms saem a -2,73dB do regime no Dó4
+# (contra -0,49dB a 0,25) e a corda só alcança o volume dela lá pelos 150ms, em
+# vez de 40ms. As posições intermediárias andam suave entre os dois extremos
+# (com a reflexão de agora -- 0,15: brilho 875Hz e ataque -1,35dB; 0,2: 940Hz e
+# -0,67dB) -- se o ataque lento incomodar mais que a aspereza, é pra lá que se
+# anda, re-medindo WG_LOSS_DELAY_COMP no caminho.
+const WG_BOW_POSITION := 0.125
 # Comprimento de cada segmento em múltiplos de _wg_delay (que é MEIO laço).
 const WG_BRIDGE_SEGMENT := 2.0 * WG_BOW_POSITION
 const WG_NUT_SEGMENT := 2.0 * (1.0 - WG_BOW_POSITION)
 # Velocidade do arco e inclinação da mesa de fricção. Só o PRODUTO dos dois
 # importa pro timbre (a mesa só enxerga velocidade x inclinação; o resto vira
-# ganho, que WG_OUTPUT_GAIN reabsorve): medido, 0,15x2,0 e 0,20x1,5 dão espectro,
-# crista e afinação idênticos até a 3ª casa. O produto 0,4 foi escolhido nas
-# pontas de três medições (brilho = RMS da diferença entre amostras vizinhas
-# convertido em Hz, um centroide espectral: o aditivo dá 718Hz e a versão a ruído
-# reprovada, 1052Hz -- nenhuma destas três é mais áspera que o que já estava lá):
-#   0,3  -- crista 1,87, brilho 1103Hz
-#   0,4  -- crista 1,80 (o do aditivo), brilho 1040Hz, RMS dos primeiros 200ms a
-#           -0,3dB do resto, afinação do ataque dentro de 0,9 cent
-#   0,5  -- crista 1,72 e brilho 979Hz (mais escuro), mas o ataque sai a -0,5dB e
-#           entra 1,5 cent BAIXO -- e ataque é o que o jogador mais ouve.
+# ganho, que WG_OUTPUT_GAIN reabsorve): medido, 0,15x2,0, 0,1x3,0 e 0,3x1,0 dão
+# espectro, brilho, crista e afinação IDÊNTICOS até a 3ª casa decimal.
+#
+# O produto 0,4 fica onde estava; o que muda é o que ele custa com o arco na
+# posição nova (brilho = frequência RMS do espectro, média das 12 notas; o
+# aditivo dá 598Hz):
+#   0,3  -- brilho 913Hz, crista 2,08, ataque -1,25dB (o mais rápido dos três)
+#   0,4  -- brilho 826Hz, crista 2,03, ataque -2,73dB
+#   0,5  -- brilho 766Hz, crista 2,01, ataque -5,52dB (a corda demora demais)
+# Os três desafinam entre si -- o peso do arco encurta o laço --, então mexer
+# aqui obriga a re-medir WG_LOSS_DELAY_COMP: com o produto em 0,3 e a
+# compensação de agora, as 12 notas sobem pra +0,40 a +1,34 cent.
+#
+# O comentário anterior afirmava que "nenhuma destas três é mais áspera que o que
+# já estava lá". O apoio era um brilho medido na versão excitada a RUÍDO, que
+# sorteava a excitação e nem é mais o algoritmo daqui -- não dava pra concluir
+# isso de um sorteio, e a frase saiu.
 const WG_BOW_VELOCITY := 0.2
 const WG_BOW_TABLE_SLOPE := 2.0
 # 256 amostras por linha cobrem com folga a oitava do jogo e o tamanho NUNCA
@@ -141,49 +178,63 @@ const WG_LINE_SAMPLES := 256
 # O arco divide a corda em dois segmentos (ver WG_BOW_POSITION), e o segmento
 # do lado da pestana é o mais longo dos dois: é ELE que tem que caber na linha,
 # não a metade do laço. Daí o teto ser o comprimento da linha dividido pelo
-# segmento maior, e não a linha inteira. Dá 169,3 amostras de meio-laço, ou seja
-# corda afinável até ~130Hz -- a nota mais grave do jogo (262Hz) pede 83,4.
+# segmento maior, e não a linha inteira. Com o arco a 0,125 o segmento da pestana
+# é 7/8 do laço, e sobram 145,1 amostras de meio-laço -- corda afinável até
+# ~151Hz. A nota mais grave do jogo (262Hz) pede 83,4.
 const WG_MAX_HALF_DELAY := (WG_LINE_SAMPLES - 2) / (2.0 * (1.0 - WG_BOW_POSITION))
 # Filtro de perdas de 1 polo no cavalete: é ele que faz os harmônicos agudos
 # morrerem antes do fundamental, como numa corda de verdade.
 const WG_LOSS_COEFF := 0.3774
 # Ganho de cada reflexão. Ao quadrado (são duas por volta) dá o decaimento da
-# corda; perto demais de 1 a corda vira um sino que nunca cala, longe demais e o
-# arco não chega a pôr a corda pra oscilar.
+# corda; longe demais de 1 e o arco não chega a pôr a corda pra oscilar. A ponta
+# de cima -- corda que decai devagar demais -- não é problema AQUI porque nada
+# neste modo deixa a corda soando sozinha: o tom para junto com o arrasto, e o
+# arrasto seguinte reseta as duas linhas (ver _reset_waveguide).
 #
-# Na versão a ruído esta constante era quem governava quanto tempo a corda levava
-# pra alcançar o volume dela, e 0,98 foi escolhido por isso (a 0,998 o arrasto
-# acabava antes de a corda subir). Com a mesa de arco ela NÃO governa mais:
-# medido nas 12 notas, o RMS dos primeiros 200ms fica a -0,49dB do resto a 0,98 e
-# a -0,50dB a 0,998 -- quem manda no ataque agora é o arco, que injeta energia
-# ativamente até a curva de atrito saturar, e não o quanto o laço guarda dela.
-#
-# O que ela ainda muda é o brilho e o fator de crista (0,95 -> 1,72; 0,98 -> 1,80;
-# 0,998 -> 1,87) e uns 0,5 cent de afinação. 0,98 fica porque é a crista que casa
-# com a do aditivo e é o valor contra o qual WG_LOSS_DELAY_COMP foi medido.
-const WG_REFLECTION_GAIN := 0.98
+# Com o arco a 0,25 esta constante quase não fazia diferença medível (0,98 e
+# 0,998 davam o mesmo ataque, -0,49 contra -0,50dB) e ficou sem teste que a
+# segurasse. Com o arco a 0,125 ela volta a mandar em duas coisas, e as duas
+# agora têm teste:
+#   ATAQUE -- RMS dos primeiros 200ms contra o do regime, pior das 12 notas:
+#     0,98 -5,89dB | 0,99 -4,19 | 0,995 -3,13 | 0,998 -2,73 | 1,0 -2,53.
+#     Perto do cavalete o movimento de Helmholtz precisa de mais voltas pra se
+#     formar, e um laço que guarda mais energia por volta chega lá antes -- o
+#     oposto da intuição de que laço mais surdo "acorda" mais rápido. 0,998 é o
+#     joelho da curva: 1,0 ganha só 0,2dB e tira toda a margem contra um laço que
+#     não perde nada em ponta nenhuma.
+#   QUE NOTA SOA -- abaixo de 0,98 a fundamental COLAPSA e a corda trava na
+#     oitava: a 0,95 o 2º harmônico chega a ~1000x o fundamental e o RMS cai pela
+#     metade. É o "arco leve demais toca o harmônico" de um violino de verdade, e
+#     num jogo cuja mecânica é reconhecer qual nota soou, é fatal.
+# Custa brilho: 0,98 dá 780Hz e 0,998 dá 826Hz (frequência RMS do espectro, média
+# das 12 notas) -- 46Hz mais claro em troca de 3,2dB de ataque. E custa afinação:
+# trocar 0,98 por 0,998 sobe as 12 notas ~0,4 cent, o que WG_LOSS_DELAY_COMP
+# reabsorve (é medido com esta constante no valor de agora).
+const WG_REFLECTION_GAIN := 0.998
 # O laço fecha mais curto do que a soma das linhas de delay diz, por três motivos
 # que não dá pra separar por dedução: o atraso de fase do filtro de perdas, o da
 # interpolação linear das leituras fracionárias, e o encurtamento que a própria
 # mesa de arco causa (durante a GRUDADA a corda é praticamente presa no ponto do
-# arco, e uma corda presa no meio é uma corda mais curta -- some 0,34 amostra).
-# Sem descontar nada o tom sai BAIXO: 16 a 31 cents nas 12 notas.
+# arco, e uma corda presa é uma corda mais curta). Sem descontar nada o tom sai
+# BAIXO: 15 a 23 cents nas notas em que o medidor de fase ainda não perde a volta.
 #
-# Por isso o valor é MEDIDO e não derivado: com a mesa de arco o erro é linear
-# nesta constante e some junto nas 12 notas ao mesmo tempo (é um erro de ATRASO
-# fixo, e atraso fixo vira sempre a mesma proporção do período). Medido nas 12
-# notas, afinação real (deriva de fase da fundamental em 0,8s):
-#   1,25  -- -0,74 a -1,21 cent (baixo demais)
-#   1,355 -- -0,16 a +0,29 cent
-#   1,65  -- +3,57 a +6,41 cents (o valor da versão a ruído, que era o atraso de
-#            fase do filtro sozinho -- e que só passava no teste porque o teste
-#            media a resposta ao impulso, onde a mesa de arco nem entra)
-const WG_LOSS_DELAY_COMP := 1.355
+# Por isso o valor é MEDIDO e não derivado -- e re-medido a cada mexida em
+# WG_BOW_POSITION, WG_REFLECTION_GAIN ou no peso do arco, porque a parcela que a
+# mesa de arco encurta depende dos três. O erro é linear nesta constante e some
+# junto nas 12 notas (é atraso FIXO, e atraso fixo vira sempre a mesma proporção
+# do período). Medido nas 12 notas com o arco a 0,125 e reflexão 0,998, afinação
+# real (deriva de fase da fundamental em 0,8s):
+#   1,355 -- -2,45 a -1,13 cent (o valor calibrado pra o arco a 0,25)
+#   1,472 -- -0,37 a +0,22
+#   1,478 -- -0,28 a +0,29  (o minimax: aqui o erro pra baixo iguala o pra cima)
+#   1,483 -- -0,21 a +0,35
+#   1,510 -- +0,03 a +0,56
+const WG_LOSS_DELAY_COMP := 1.478
 # O dedo é amostrado por FRAME e o áudio por AMOSTRA, então a frequência nova
 # chega como degrau. Aplicar o degrau direto no comprimento da linha estala:
 # numa varredura Dó4->Si4 com a frequência mudando uma vez por frame, o pulo
-# máximo amostra-a-amostra vai a 0,238, contra 0,154 do mesmo tom parado. Com
-# este slew fica em 0,163 -- 6% acima do tom parado --, e ainda assim rápido o
+# máximo amostra-a-amostra vai a 0,282, contra 0,132 do mesmo tom parado. Com
+# este slew fica em 0,139 -- 5% acima do tom parado --, e ainda assim rápido o
 # bastante pra a corda alcançar o comprimento novo (resíduo de 0,4 amostra meio
 # segundo depois de um salto de oitava inteira).
 const WG_DELAY_SLEW := 0.02
@@ -200,13 +251,22 @@ const WG_DC_BLOCK_COEFF := 0.995
 # Com a excitação a ruído esta calibração não fechava. O ruído dava fator de
 # crista 3,75 contra 1,80 do aditivo, então casar o RMS jogava o pico em ~1,19 e
 # o clampf() aqui embaixo esconderia a distorção; o gasto ficava em ganho 25, com
-# o guia de onda ainda ~4dB abaixo do aditivo. O comentário de então dizia que
-# fechar esses 4dB pedia trocar o ruído por stick-slip de verdade. Pediu mesmo, e
-# fechou: com a mesa de arco a crista é 1,80 -- a MESMA do aditivo --, então
-# casar o RMS casa o pico junto (0,410 contra 0,402 do aditivo) e sobra a mesma
-# margem de clipping que o timbre antigo sempre teve pro +2,5dB do EQ do bus
-# Strings. Medido nas 12 notas x 1,5s, com 0,92: RMS 0,2221 contra 0,2221.
-const WG_OUTPUT_GAIN := 0.92
+# o guia de onda ainda ~4dB abaixo do aditivo. A mesa de arco fechou esses 4dB.
+#
+# Com o arco a 0,125 não existe UM ganho que case as duas janelas, porque a corda
+# leva ~150ms pra alcançar o volume dela (ver WG_BOW_POSITION): casar os
+# primeiros 200ms deixa o resto do arrasto alto, casar o regime deixa o ataque
+# fraco. 0,55 é o minimax das três janelas medidas nas 12 notas, contra o
+# aditivo (RMS 0,2221 nas três):
+#   200ms  0,2022  -0,82dB
+#   500ms  0,2293  +0,27dB   <- o arrasto típico, praticamente casado
+#   1,5s   0,2403  +0,68dB
+# O pico das 12 notas fica em 0,540 (o aditivo dá 0,402): a crista subiu pra 2,03
+# com o arco perto do cavalete, então o mesmo RMS custa mais margem de pico que
+# antes. Ainda sobra: com o +2,5dB do EQ do bus Strings por cima, o pior caso vai
+# a 0,720, longe do clampf() aqui embaixo -- que, se fosse alcançado, esconderia
+# a distorção em vez de denunciá-la.
+const WG_OUTPUT_GAIN := 0.55
 
 # Trocar de algoritmo no meio de um arrasto pula a amostra do valor de uma
 # síntese pro da outra num único frame de áudio -- estalo garantido, e bem na
@@ -527,8 +587,9 @@ func _waveguide_step(freq_hz: float) -> float:
 
 ## Leitura FRACIONÁRIA da linha de delay (interpolação linear entre as duas
 ## amostras vizinhas). Arredondar o comprimento para inteiro é o atalho óbvio e
-## foi medido: numa varredura Dó4->Si4 o pulo máximo amostra-a-amostra DOBRA, de
-## 0,163 para 0,319, enquanto o do tom parado quase não muda (0,154 -> 0,167).
+## foi medido: numa varredura Dó4->Si4 o pulo máximo amostra-a-amostra quase
+## DOBRA, de 0,139 para 0,255, enquanto o do tom parado quase não muda
+## (0,132 -> 0,136).
 ## É a corda dando um pulinho de comprimento toda vez que cruza a fronteira de
 ## uma amostra -- uma aspereza que só aparece enquanto o dedo desliza, que é
 ## justamente quando este modo de input está em uso.
