@@ -73,10 +73,26 @@ func _ready() -> void:
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
 	_hud.color_settings_requested.connect(_on_color_settings_requested)
+	# O NotePanel estava fixado em offset_top=140 no .tscn, e a barra do topo
+	# passou de ~134 para 150px quando "Cores" ganhou uma segunda linha: o painel
+	# opaco do HUD (irmão posterior na CanvasLayer) passou a desenhar 10px por
+	# cima do chip de pista. Posicionar pela altura MEDIDA da barra também
+	# sobrevive a um aumento de fonte por acessibilidade.
+	_hud.top_bar_resized.connect(_place_note_panel_below_hud)
+	_place_note_panel_below_hud()
 	# Garante a invariante de _apply_input_mode() (só um grupo visível+clicável)
 	# desde o frame zero, em vez de depender "por coincidência" dos defaults do
 	# .tscn até a 1ª chamada de _begin_preset().
 	_apply_input_mode()
+
+## Folga entre a barra do topo e o NotePanel. Preserva a altura autorada no
+## .tscn, só desloca o painel para baixo do HUD.
+const NOTE_PANEL_GAP := 8.0
+
+func _place_note_panel_below_hud() -> void:
+	var altura := _note_panel.offset_bottom - _note_panel.offset_top
+	_note_panel.offset_top = _hud.top_bar_height() + NOTE_PANEL_GAP
+	_note_panel.offset_bottom = _note_panel.offset_top + altura
 
 func _on_start_requested(preset_id: String, cue_level: int, input_mode: int) -> void:
 	_begin_preset(preset_id, cue_level, input_mode)

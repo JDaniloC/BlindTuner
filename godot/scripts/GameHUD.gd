@@ -4,10 +4,15 @@ extends Control
 signal start_requested(preset_id: String, cue_level: int, input_mode: int)
 signal restart_requested
 signal color_settings_requested
+## A barra do topo mudou de altura. Quem desenha logo abaixo dela (o NotePanel
+## do Playground) precisa se reposicionar: a altura depende do número de linhas
+## de controle e do tamanho da fonte, que sobe por acessibilidade.
+signal top_bar_resized
 
 const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
 const PLAY_ICON := preload("res://assets/ui/flat/UI_Flat_ButtonPlay01a.png")
 
+var _top_panel: PanelContainer
 var _preset_opt: OptionButton
 var _cue_opt: OptionButton
 var _mode_opt: OptionButton
@@ -21,16 +26,17 @@ func _ready() -> void:
 	theme = UI_THEME
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	var top_panel := PanelContainer.new()
-	top_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	add_child(top_panel)
+	_top_panel = PanelContainer.new()
+	_top_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_top_panel.resized.connect(func(): top_bar_resized.emit())
+	add_child(_top_panel)
 
 	var top_margin := MarginContainer.new()
 	top_margin.add_theme_constant_override("margin_left", 16)
 	top_margin.add_theme_constant_override("margin_top", 16)
 	top_margin.add_theme_constant_override("margin_right", 16)
 	top_margin.add_theme_constant_override("margin_bottom", 16)
-	top_panel.add_child(top_margin)
+	_top_panel.add_child(top_margin)
 
 	var top_vbox := VBoxContainer.new()
 	top_vbox.add_theme_constant_override("separation", 8)
@@ -94,6 +100,11 @@ func _ready() -> void:
 	again.text = "Repetir"
 	again.pressed.connect(_on_restart_pressed)
 	col.add_child(again)
+
+## Altura ocupada pela barra do topo, medida (não estimada): é o que separa o
+## HUD de quem desenha logo abaixo dele.
+func top_bar_height() -> float:
+	return _top_panel.size.y if _top_panel != null else 0.0
 
 func _on_start_pressed() -> void:
 	if _preset_opt.selected < 0 or _preset_opt.selected >= SequencePresets.ALL.size():

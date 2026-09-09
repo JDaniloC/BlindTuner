@@ -80,6 +80,11 @@ func test_top_rows_fit_the_design_width():
 	# O botão "Cores" tinha sido enfiado na primeira linha, que ficou com 7px de
 	# folga em 720 -- qualquer rótulo maior (ou fonte maior por acessibilidade)
 	# já transbordaria, e nenhum teste media isso.
+	#
+	# A comparação é contra a largura REAL da linha, não contra os 720px da tela:
+	# a HBox vive dentro de um MarginContainer (16 de cada lado) dentro de um
+	# PanelContainer cuja moldura come outros 16, então o orçamento é 656px. Medir
+	# contra 720 concedia 64px de folga fantasma.
 	var vp = SubViewport.new()
 	vp.size = Vector2i(_design_width(), ProjectSettings.get_setting("display/window/size/viewport_height"))
 	add_child_autofree(vp)
@@ -92,10 +97,30 @@ func test_top_rows_fit_the_design_width():
 	for par in [["primeira", linha1], ["segunda", linha2]]:
 		var nome: String = par[0]
 		var linha: Control = par[1]
-		var largura := 0.0
-		for filho in linha.get_children():
-			if filho is Control:
-				largura += (filho as Control).get_combined_minimum_size().x
-		largura += linha.get_theme_constant("separation") * maxi(0, linha.get_child_count() - 1)
-		assert_lte(largura, float(_design_width()),
-			"a %s linha do HUD precisa de %.0fpx e a tela tem %d" % [nome, largura, _design_width()])
+		assert_lt(linha.size.x, float(_design_width()),
+			"a %s linha não pode ocupar a tela inteira -- as margens do painel existem" % nome)
+		assert_lte(linha.get_combined_minimum_size().x, linha.size.x,
+			"a %s linha do HUD precisa de %.0fpx e só tem %.0f" % [
+				nome, linha.get_combined_minimum_size().x, linha.size.x])
+
+func test_note_panel_is_not_covered_by_the_top_bar():
+	# A barra do topo cresceu ~16px quando "Cores" foi para a segunda linha, e o
+	# NotePanel estava fixado em offset_top=140 no Playground.tscn: o painel opaco
+	# do HUD (irmão posterior na CanvasLayer) desenhava 10px por cima do chip de
+	# pista, que é a única informação visível no nível 2.
+	var vp = SubViewport.new()
+	vp.size = Vector2i(_design_width(), ProjectSettings.get_setting("display/window/size/viewport_height"))
+	add_child_autofree(vp)
+	var pg = load("res://scenes/Playground.tscn").instantiate()
+	vp.add_child(pg)
+	await wait_frames(4)
+
+	var hud: Control = pg.get_node("UI/GameHUD")
+	var note_panel: Control = pg.get_node("UI/NotePanel")
+	var barra: Rect2 = hud._top_panel.get_global_rect()
+	var painel: Rect2 = note_panel.get_global_rect()
+	assert_gt(barra.size.y, 0.0, "pré-condição: a barra do topo já foi disposta")
+	assert_gte(painel.position.y, barra.end.y,
+		"o HUD termina em y=%.0f e o NotePanel começa em y=%.0f" % [barra.end.y, painel.position.y])
+	assert_lte(painel.end.y, float(ProjectSettings.get_setting("display/window/size/viewport_height")),
+		"o NotePanel não pode ser empurrado para fora da tela")
