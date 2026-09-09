@@ -1,8 +1,15 @@
 extends Control
 ## Modo de input "Scroll de Afinação": braço fretless de instrumento de corda
-## (sem marcador de posição -- violino/cello de verdade não têm). Arrasta o
-## dedo verticalmente pra ouvir a frequência mudar ao vivo; ao soltar,
-## resolve pra nota mais próxima do valor largado.
+## (sem traste -- violino/cello de verdade não têm). Arrasta o dedo
+## verticalmente pra ouvir a frequência mudar ao vivo; ao soltar, resolve pra
+## nota mais próxima do valor largado.
+##
+## Fretless não quer dizer liso: com o interruptor de pistas LIGADO, fitinhas
+## coloridas marcam onde cada nota mora -- que é literalmente o que professor de
+## violino cola no espelho de aluno iniciante. Traste é relevo fixo e não sai
+## nunca; fita é material didático que some quando o jogador desliga o
+## interruptor, e é essa opcionalidade que reconcilia as duas coisas. A fita é a
+## manifestação do interruptor neste modo, como a cor da tecla é no piano.
 
 signal note_triggered(note_key: String)
 
@@ -48,6 +55,12 @@ const FINGER_RADIUS := 18.0
 # para 36 (22 unidades de 8 bits). 64 faixas dão 0,34 unidade por faixa, bem
 # abaixo do limiar -- e mantêm a faixa em ~10px, como era no braço de 400px.
 const GRADIENT_STRIPS := 64
+## Espessura da fitinha de posição. O semitom mais estreito do braço mede 44,7px
+## (lá no agudo, ver test_note_spacing_matches_real_string_geometry), então 12px
+## de fita deixam ~33px de madeira entre duas vizinhas: lê como marca e não como
+## traste largo, e é grossa o bastante pro público de baixa visão. Não é alvo de
+## toque -- quem recebe o dedo é o braço inteiro, em qualquer altura.
+const TAPE_HEIGHT := 12.0
 
 var _dragging := false
 var _finger_y := 0.0
@@ -56,6 +69,22 @@ func _ready() -> void:
 	custom_minimum_size = BOARD_SIZE
 	mouse_filter = MOUSE_FILTER_STOP
 	_finger_y = NECK_TOP + BOARD_MARGIN.y
+	# Repinta ao trocar de paleta e ao virar o interruptor de pistas, sem
+	# reiniciar a fase. Aqui o braço é _draw() e não StyleBox, então o handler
+	# chama queue_redraw() em vez de remontar estilo.
+	#
+	# NÃO escuta o nível de pista de propósito: aquele governa o que o HUD conta
+	# sobre a nota TOCADA (é a dificuldade), enquanto a fita é material didático
+	# permanente sobre o controle. No "só som", com o interruptor ligado, as fitas
+	# continuam no braço.
+	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
+
+func _on_scheme_changed(_id: String) -> void:
+	queue_redraw()
+
+func _on_control_cues_changed(_enabled: bool) -> void:
+	queue_redraw()
 
 func _draw() -> void:
 	var cx := BOARD_SIZE.x * 0.5
@@ -76,11 +105,17 @@ func _draw() -> void:
 		var c := BOARD_COLOR_TOP.lerp(BOARD_COLOR_BOTTOM, t)
 		draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP + strip_h * i), Vector2(NECK_WIDTH, strip_h + 1.0)), c)
 
-	# 4 cordas -- a ativa mais grossa e mais clara. Sem nenhuma marca de
-	# posição ao longo do braço: violino/cello são fretless, e marcar posição
-	# entregaria a nota que o jogador deveria achar de ouvido.
-	var top := NECK_TOP + BOARD_MARGIN.y
-	var bottom := BOARD_SIZE.y - BOARD_MARGIN.y
+	# Fitinhas de posição. A ordem de chamada dentro de _draw() é o único
+	# z-index que existe aqui: elas entram DEPOIS do braço e ANTES das cordas e
+	# do dedo, que é onde a fita fica num instrumento de verdade.
+	for tape in _tapes():
+		draw_rect(tape["rect"], tape["color"])
+
+	# 4 cordas -- a ativa mais grossa e mais clara, e desenhadas por cima das
+	# fitinhas. Vão de ponta a ponta do trecho que o dedo alcança: a corda que
+	# se vê é exatamente a corda que se pode tocar.
+	var top := _neck_usable_top()
+	var bottom := _neck_usable_bottom()
 	for i in range(STRING_OFFSETS_X.size()):
 		var sx: float = cx + STRING_OFFSETS_X[i]
 		var is_active := i == ACTIVE_STRING_INDEX
@@ -150,6 +185,38 @@ func _y_for_frequency(freq: float) -> float:
 	var low := _lowest_frequency()
 	var t := (1.0 - low / freq) / _neck_span_ratio()
 	return _neck_usable_top() + t * (_neck_usable_bottom() - _neck_usable_top())
+
+## As fitinhas a desenhar AGORA: uma por nota, com retângulo e cor. Devolve os
+## dados em vez de desenhar direto pra posição de cada fita ser verificável sem
+## passe de render -- e pra que o teste vigie o que o _draw() realmente usa, e
+## não uma segunda régua paralela.
+##
+## Lista VAZIA com o interruptor de pistas desligado: aí sobra o braço liso.
+func _tapes() -> Array[Dictionary]:
+	var tapes: Array[Dictionary] = []
+	if not ColorSchemeSettings.shows_control_cues():
+		return tapes
+	# Largura do BRAÇO (84px, de x=33 a x=117), não a do board (150px): este nó
+	# não tem clip_contents, então uma fita da largura do board pintaria 33px de
+	# cor de cada lado, por fora da madeira e sobre fundo transparente.
+	var x := BOARD_SIZE.x * 0.5 - NECK_WIDTH * 0.5
+	for key in NoteMapping.NOTES:
+		var cy := _y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
+		# APARAR, não recuar. As notas dos extremos moram exatamente nas bordas da
+		# faixa alcançável, então metade da fita mais grave e metade da mais aguda
+		# cairiam fora do braço útil. Aparado, o centro da fita continua verdadeiro
+		# (marca onde a nota realmente soa) e só se perde desenho; empurrar a fita
+		# pra dentro deixaria a marca mentindo sobre a posição da nota, que é a
+		# única coisa que ela existe pra dizer.
+		var y0 := maxf(cy - TAPE_HEIGHT * 0.5, _neck_usable_top())
+		var y1 := minf(cy + TAPE_HEIGHT * 0.5, _neck_usable_bottom())
+		# Cor da nota no esquema ATIVO: assim as fitas herdam de graça os três
+		# esquemas fixos e o editor de paleta livre.
+		tapes.append({
+			"rect": Rect2(Vector2(x, y0), Vector2(NECK_WIDTH, y1 - y0)),
+			"color": NoteMapping.color_for(key),
+		})
+	return tapes
 
 ## Fração do comprimento da corda que a oitava consome; é ela que estica a
 ## conta pra oitava caber justa no braço útil.

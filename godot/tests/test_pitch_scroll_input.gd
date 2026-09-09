@@ -7,8 +7,16 @@ func _make() -> Node:
 	add_child_autofree(p)
 	return p
 
+func before_each():
+	ColorSchemeSettings.reset_to_defaults()
+
 func after_each():
 	AudioManager.stop_continuous_pitch()
+	# O braço não consulta o nível de pista, mas há teste aqui que o sobe
+	# justamente para provar isso -- e CueSettings é autoload, não se reseta
+	# sozinho. reset_to_defaults() religa o interruptor de pistas junto.
+	CueSettings.set_level(0)
+	ColorSchemeSettings.reset_to_defaults()
 
 func test_lowest_and_highest_frequency_cover_all_twelve_notes():
 	var p = _make()
@@ -163,7 +171,100 @@ func test_board_fits_the_free_corridor_below_the_note_panel():
 
 func test_still_has_no_fret_markers():
 	# Regressão: braço fretless é decisão de design (violino/cello não têm
-	# traste, e marcar posição entregaria a nota, que é o desafio do jogo).
+	# traste). As fitinhas NÃO são traste: um traste é relevo fixo, sempre lá; a
+	# fita é material didático opcional que some com o interruptor de pistas --
+	# ver test_tapes_vanish_when_control_cues_are_off, que é o teste que sustenta
+	# a diferença.
 	var src = FileAccess.get_file_as_string("res://scripts/PitchScrollInput.gd")
 	assert_false(src.to_lower().contains("fret_dot"), "não pode ter marcador de traste")
 	assert_false(src.to_lower().contains("marker_positions"), "não pode ter marcação de posição")
+
+## A fitinha de uma nota. _tapes() devolve na ordem cromática de NoteMapping.
+func _tape_for(p, note_key: String) -> Dictionary:
+	var tapes: Array = p._tapes()
+	var idx: int = NoteMapping.NOTES.keys().find(note_key)
+	return tapes[idx]
+
+func test_one_tape_per_note_marks_where_the_note_sounds():
+	# A fita só serve se marcar o lugar onde a nota REALMENTE soa: tem que sair da
+	# mesma conta do braço (_y_for_frequency), não de uma segunda régua.
+	var p = _make()
+	assert_eq(p._tapes().size(), 12, "uma fitinha por nota")
+	for key in NoteMapping.NOTES:
+		var r: Rect2 = _tape_for(p, key)["rect"]
+		var y: float = p._y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
+		assert_between(y, r.position.y, r.end.y, "a fita de %s tem que conter o y da nota" % key)
+
+func test_tape_center_is_the_note_position():
+	var p = _make()
+	for key in ["Cs4", "E4", "G4", "As4"]:
+		var r: Rect2 = _tape_for(p, key)["rect"]
+		var y: float = p._y_for_frequency(float(NoteMapping.NOTES[key]["freq"]))
+		assert_almost_eq(r.size.y, p.TAPE_HEIGHT, 0.001, key)
+		assert_almost_eq(r.get_center().y, y, 0.001, key)
+
+func test_extreme_tapes_are_trimmed_instead_of_pushed_inwards():
+	# Dó e Si caem EXATAMENTE nas bordas da faixa alcançável, então metade de cada
+	# fita extrema cairia fora do braço útil. Aparar o retângulo mantém o centro
+	# verdadeiro e perde só desenho; recuar a fita pra dentro a faria mentir sobre
+	# onde a nota está, que é pior.
+	var p = _make()
+	var grave: Rect2 = _tape_for(p, "C4")["rect"]
+	var agudo: Rect2 = _tape_for(p, "B4")["rect"]
+	assert_almost_eq(grave.position.y, p._neck_usable_top(), 0.001,
+		"a fita mais grave não pode passar do topo do braço útil")
+	assert_almost_eq(grave.end.y, p._y_for_frequency(p._lowest_frequency()) + p.TAPE_HEIGHT * 0.5, 0.001,
+		"só a metade de cima é aparada -- a de baixo fica onde estava")
+	assert_almost_eq(agudo.end.y, p._neck_usable_bottom(), 0.001,
+		"a fita mais aguda não pode passar da base do braço útil")
+	assert_almost_eq(agudo.position.y, p._y_for_frequency(p._highest_frequency()) - p.TAPE_HEIGHT * 0.5, 0.001,
+		"só a metade de baixo é aparada")
+
+func test_tapes_span_the_neck_and_never_bleed_over_the_background():
+	# O nó não tem clip_contents: usar a largura do board (150px) em vez da do
+	# braço (84px) pintaria 33px de cor de cada lado, sobre fundo transparente.
+	var p = _make()
+	var esquerda: float = p.BOARD_SIZE.x * 0.5 - p.NECK_WIDTH * 0.5
+	for t in p._tapes():
+		var r: Rect2 = t["rect"]
+		assert_almost_eq(r.position.x, esquerda, 0.001, "a fita começa na borda esquerda do braço")
+		assert_almost_eq(r.size.x, p.NECK_WIDTH, 0.001, "a fita tem a largura do braço, não a do board")
+
+func test_tapes_vanish_when_control_cues_are_off():
+	# É a opcionalidade que reconcilia a fita com o braço fretless: desligado o
+	# interruptor, sobra o instrumento autêntico e liso.
+	ColorSchemeSettings.set_control_cues(false)
+	var p = _make()
+	assert_eq(p._tapes().size(), 0, "sem pistas nos controles, sem fitinha")
+
+func test_toggling_control_cues_repaints_without_restarting():
+	# Aqui o desenho é _draw(), não StyleBox: "repintar na hora" significa o nó
+	# escutar o interruptor e agendar o redraw. Sem esta conexão as fitas só
+	# sumiriam na próxima vez que algo repintasse o braço -- na prática, ao
+	# reiniciar a fase.
+	var p = _make()
+	assert_true(ColorSchemeSettings.control_cues_changed.is_connected(p._on_control_cues_changed),
+		"o braço tem que escutar o interruptor de pistas")
+	assert_eq(p._tapes().size(), 12)
+	ColorSchemeSettings.set_control_cues(false)
+	assert_eq(p._tapes().size(), 0, "virar o interruptor tem que tirar as fitas na hora")
+
+func test_tape_color_follows_the_active_scheme():
+	# A fita usa a cor da nota no esquema ativo, e por isso herda de graça os três
+	# esquemas fixos e o editor de paleta livre.
+	var p = _make()
+	assert_true(ColorSchemeSettings.scheme_changed.is_connected(p._on_scheme_changed),
+		"o braço tem que escutar a troca de esquema")
+	var antes: Color = _tape_for(p, "C4")["color"]
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	var depois: Color = _tape_for(p, "C4")["color"]
+	assert_eq(depois, NoteMapping.color_for("C4"), "a fita usa a cor da nota no esquema ativo")
+	assert_ne(depois, antes, "trocar de esquema tem que repintar as fitas")
+
+func test_the_cue_level_does_not_touch_the_tapes():
+	# A mesma consequência deliberada do piano e do joystick: no nível "só som",
+	# com o interruptor ligado, as fitas CONTINUAM lá. O desafio é reconhecer a
+	# nota tocada de ouvido, não adivinhar onde ela mora no braço.
+	CueSettings.set_level(3)
+	var p = _make()
+	assert_eq(p._tapes().size(), 12, "o nível de pista governa a nota tocada, não o controle")
