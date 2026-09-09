@@ -67,8 +67,12 @@ func test_gamehud_layout_uses_containers():
 	assert_eq(h.anchor_bottom, 1.0, "GameHUD root anchor_bottom=1.0 (preenche viewport)")
 	assert_true(h._stats_panel.get_parent() is CenterContainer,
 		"_stats_panel deve estar sob CenterContainer")
-	assert_true(h._progress.get_parent() is VBoxContainer,
-		"_progress deve estar sob VBoxContainer")
+	# _progress divide a SEGUNDA linha com o botão "Cores" -- na primeira, os 5
+	# controles deixavam 7px de folga em 720px de largura.
+	assert_true(h._progress.get_parent() is HBoxContainer,
+		"_progress deve estar sob a HBox da segunda linha")
+	assert_true(h._progress.get_parent().get_parent() is VBoxContainer,
+		"a segunda linha deve estar sob o VBoxContainer do topo")
 	assert_true(h._preset_opt.get_parent() is HBoxContainer,
 		"_preset_opt deve estar sob HBoxContainer")
 

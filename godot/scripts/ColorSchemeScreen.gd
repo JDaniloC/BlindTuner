@@ -15,6 +15,11 @@ const SWATCH_MIN := Vector2(56, 56)  # acima do mínimo de 44pt recomendado
 const SWATCH_BORDER := Color(0.12, 0.10, 0.09)
 const SWATCH_BORDER_PX := 3
 const CUSTOM_LABEL := "Personalizado"
+## Cor do texto dos botões "Editar" quando desabilitados (esquema fixo). O
+## padrão do tema fica em 1,14:1 contra o fundo do botão -- ilegível, e é o
+## estado em que a tela SEMPRE abre, já que o esquema inicial não é o
+## personalizado.
+const DISABLED_TEXT := Color(0.30, 0.28, 0.26)
 
 class Row:
 	var swatch: ColorRect
@@ -27,6 +32,9 @@ var _note_list: VBoxContainer
 var _reset_btn: Button
 var _close_btn: Button
 var _modal: Control
+var _confirm_panel: PanelContainer
+var _confirm_yes: Button
+var _confirm_no: Button
 
 func _ready() -> void:
 	theme = UI_THEME
@@ -68,6 +76,31 @@ func _ready() -> void:
 	_note_list.add_theme_constant_override("separation", 8)
 	scroll.add_child(_note_list)
 
+	# Confirmação antes de restaurar: o botão fica colado no "Fechar" e apagava
+	# as 12 cores personalizadas na hora, gravando em disco, sem volta. Trabalho
+	# manual de acessibilidade não pode sumir por um toque errado.
+	_confirm_panel = PanelContainer.new()
+	_confirm_panel.visible = false
+	col.add_child(_confirm_panel)
+	var ccol := VBoxContainer.new()
+	ccol.add_theme_constant_override("separation", 8)
+	_confirm_panel.add_child(ccol)
+	var caviso := Label.new()
+	caviso.text = "Isso apaga as suas 12 cores personalizadas e volta ao padrão. Continuar?"
+	caviso.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ccol.add_child(caviso)
+	var cbtns := HBoxContainer.new()
+	cbtns.add_theme_constant_override("separation", 10)
+	ccol.add_child(cbtns)
+	_confirm_yes = Button.new()
+	_confirm_yes.text = "Restaurar"
+	_confirm_yes.pressed.connect(_on_reset_confirmed)
+	cbtns.add_child(_confirm_yes)
+	_confirm_no = Button.new()
+	_confirm_no.text = "Cancelar"
+	_confirm_no.pressed.connect(_on_reset_cancelled)
+	cbtns.add_child(_confirm_no)
+
 	_reset_btn = Button.new()
 	_reset_btn.text = "Restaurar tudo ao padrão"
 	_reset_btn.pressed.connect(_on_reset_pressed)
@@ -83,6 +116,9 @@ func _ready() -> void:
 	_modal = ModalScript.new()
 	_modal.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_modal)
+	# Sem isto, confirmar uma cor no modal não atualizava o swatch da lista até
+	# alguma outra coisa disparar _refresh().
+	_modal.color_confirmed.connect(_on_modal_color_confirmed)
 
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
 	_sync_selector()
@@ -118,6 +154,7 @@ func _build_rows() -> void:
 
 		row.button = Button.new()
 		row.button.text = "Editar"
+		row.button.add_theme_color_override("font_disabled_color", DISABLED_TEXT)
 		row.button.pressed.connect(_on_edit_pressed.bind(i))
 		line.add_child(row.button)
 
@@ -149,13 +186,24 @@ func _on_scheme_selected(index: int) -> void:
 		ColorSchemeSettings.set_scheme(ColorSchemeSettings.CUSTOM_ID)
 	ColorSchemeSettings.save_to_disk()
 
+## Só abre a confirmação -- quem restaura de fato é _on_reset_confirmed.
 func _on_reset_pressed() -> void:
+	_confirm_panel.visible = true
+
+func _on_reset_confirmed() -> void:
+	_confirm_panel.visible = false
 	ColorSchemeSettings.reset_to_defaults()
 	ColorSchemeSettings.save_to_disk()
 	_sync_selector()
 
+func _on_reset_cancelled() -> void:
+	_confirm_panel.visible = false
+
 func _on_edit_pressed(chromatic_index: int) -> void:
 	_modal.open_for(chromatic_index)
+
+func _on_modal_color_confirmed(_index: int, _color: Color) -> void:
+	_refresh()
 
 func _on_close_pressed() -> void:
 	closed.emit()

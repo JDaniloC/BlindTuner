@@ -61,14 +61,22 @@ func _ready() -> void:
 	_start_btn.pressed.connect(_on_start_pressed)
 	row.add_child(_start_btn)
 
+	# "Cores" vai para a segunda linha: enfiado na primeira, os 5 controles
+	# deixavam 7px de folga em 720px de largura -- qualquer rótulo um pouco
+	# maior (ou uma fonte maior por acessibilidade) já transbordaria.
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 8)
+	top_vbox.add_child(row2)
+
 	_color_btn = Button.new()
 	_color_btn.text = "Cores"
 	_color_btn.pressed.connect(_on_color_pressed)
-	row.add_child(_color_btn)
+	row2.add_child(_color_btn)
 
 	_progress = Label.new()
 	_progress.text = "—"
-	top_vbox.add_child(_progress)
+	_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row2.add_child(_progress)
 
 	var stats_center := CenterContainer.new()
 	stats_center.set_anchors_preset(Control.PRESET_FULL_RECT)
