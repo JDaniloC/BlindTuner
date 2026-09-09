@@ -61,6 +61,30 @@ func test_pitch_scroll_board_is_fully_on_screen():
 	_assert_on_screen(board, "braço do PitchScrollInput")
 	_assert_on_screen(scroll.get_global_rect(), "caixa do PitchScrollInput")
 
+func test_pitch_scroll_touch_area_matches_the_drawn_board():
+	# Regressão medida, e a mais silenciosa daqui: custom_minimum_size PERDE
+	# para os offsets do .tscn quando o Control é filho do CanvasLayer. Com
+	# BOARD_SIZE crescendo pra (150, 780) e os offsets do Playground.tscn
+	# parados, o nó ficou com size=(110, 400) e minsize=(150, 780). O desenho
+	# vaza -- isso o teste acima pega --, mas _gui_input só recebe evento dentro
+	# do rect do nó, então os 380px de baixo do braço viram zona morta e o
+	# jogador nunca alcança as notas graves. Nada mais acusa isso.
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var scroll: Control = p.get_node("UI/PitchScrollInput")
+	assert_eq(scroll.size, scroll.BOARD_SIZE,
+		"a área de toque do braço precisa cobrir o desenho inteiro")
+
+func test_pitch_scroll_board_does_not_cover_the_note_panel():
+	# O braço cresceu pra cima, e o NotePanel não fica onde o .tscn diz: o
+	# Playground o reposiciona logo abaixo da barra do topo do HUD, cuja altura
+	# muda com o que o HUD tiver. Medir a cena inteira é o único jeito honesto.
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var scroll := (p.get_node("UI/PitchScrollInput") as Control).get_global_rect()
+	assert_false(scroll.intersects((p.get_node("UI/NotePanel") as Control).get_global_rect()),
+		"o braço do Scroll cobre o NotePanel")
+
 func test_joystick_and_special_actions_are_fully_on_screen():
 	var p = _playground_at_design_size()
 	await wait_frames(2)

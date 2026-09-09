@@ -6,14 +6,30 @@ extends Control
 
 signal note_triggered(note_key: String)
 
-const BOARD_SIZE := Vector2(110, 400)
+# O braço ocupa o corredor livre abaixo do NotePanel (medido no viewport de
+# projeto 720x1280: y=240 até y=1280). As medidas de SEÇÃO -- cravelhal,
+# cravelhas, largura do braço, cordas, dedo -- cresceram pelo fator horizontal
+# 150/110 (~1,36); o comprimento extra é todo do braço, que é o que o dedo
+# percorre. Ampliar a altura sem ampliar a seção deixaria um espeto fino de
+# 780px, difícil de acertar justamente pro público de baixa visão.
+#
+# AO MUDAR ESTE VALOR, mude junto os offsets do nó PitchScrollInput em
+# Playground.tscn. O custom_minimum_size abaixo PERDE para eles quando o
+# Control é filho do CanvasLayer (medido: minsize (150,780) e size (110,400) ao
+# mesmo tempo). Como _gui_input só recebe evento dentro do rect do nó, o excesso
+# de braço vira zona morta e as notas graves ficam inalcançáveis -- sem erro e
+# sem warning. test_playground_input_layout.gd vigia isso na cena de verdade.
+const BOARD_SIZE := Vector2(150, 780)
 const BOARD_MARGIN := Vector2(10, 10)
-const HEAD_SIZE := Vector2(58, 78)          # cravelhal no topo
-const PEG_SIZE := Vector2(20, 8)
-const NECK_WIDTH := 62.0
-const NECK_TOP := 74.0
+const HEAD_SIZE := Vector2(79, 106)         # cravelhal no topo
+const PEG_SIZE := Vector2(27, 11)
+const PEG_ROW_TOP := 33.0                   # y da 1a cravelha de cada lado
+const PEG_ROW_SPACING := 27.0               # desnível entre as duas do mesmo lado
+const PEG_INSET := 5.0                      # quanto a cravelha entra no cravelhal
+const NECK_WIDTH := 84.0
+const NECK_TOP := 101.0
 # 4 cordas, como violino/cello de verdade. A ativa é a que responde ao dedo.
-const STRING_OFFSETS_X: Array[float] = [-21.0, -7.0, 7.0, 18.0]
+const STRING_OFFSETS_X: Array[float] = [-29.0, -10.0, 10.0, 25.0]
 const ACTIVE_STRING_INDEX := 1
 const BOARD_COLOR_TOP := Color(0.227, 0.165, 0.102)     # #3a2a1a
 const BOARD_COLOR_BOTTOM := Color(0.141, 0.094, 0.063)  # #241809
@@ -23,12 +39,15 @@ const STRING_COLOR := Color(0.910, 0.886, 0.816)        # #e8e2d0
 const STRING_ACTIVE_COLOR := Color(1.0, 0.992, 0.949)
 const FINGER_FILL := Color(0.949, 0.788, 0.541)         # #f2c98a
 const FINGER_BORDER := Color(0.478, 0.290, 0.071)       # #7a4a12
-const FINGER_RADIUS := 13.0
+const FINGER_RADIUS := 18.0
 # Precisa ser alto o bastante pro passo de cor entre faixas cair abaixo do
 # limiar perceptível (~1 unidade de 8 bits). Uma borda visível em Y fixo vira
 # um marco de afinação sempre no mesmo lugar -- ou seja, funcionalmente um
 # traste, o que quebra a restrição fretless. Não reduza sem refazer essa conta.
-const GRADIENT_STRIPS := 40
+# Conta refeita quando o braço cresceu: o canal que mais varia é o R, de 58
+# para 36 (22 unidades de 8 bits). 64 faixas dão 0,34 unidade por faixa, bem
+# abaixo do limiar -- e mantêm a faixa em ~10px, como era no braço de 400px.
+const GRADIENT_STRIPS := 64
 
 var _dragging := false
 var _finger_y := 0.0
@@ -45,8 +64,8 @@ func _draw() -> void:
 	draw_rect(Rect2(head_pos, HEAD_SIZE), HEAD_COLOR)
 	for i in range(4):
 		var on_left := i < 2
-		var py := 24.0 + float(i % 2) * 20.0
-		var px := head_pos.x - PEG_SIZE.x + 4.0 if on_left else head_pos.x + HEAD_SIZE.x - 4.0
+		var py := PEG_ROW_TOP + float(i % 2) * PEG_ROW_SPACING
+		var px := head_pos.x - PEG_SIZE.x + PEG_INSET if on_left else head_pos.x + HEAD_SIZE.x - PEG_INSET
 		draw_rect(Rect2(Vector2(px, py), PEG_SIZE), PEG_COLOR)
 
 	# Braço, com gradiente simulado por faixas (sem asset de imagem)

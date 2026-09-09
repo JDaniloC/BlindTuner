@@ -70,6 +70,33 @@ func test_board_has_four_strings_with_one_active():
 	assert_eq(p.STRING_OFFSETS_X.size(), 4, "violino/cello tem 4 cordas")
 	assert_true(p.ACTIVE_STRING_INDEX >= 0 and p.ACTIVE_STRING_INDEX < 4)
 
+func test_touch_area_matches_the_drawn_board():
+	# Regressão: o braço é desenhado de 0 até BOARD_SIZE em coordenadas locais,
+	# mas _gui_input só recebe evento dentro do rect do nó. Se o rect não cobrir
+	# o desenho inteiro, a parte de baixo do braço vira zona morta ao toque.
+	# O await é obrigatório: custom_minimum_size só vira size no passe de layout
+	# do frame seguinte -- sem ele, size ainda é (0,0).
+	var p = _make()
+	await wait_frames(1)
+	assert_eq(p.size, p.BOARD_SIZE, "área de toque precisa cobrir o braço inteiro")
+
+func test_lowest_note_is_reachable_at_the_bottom_of_the_touch_area():
+	# O ponto mais baixo que o dedo consegue tocar tem que dar a nota mais grave:
+	# se a área de toque acabasse antes do fim do braço desenhado, o jogador
+	# nunca alcançaria o grave.
+	var p = _make()
+	await wait_frames(1)
+	p._move_finger_to(p.size.y)
+	assert_almost_eq(AudioManager._pitch_freq, p._lowest_frequency(), 0.5)
+
+func test_board_fits_the_free_corridor_below_the_note_panel():
+	# Corredor medido no viewport de projeto: o NotePanel termina em y=240 e a
+	# tela em y=1280, ou seja 1040px. O braço tem que caber lá com folga.
+	var p = _make()
+	var altura_tela: int = ProjectSettings.get_setting("display/window/size/viewport_height")
+	assert_lte(p.BOARD_SIZE.y, float(altura_tela) - 240.0,
+		"o braço não cabe no corredor livre abaixo do NotePanel")
+
 func test_still_has_no_fret_markers():
 	# Regressão: braço fretless é decisão de design (violino/cello não têm
 	# traste, e marcar posição entregaria a nota, que é o desafio do jogo).
