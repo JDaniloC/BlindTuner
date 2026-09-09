@@ -12,6 +12,9 @@ const DEFAULT_SCHEME := "pedagogico"
 const CUSTOM_ID := "personalizado"
 const CONFIG_PATH := "user://color_scheme.cfg"
 
+## Marca "campo ausente no arquivo" na leitura de custom_editada. Ver load_from_disk().
+const SEM_FLAG := "ausente"
+
 ## Caminho do arquivo de configuração. É variável, não constante, porque os
 ## testes precisam apontar para um arquivo próprio: a suíte gravava e apagava o
 ## user://color_scheme.cfg REAL, destruindo a paleta de quem joga na mesma
@@ -145,7 +148,13 @@ func load_from_disk() -> bool:
 	# em vez de simplesmente devolver false.
 	var id_raw = cfg.get_value("cor", "scheme_id", "")
 	var custom_raw = cfg.get_value("cor", "custom", [])
-	var editada_raw = cfg.get_value("cor", "custom_editada", null)
+	# Sentinela em vez de null: get_value(..., null) faz o ConfigFile entender que
+	# default NENHUM foi dado e chamar push_error, então todo boot de quem atualiza
+	# de uma versão anterior ao campo saía com "Couldn't find the given section" no
+	# log -- por um caso normal, e contra a decisão de não poluir o log registrada
+	# logo acima. Qualquer valor não-booleano serve: o typeof() abaixo trata
+	# sentinela e lixo pelo mesmo caminho, o da migração.
+	var editada_raw = cfg.get_value("cor", "custom_editada", SEM_FLAG)
 	if typeof(id_raw) != TYPE_STRING:
 		return false
 	var id: String = id_raw
