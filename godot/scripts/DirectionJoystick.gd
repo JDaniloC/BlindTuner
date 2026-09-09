@@ -5,6 +5,9 @@ extends Control
 
 signal note_triggered(note_key: String)
 
+## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
+const ColorDistance := preload("res://scripts/ColorDistance.gd")
+
 ## RADIUS é a raiz de toda a geometria. As três constantes abaixo já eram
 ## frações exatas dele, só que escritas como número fixo -- deixar a zona morta
 ## em pixels enquanto o raio cresce encolheria ela em proporção e faria um
@@ -37,6 +40,24 @@ const LABEL_COLOR := Color.WHITE
 ## depender de qual esquema de cor está ativo.
 const LABEL_OUTLINE_COLOR := Color(0.08, 0.07, 0.06, 0.95)
 const LABEL_OUTLINE_SIZE := 6
+
+## Disco de fundo OPACO. Era alfa 0,30, e as setas eram brancas fixas com a
+## justificativa de que aqui havia "fundo escuro garantido". Não havia: com o
+## disco translúcido, o que fica atrás da seta é o CENÁRIO, e o Banheiro tem chão
+## #E8E4D8. Medido, seta branca sobre a fatia inativa por cima daquele chão:
+## 2,19:1, abaixo dos 3:1 de elemento gráfico -- e 1,99:1 de disco contra chão,
+## ou seja, nem a borda do controle se distinguia do piso.
+##
+## Opaco, a premissa vira verdadeira e o contraste da seta deixa de depender de
+## em que cômodo a fase se passa. Foi a mesma lição que o piano e as placas já
+## tinham aprendido, cada um por conta própria: tinta decidida contra um fundo
+## SUPOSTO em vez do fundo pintado.
+const BACKDROP_DISC := Color(0.12, 0.10, 0.09)
+## Alfa da fatia em repouso e sob o dedo. Estavam escritos como números soltos em
+## dois lugares; a tinta da seta é recalculada a partir deles, então precisam ter
+## nome.
+const SLICE_ALPHA_IDLE := 0.35
+const SLICE_ALPHA_ACTIVE := 0.85
 
 var _dragging := false
 var _thumb_offset := Vector2.ZERO
@@ -92,7 +113,7 @@ func _build_backdrop() -> void:
 		pts.append(Vector2(cos(a), sin(a)) * r)
 	_backdrop_disc = Polygon2D.new()
 	_backdrop_disc.polygon = PackedVector2Array(pts)
-	_backdrop_disc.color = Color(0.12, 0.10, 0.09, 0.30)
+	_backdrop_disc.color = BACKDROP_DISC
 	_slices_root.add_child(_backdrop_disc)
 	var ring_pts: Array[Vector2] = pts.duplicate()
 	ring_pts.append(pts[0])
@@ -208,6 +229,8 @@ func _apply_cue() -> void:
 		_slice_labels[i].text = NoteMapping.label_for(_slice_note_keys[i]) if show_cues else ""
 		# Depois do texto: ele entra no mínimo do Label e pode mudar o tamanho.
 		_place_label(i)
+	# A cor da fatia mudou, logo o fundo da seta mudou junto.
+	_retint_slice_icons()
 
 func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 	var points: Array[Vector2] = [Vector2.ZERO]
@@ -272,8 +295,39 @@ func _refresh_slice_alphas() -> void:
 	for i in range(_slice_polygons.size()):
 		var slice := _slice_polygons[i]
 		var base := slice.color
-		base.a = 0.85 if i == _active_slice_index else 0.35
+		base.a = SLICE_ALPHA_ACTIVE if i == _active_slice_index else SLICE_ALPHA_IDLE
 		slice.color = base
+	_retint_slice_icons()
+
+## Cor REALMENTE pintada atrás da seta da fatia `i`: a fatia translúcida composta
+## sobre o disco opaco.
+func _slice_backdrop(i: int) -> Color:
+	var slice := _slice_polygons[i].color
+	return Color(
+		slice.r * slice.a + BACKDROP_DISC.r * (1.0 - slice.a),
+		slice.g * slice.a + BACKDROP_DISC.g * (1.0 - slice.a),
+		slice.b * slice.a + BACKDROP_DISC.b * (1.0 - slice.a))
+
+## A seta segue a mesma regra do glifo da tecla e da placa. Precisa rodar a cada
+## mudança de ALFA, não só de cor: a fatia sob o dedo pula de 0,35 pra 0,85, e aí
+## o que está atrás da seta deixa de ser o disco escuro e passa a ser quase a cor
+## da nota. Nas notas claras (o Mi do Pedagógico é #FFF200) uma seta branca fixa
+## cairia pra 1,6:1 justamente na fatia que o jogador escolheu.
+func _retint_slice_icons() -> void:
+	for i in range(_slice_icons.size()):
+		_slice_icons[i].set_tint(ColorDistance.icon_tint_for(_slice_backdrop(i)))
+
+## A régua de contraste dos testes pergunta aqui o que este controle pinta atrás
+## de cada filho: as fatias são IRMÃS das setas e dos nomes num Node2D, então
+## nenhuma caminhada por ancestrais acha esse fundo sozinha.
+func contrast_backdrop_for(child: Node) -> Variant:
+	# Guarda de tipo antes do find(): Array.find() em array TIPADO dispara erro
+	# quando recebe um objeto de outra classe, e a régua pergunta por todo filho
+	# (o thumb é um Polygon2D).
+	if not (child is Control):
+		return null
+	var i: int = _slice_labels.find(child) if child is Label else _slice_icons.find(child)
+	return _slice_backdrop(i) if i >= 0 else null
 
 func _emit_for_offset(offset: Vector2) -> void:
 	var note := vector_to_note(offset)
@@ -290,10 +344,13 @@ func _flash_active_slice() -> void:
 	var bright := slice.color
 	bright.a = 1.0
 	var dim := slice.color
-	dim.a = 0.35
+	dim.a = SLICE_ALPHA_IDLE
 	_flash_tween = create_tween()
 	_flash_tween.tween_property(slice, "color", bright, 0.06)
 	_flash_tween.tween_property(slice, "color", dim, 0.16)
+	# O tween escreve slice.color direto, por fora de _refresh_slice_alphas():
+	# sem isto a seta terminava o flash com a tinta calculada pra fatia ACESA.
+	_flash_tween.tween_callback(_retint_slice_icons)
 
 ## Converte um vetor 2D (relativo ao centro) em uma chave de nota.
 ## Só retorna notas de movimento (snap em layout direcional 8x45°).

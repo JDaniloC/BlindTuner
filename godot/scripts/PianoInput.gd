@@ -13,11 +13,14 @@ const BLACK_KEY_INDICES := [1, 3, 6, 8, 10]
 const WHITE_INDEX_FOR_CHROMATIC := {0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6}
 const LEFT_WHITE_FOR_BLACK := {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}
 const CORNER_RADIUS := 6
-## Espelha SpecialActionPanel.BUTTON_FONT_COLORS -- este modo de input também é
-## irmão do GameHUD na CanvasLayer, logo também herda o tema padrão do Godot (e
-## com ele o cinza claro do rótulo, que ainda clareia mais no hover/pressed/focus).
+## Este modo de input é irmão do GameHUD na CanvasLayer, logo NÃO herda
+## blindtuner_theme.tres: cai no tema padrão do Godot, que é de skin escura e por
+## isso pinta o rótulo de quase branco em todos os estados menos o de repouso.
+## Os SEIS precisam de override -- `font_disabled_color` entrou junto porque uma
+## varredura por estado não tem como saber que ninguém desabilita uma tecla, e
+## uma tecla desabilitada com o padrão do Godot fica em 1,00:1.
 const BUTTON_FONT_COLORS := ["font_color", "font_hover_color", "font_pressed_color",
-	"font_hover_pressed_color", "font_focus_color"]
+	"font_hover_pressed_color", "font_focus_color", "font_disabled_color"]
 const ICON_MAX_SIDE := 48.0
 const ICON_BOTTOM_MARGIN := 12.0
 ## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
@@ -155,18 +158,35 @@ func _apply_cue() -> void:
 		# ilegível numa tecla branca ou numa cor clara da paleta.
 		for nome in BUTTON_FONT_COLORS:
 			_buttons[i].add_theme_color_override(nome, ink)
+		# Contorno na tinta OPOSTA. A cor da nota é escolhida pra distinguir uma
+		# nota das outras 11, não pra contrastar com o rótulo, e nas paletas
+		# embarcadas existe meio-tom onde NENHUMA das duas tintas alcança os
+		# 4,5:1 de texto (o #009218 do Pedagógico dá 4,10). O halo separa as duas
+		# exigências: o que fica encostado na letra passa a ser ele, e ele está a
+		# 17,4:1 da tinta em qualquer tecla e em qualquer estado -- inclusive no
+		# pressed, que mexe no fundo. Mesma saída que o joystick já usava.
+		_buttons[i].add_theme_color_override("font_outline_color", ColorDistance.outline_tint_for(bg))
+		_buttons[i].add_theme_constant_override("outline_size", ColorDistance.TEXT_OUTLINE_PX)
 		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
-		# escurecido) pra dar feedback visual de toque -- sem isso, apertar
+		# deslocado) pra dar feedback visual de toque -- sem isso, apertar
 		# uma tecla não mudava nada visualmente (normal/hover/pressed
 		# compartilhavam o mesmo StyleBoxFlat).
+		#
+		# O deslocamento AFASTA o fundo da tinta em vez de escurecer sempre: a
+		# tinta é decidida uma vez, sobre a cor de REPOUSO, e escurecer uma tecla
+		# de tinta escura aproximava as duas -- o Ré caía a 4,15:1 justamente com
+		# o dedo em cima. A regra mora em ColorDistance.pressed_shade_for().
 		var pressed_sb := StyleBoxFlat.new()
 		pressed_sb.corner_radius_bottom_left = CORNER_RADIUS
 		pressed_sb.corner_radius_bottom_right = CORNER_RADIUS
-		var base_color := sb.bg_color
-		pressed_sb.bg_color = Color(base_color.r * 0.85, base_color.g * 0.85, base_color.b * 0.85, base_color.a)
+		pressed_sb.bg_color = ColorDistance.pressed_shade_for(sb.bg_color)
 		_buttons[i].add_theme_stylebox_override("normal", sb)
 		_buttons[i].add_theme_stylebox_override("hover", sb)
 		_buttons[i].add_theme_stylebox_override("pressed", pressed_sb)
+		# Rede, não recurso: nada desabilita uma tecla hoje. Sem o override, uma
+		# que fosse desabilitada cairia na caixa cinza escura do tema padrão do
+		# Godot com a tinta calculada pra cor da NOTA -- 1,00:1.
+		_buttons[i].add_theme_stylebox_override("disabled", sb)
 		# "focus" não é sobrescrito de propósito: deixa o tema padrão do Godot
 		# desenhar o indicador de foco (navegação por teclado/acessibilidade).
 		# Sobrescrever com uma stylebox sem borda estava removendo esse indicador.

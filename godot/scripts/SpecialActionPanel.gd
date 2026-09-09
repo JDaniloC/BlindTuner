@@ -116,11 +116,19 @@ func _apply_cue() -> void:
 		sb.corner_radius_bottom_right = CORNER_RADIUS
 		_buttons[i].add_theme_stylebox_override("normal", sb)
 		_buttons[i].add_theme_stylebox_override("hover", sb)
-		# "pressed" ganha o mesmo desenho com o fundo escurecido, pra apertar o
+		# Rede, não recurso: nada desabilita uma placa hoje. Sem o override, uma
+		# placa desabilitada cairia na caixa cinza escura do tema padrão do Godot
+		# com a tinta calculada pra cor da NOTA -- 1,00:1.
+		_buttons[i].add_theme_stylebox_override("disabled", sb)
+		# "pressed" ganha o mesmo desenho com o fundo deslocado, pra apertar o
 		# botão mudar alguma coisa visualmente.
+		#
+		# O deslocamento AFASTA o fundo da tinta em vez de escurecer sempre: a
+		# tinta é decidida uma vez, sobre a cor de REPOUSO, e escurecer uma placa
+		# de tinta escura aproximava as duas -- a placa Sol# caía a 4,20:1
+		# justamente com o dedo em cima. A regra mora em ColorDistance.
 		var pressed_sb := StyleBoxFlat.new()
-		pressed_sb.bg_color = Color(base_color.r * 0.85, base_color.g * 0.85,
-			base_color.b * 0.85, base_color.a)
+		pressed_sb.bg_color = ColorDistance.pressed_shade_for(base_color)
 		pressed_sb.corner_radius_top_left = CORNER_RADIUS
 		pressed_sb.corner_radius_top_right = CORNER_RADIUS
 		pressed_sb.corner_radius_bottom_left = CORNER_RADIUS
@@ -143,6 +151,14 @@ func _apply_cue() -> void:
 		# 1,25:1 no Si e 1,36:1 no Lá, ilegível. Uma Label tem um único estado
 		# de cor, ao contrário do Button, que ainda clareia no hover/pressed.
 		_labels[i].add_theme_color_override("font_color", ink)
+		# Contorno na tinta OPOSTA, pela mesma razão do piano: a cor da nota
+		# responde por distinguir a nota das outras 11, não por contrastar com o
+		# rótulo, e existe meio-tom em que nenhuma das duas tintas chega aos
+		# 4,5:1 de texto. Com o halo, o que fica encostado na letra é ele --
+		# 17,4:1 contra a tinta em qualquer placa e qualquer estado, inclusive
+		# armada (bg x1,6) e apertada.
+		_labels[i].add_theme_color_override("font_outline_color", ColorDistance.outline_tint_for(base_color))
+		_labels[i].add_theme_constant_override("outline_size", ColorDistance.TEXT_OUTLINE_PX)
 		_icons[i].set_tint(ink)
 
 ## Conectado pelo Playground ao sinal armed_state_changed do Character.

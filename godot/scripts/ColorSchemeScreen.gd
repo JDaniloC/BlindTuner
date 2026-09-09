@@ -15,11 +15,6 @@ const SWATCH_MIN := Vector2(56, 56)  # acima do mínimo de 44pt recomendado
 const SWATCH_BORDER := Color(0.12, 0.10, 0.09)
 const SWATCH_BORDER_PX := 3
 const CUSTOM_LABEL := "Personalizado"
-## Cor do texto dos botões "Editar" quando desabilitados (esquema fixo). O
-## padrão do tema fica em 1,14:1 contra o fundo do botão -- ilegível, e é o
-## estado em que a tela SEMPRE abre, já que o esquema inicial não é o
-## personalizado.
-const DISABLED_TEXT := Color(0.30, 0.28, 0.26)
 
 class Row:
 	var swatch: ColorRect
@@ -155,9 +150,13 @@ func _build_rows() -> void:
 		row.label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(row.label)
 
+		# Sem override de cor aqui. Este botão nasce DESABILITADO (a tela abre num
+		# esquema fixo) e por isso foi o primeiro a expor que o tema só definia
+		# `font_color` -- o remendo de então era um font_disabled_color só dele.
+		# A cor dos seis estados agora vem de blindtuner_theme.tres e vale pra
+		# todo Button, OptionButton e CheckButton do jogo.
 		row.button = Button.new()
 		row.button.text = "Editar"
-		row.button.add_theme_color_override("font_disabled_color", DISABLED_TEXT)
 		row.button.pressed.connect(_on_edit_pressed.bind(i))
 		line.add_child(row.button)
 

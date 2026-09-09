@@ -1,6 +1,7 @@
 extends GutTest
 
 const PianoScene := preload("res://scenes/PianoInput.tscn")
+const PianoInputScript := preload("res://scripts/PianoInput.gd")
 # A regra de tint do ícone saiu do PianoInput e virou compartilhada; ColorDistance
 # é RefCounted, não autoload, então precisa de preload.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
@@ -129,18 +130,28 @@ func test_disarm_restores_modulate_to_cue_base():
 	p.on_armed_state_changed(false, false)
 	assert_eq(p._buttons[idx].get_theme_stylebox("normal").bg_color, base, "bg_color volta ao base após disarm")
 
-func test_pressed_stylebox_is_darker_than_normal():
+func test_pressed_stylebox_moves_away_from_the_ink_never_toward_it():
 	# Apertar uma tecla precisa mudar visualmente algo (feedback de toque) --
 	# antes, normal/hover/pressed compartilhavam o MESMO StyleBoxFlat. Ver I3.
+	#
+	# Mas a regra deixou de ser "mais escuro". A TINTA da tecla é decidida uma
+	# vez, sobre a cor de REPOUSO, e escurecer sempre significava que numa tecla
+	# de tinta escura o fundo caminhava na direção da tinta: o Ré ia a 4,15:1
+	# justamente com o dedo em cima. Agora o fundo se AFASTA da tinta -- escurece
+	# quando a tinta é clara, clareia quando é escura --, e as duas coisas valem
+	# ao mesmo tempo: o estado muda E fica mais legível, nunca menos.
 	var p = _make()
-	var idx = p._button_notes.find("C4")
-	var normal_color = p._buttons[idx].get_theme_stylebox("normal").bg_color
-	var pressed_color = p._buttons[idx].get_theme_stylebox("pressed").bg_color
-	# Luminância, não canal a canal: numa paleta onde a nota tem canal zerado
-	# (o Dó do esquema Pedagógico é #9C000A, com G=0), escurecer 0 dá 0 e a
-	# asserção por canal quebraria sem nada estar errado no jogo.
-	assert_lt(pressed_color.get_luminance(), normal_color.get_luminance(),
-		"pressed deve ser mais escuro que normal")
+	for esquema in ["classico", "pedagogico", "alto_contraste"]:
+		ColorSchemeSettings.set_scheme(esquema)
+		for i in range(p._buttons.size()):
+			var normal_color = p._buttons[i].get_theme_stylebox("normal").bg_color
+			var pressed_color = p._buttons[i].get_theme_stylebox("pressed").bg_color
+			assert_ne(pressed_color, normal_color,
+				"%s: a tecla %s não muda nada ao ser apertada" % [esquema, p._button_notes[i]])
+			var tinta: Color = p._key_icons[i]._tint
+			assert_gte(ColorDistance.contrast_ratio(pressed_color, tinta),
+				ColorDistance.contrast_ratio(normal_color, tinta),
+				"%s: apertar a tecla %s PIORA o contraste do glifo" % [esquema, p._button_notes[i]])
 
 func test_focus_stylebox_override_is_not_set():
 	# O indicador de foco (navegação por teclado/acessibilidade) some se a
@@ -234,16 +245,18 @@ func test_icon_tint_follows_note_color_luminance():
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
 		"fundo escuro (#9C000A) pede ícone branco")
 
-## Pior contraste do rótulo contra a própria tecla, entre TODOS os estados de cor
-## de texto do Button: o tema padrão do Godot clareia o rótulo no
-## hover/pressed/focus, então cobrir só font_color deixaria o nome sumir
-## justamente quando o dedo está em cima da tecla.
+## Pior contraste do NOME contra o que fica encostado nele, entre TODOS os
+## estados de cor de texto do Button.
+##
+## O que fica encostado na letra é o CONTORNO, não a tecla: os seis estados de
+## cor de fonte são sobrescritos com a tinta e o contorno é a tinta oposta. Medir
+## contra a tecla seria medir o que a letra não toca -- e daria o número errado
+## nos meio-tons, que é justamente onde a régua precisa acertar.
 func _pior_contraste_do_rotulo(btn: Button) -> float:
-	var fundo: Color = btn.get_theme_stylebox("normal").bg_color
+	var halo: Color = btn.get_theme_color("font_outline_color")
 	var pior := 99.0
-	for nome in ["font_color", "font_hover_color", "font_pressed_color",
-			"font_hover_pressed_color", "font_focus_color"]:
-		pior = minf(pior, ColorDistance.contrast_ratio(fundo, btn.get_theme_color(nome)))
+	for nome in PianoInputScript.BUTTON_FONT_COLORS:
+		pior = minf(pior, ColorDistance.contrast_ratio(halo, btn.get_theme_color(nome)))
 	return pior
 
 func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
@@ -252,21 +265,22 @@ func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
 	# então o rótulo herdava o cinza claro do tema padrão do Godot. Numa tecla
 	# clara da paleta isso era ilegível.
 	#
-	# A barra é 4,0 e não os 4,5 do WCAG porque as 12 cores dos esquemas
-	# embarcados não chegam lá: o pior caso medido é o verde #009218 do Pedagógico
-	# com 4,10:1, seguido do #388e3c do Clássico com 4,12 -- dois meio-tons em que
-	# a tinta branca vence por pouco. Subir a barra exigiria clarear ou escurecer
-	# essas cores nas paletas, não mexer na regra de tinta. As 4 placas do
-	# SpecialActionPanel, que é onde o nome aparece sempre, cobram 4,5 de verdade
-	# (ver test_note_name_contrasts_with_its_own_plate).
+	# A barra é a de texto do WCAG, 4,5. Ela era 4,0 enquanto o nome era lido
+	# contra a própria tecla: as cores das paletas embarcadas não chegam lá (o
+	# #009218 do Pedagógico dá 4,10 e o #388E3C do Clássico 4,12), porque a cor da
+	# nota responde por distinguir a nota das outras 11 e não por contrastar com o
+	# rótulo. Com o contorno na tinta oposta, quem encosta na letra é o halo, e as
+	# duas exigências deixam de disputar a mesma cor.
 	ColorSchemeSettings.set_control_cues(true)
 	var p = _make()
 	for esquema in ["classico", "pedagogico", "alto_contraste"]:
 		ColorSchemeSettings.set_scheme(esquema)
 		for i in range(p._buttons.size()):
 			assert_ne(p._buttons[i].text, "", "pré-condição: a tecla %s exibe o nome" % p._button_notes[i])
-			assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.0,
-				"%s: o nome da tecla %s dá %.2f:1 contra a própria tecla" % [
+			assert_gte(p._buttons[i].get_theme_constant("outline_size"), 2,
+				"a tecla %s precisa de contorno pra sustentar 4,5:1" % p._button_notes[i])
+			assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.5,
+				"%s: o nome da tecla %s dá %.2f:1 contra o próprio contorno" % [
 					esquema, p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
 
 func test_the_authentic_keyboard_has_no_names_and_keeps_the_glyphs_legible():

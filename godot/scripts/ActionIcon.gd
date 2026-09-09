@@ -48,12 +48,16 @@ func _ready() -> void:
 ## Cor do glifo. Quem desenha o ícone sobre um fundo claro precisa pedir um
 ## tint escuro -- branco sobre tecla branca dá contraste ~1.25:1.
 ##
-## O padrão branco só serve a quem tem fundo escuro garantido, e hoje isso é só
-## o DirectionJoystick (fatia translúcida sobre o disco escuro). SpecialActionPanel
-## e PianoInput pintam a placa com a COR DA NOTA, que costuma ser clara -- medido
-## no esquema Pedagógico: Lá = #81c8ff, Si = #ffadfb -- e por isso os dois chamam
-## set_tint() com o resultado de ColorDistance.icon_tint_for(fundo). Ícone novo em
-## qualquer um desses dois painéis precisa fazer o mesmo.
+## O padrão branco NÃO serve a ninguém aqui: os três painéis que usam este ícone
+## chamam set_tint() com ColorDistance.icon_tint_for(fundo), e ícone novo em
+## qualquer um deles precisa fazer o mesmo.
+##
+## O DirectionJoystick foi o último a entrar nessa regra, e a lição é o motivo
+## desta nota: ele desenhava a seta em branco fixo alegando "fundo escuro
+## garantido" (fatia translúcida sobre o disco). O disco era alfa 0,30, então o
+## que estava atrás da seta era o CENÁRIO -- e o Banheiro tem chão #E8E4D8.
+## Fundo SUPOSTO não é fundo pintado; o disco virou opaco e a seta passou a
+## seguir a mesma regra dos outros dois.
 func set_tint(color: Color) -> void:
 	_tint = color
 	queue_redraw()

@@ -60,6 +60,35 @@ func test_theme_font_color_is_dark():
 		assert_true(c.get_luminance() < 0.5, "%s/font_color deve ser escuro" % ty)
 		assert_eq(c, Color(0.16, 0.13, 0.10), "%s/font_color valor exato" % ty)
 
+## O tema definia SÓ `font_color`. Os outros cinco estados caíam no tema padrão
+## do Godot, que é de skin escura e por isso usa tinta quase branca -- sobre as
+## texturas quase brancas do pack flat, 1,02:1 a 1,14:1 em 29 botões e dropdowns.
+##
+## Este teste é o contrato; quem mede o número na UI real, estado por estado, é
+## test_ui_contrast_sweep.gd. Os dois precisam existir: sem o contrato, ler o
+## tema não conta o que ele promete; sem a varredura, o contrato não alcança o
+## que está FORA do tema.
+func test_theme_defines_every_button_text_state_not_just_the_resting_one():
+	for item in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
+		assert_true(t.has_color(item, "Button"), "Button/%s precisa vir do tema" % item)
+		var c: Color = t.get_color(item, "Button")
+		assert_true(c.get_luminance() < 0.5,
+			"Button/%s é claro (%s) -- some sobre a textura clara do botão" % [item, c.to_html(false)])
+		assert_eq(c.a, 1.0, "Button/%s não pode ser translúcido" % item)
+
+## A cadeia de tipos do Godot leva uma entrada de "Button" para OptionButton,
+## CheckButton e CheckBox. É por isso que a correção coube no tema em vez de num
+## override por nó -- verificado, não presumido.
+func test_button_colors_reach_the_button_subclasses():
+	for cena in [OptionButton.new(), CheckButton.new(), CheckBox.new()]:
+		var ctrl: Control = cena
+		ctrl.theme = t
+		add_child_autofree(ctrl)
+		for item in ["font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+			assert_eq(ctrl.get_theme_color(item), t.get_color(item, "Button"),
+				"%s não herdou Button/%s" % [ctrl.get_class(), item])
+
 func test_gamehud_layout_uses_containers():
 	var h = preload("res://scenes/GameHUD.tscn").instantiate()
 	add_child_autofree(h)

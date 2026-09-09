@@ -332,3 +332,36 @@ func test_slices_repaint_when_scheme_changes():
 	assert_almost_eq(depois.r, esperado.r, 0.001)
 	assert_almost_eq(depois.g, esperado.g, 0.001)
 	assert_almost_eq(depois.b, esperado.b, 0.001)
+
+## O disco de fundo é OPACO, e isso não é cosmético: as setas são desenhadas em
+## branco fixo, com a justificativa (escrita no código) de que aqui havia "fundo
+## escuro garantido". Com o disco em alfa 0,30 não havia -- o que ficava atrás da
+## seta era o CENÁRIO, e o Banheiro tem chão #E8E4D8. Medido, seta branca sobre
+## fatia inativa por cima daquele chão: 2,19:1, abaixo dos 3:1 de elemento
+## gráfico. Opaco, a premissa vira verdadeira.
+func test_backdrop_disc_is_opaque_so_the_arrows_do_not_depend_on_the_scenery():
+	var j = _make_joystick()
+	assert_eq(j._backdrop_disc.color.a, 1.0,
+		"disco translúcido devolve o fundo da seta pro cenário, que é imprevisível")
+
+## A tinta da seta segue a mesma regra do glifo da tecla e da placa, e precisa
+## acompanhar o ALFA da fatia: sob o dedo ela pula de 0,35 pra 0,85, e aí o que
+## está atrás da seta deixa de ser o disco escuro e passa a ser quase a cor da
+## nota. Nas notas claras (o Mi do Pedagógico é #FFF200) uma seta branca fixa
+## cairia a 1,6:1 justamente na fatia que o jogador escolheu.
+func test_arrow_tint_clears_the_graphic_minimum_idle_and_under_the_finger():
+	var ColorDistance = load("res://scripts/ColorDistance.gd")
+	ColorSchemeSettings.set_control_cues(true)
+	var j = _make_joystick()
+	for esquema in ["classico", "pedagogico", "alto_contraste"]:
+		ColorSchemeSettings.set_scheme(esquema)
+		for ativa in [-1, 0, 3, 7]:
+			j._active_slice_index = ativa
+			j._refresh_slice_alphas()
+			for i in range(j._slice_icons.size()):
+				var fundo: Color = j._slice_backdrop(i)
+				var razao: float = ColorDistance.contrast_ratio(j._slice_icons[i]._tint, fundo)
+				assert_gte(razao, 3.0,
+					"%s: a seta da fatia %d dá %.2f:1 (ativa=%d)" % [esquema, i, razao, ativa])
+	j._active_slice_index = -1
+	j._refresh_slice_alphas()

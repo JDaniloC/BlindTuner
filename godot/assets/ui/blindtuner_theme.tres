@@ -15,53 +15,114 @@ texture_margin_top = 8.0
 texture_margin_right = 8.0
 texture_margin_bottom = 8.0
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_y1pw3"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y1pw3"]
+draw_center = false
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.16, 0.13, 0.1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_as3fp"]
 texture = ExtResource("2_hkq03")
 texture_margin_left = 8.0
 texture_margin_top = 8.0
 texture_margin_right = 8.0
 texture_margin_bottom = 8.0
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_as3fp"]
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_gl763"]
 texture = ExtResource("3_u0iup")
 texture_margin_left = 8.0
 texture_margin_top = 8.0
 texture_margin_right = 8.0
 texture_margin_bottom = 8.0
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_gl763"]
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_p4i54"]
 texture = ExtResource("4_jut0x")
 texture_margin_left = 8.0
 texture_margin_top = 8.0
 texture_margin_right = 8.0
 texture_margin_bottom = 8.0
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_p4i54"]
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_hocqg"]
 texture = ExtResource("6_d5j8d")
 texture_margin_left = 12.0
 texture_margin_top = 8.0
 texture_margin_right = 12.0
 texture_margin_bottom = 8.0
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_hocqg"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yohlm"]
+draw_center = false
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.16, 0.13, 0.1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_xc7q5"]
 texture = ExtResource("7_g6gek")
 texture_margin_left = 16.0
 texture_margin_top = 16.0
 texture_margin_right = 16.0
 texture_margin_bottom = 16.0
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w2nck"]
+bg_color = Color(0.478, 0.4, 0.314, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xs4wd"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.118, 0.102, 0.082, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [resource]
 Button/colors/font_color = Color(0.16, 0.13, 0.1, 1)
+Button/colors/font_disabled_color = Color(0.3, 0.28, 0.26, 1)
+Button/colors/font_focus_color = Color(0.16, 0.13, 0.1, 1)
+Button/colors/font_hover_color = Color(0.16, 0.13, 0.1, 1)
+Button/colors/font_hover_pressed_color = Color(0.16, 0.13, 0.1, 1)
+Button/colors/font_pressed_color = Color(0.16, 0.13, 0.1, 1)
+Button/colors/icon_disabled_color = Color(1, 1, 1, 0.8)
+Button/colors/icon_focus_color = Color(1, 1, 1, 1)
+Button/colors/icon_hover_color = Color(1, 1, 1, 1)
+Button/colors/icon_hover_pressed_color = Color(1, 1, 1, 1)
+Button/colors/icon_normal_color = Color(1, 1, 1, 1)
+Button/colors/icon_pressed_color = Color(1, 1, 1, 1)
 Button/styles/disabled = SubResource("StyleBoxTexture_vx6gt")
-Button/styles/hover = SubResource("StyleBoxTexture_y1pw3")
-Button/styles/normal = SubResource("StyleBoxTexture_as3fp")
-Button/styles/pressed = SubResource("StyleBoxTexture_gl763")
+Button/styles/focus = SubResource("StyleBoxFlat_y1pw3")
+Button/styles/hover = SubResource("StyleBoxTexture_as3fp")
+Button/styles/normal = SubResource("StyleBoxTexture_gl763")
+Button/styles/pressed = SubResource("StyleBoxTexture_p4i54")
 Label/colors/font_color = Color(0.16, 0.13, 0.1, 1)
 OptionButton/colors/font_color = Color(0.16, 0.13, 0.1, 1)
 OptionButton/icons/arrow = ExtResource("5_pcrp7")
-OptionButton/styles/disabled = SubResource("StyleBoxTexture_p4i54")
-OptionButton/styles/focus = SubResource("StyleBoxTexture_p4i54")
-OptionButton/styles/hover = SubResource("StyleBoxTexture_p4i54")
-OptionButton/styles/normal = SubResource("StyleBoxTexture_p4i54")
-OptionButton/styles/pressed = SubResource("StyleBoxTexture_p4i54")
-PanelContainer/styles/panel = SubResource("StyleBoxTexture_hocqg")
+OptionButton/styles/disabled = SubResource("StyleBoxTexture_hocqg")
+OptionButton/styles/focus = SubResource("StyleBoxFlat_yohlm")
+OptionButton/styles/hover = SubResource("StyleBoxTexture_hocqg")
+OptionButton/styles/normal = SubResource("StyleBoxTexture_hocqg")
+OptionButton/styles/pressed = SubResource("StyleBoxTexture_hocqg")
+PanelContainer/styles/panel = SubResource("StyleBoxTexture_xc7q5")
+PopupMenu/colors/font_accelerator_color = Color(0.604, 0.569, 0.518, 1)
+PopupMenu/colors/font_color = Color(1, 0.992, 0.961, 1)
+PopupMenu/colors/font_disabled_color = Color(0.604, 0.569, 0.518, 1)
+PopupMenu/colors/font_hover_color = Color(1, 0.992, 0.961, 1)
+PopupMenu/colors/font_separator_color = Color(0.604, 0.569, 0.518, 1)
+PopupMenu/styles/hover = SubResource("StyleBoxFlat_w2nck")
+PopupMenu/styles/panel = SubResource("StyleBoxFlat_xs4wd")

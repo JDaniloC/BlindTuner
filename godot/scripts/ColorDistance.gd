@@ -76,19 +76,98 @@ static func relative_luminance(c: Color) -> float:
 ##     as únicas que exibem nome em TODOS os esquemas, ficam em 4,52:1 ou mais.
 ##   - placa ARMADA (bg x1.6, só correr/pular, e só enquanto a ação está armada):
 ##     3,70:1 no pior caso (o azul #3949ab do Clássico clareado).
-## Ou seja: acima dos 3:1 do WCAG para elemento gráfico em qualquer estado, e
-## acima dos 4,5:1 para texto em tudo menos o estado armado transitório. É uma
+## Ou seja: acima dos 3:1 do WCAG para elemento gráfico em qualquer estado. É uma
 ## melhora de uma ordem de grandeza sobre o que havia (1,03:1 a 2,32:1 com o
 ## rótulo no cinza do tema padrão do Godot) e a alternativa -- escolher a tinta
 ## por maior razão de contraste em vez de por corte de luminância -- inverteria o
 ## glifo para escuro em placas de meio-tom, o que ninguém pediu e nenhuma medição
 ## sustentou como mais legível.
+##
+## Duas coisas mudaram depois destes números, e as duas estão logo abaixo:
+## icon_tint_for() ganhou um PISO (o corte de luminância sozinho não garantia os
+## 3:1 em saturados) e o NOME da nota deixou de depender desta escolha, porque
+## ganhou contorno na tinta oposta -- é o que leva o texto aos 4,5:1 nos
+## meio-tons, onde nenhuma das duas tintas chegava.
 const ICON_DARK := Color(0.10, 0.10, 0.12)
 const ICON_LIGHT := Color.WHITE
 const ICON_LUMA_THRESHOLD := 0.5
+## Piso do WCAG 2.1 para elemento gráfico (1.4.11). Mora aqui porque é o número
+## que a regra de tinta abaixo precisa respeitar, e a régua dos testes lê daqui
+## em vez de redigitá-lo.
+const GRAPHIC_MIN := 3.0
 
+## O corte de luminância acerta o caso comum, mas não é uma garantia: ele é sobre
+## get_luminance() (canais como estão) e o contraste é sobre canais
+## LINEARIZADOS, e as duas contas divergem justamente nos saturados. Medido
+## varrendo o cubo de cor: com o corte sozinho, #FF33FF fica em 2,93:1 e #FF6600
+## em 2,94:1 -- abaixo dos 3:1, com a tinta OPOSTA em 5,9:1 nos dois.
+##
+## Então: o corte decide; se a decisão dele não alcançar o piso e a outra tinta
+## alcançar, troca. Nas 12 notas x 3 esquemas embarcados isso NÃO inverte
+## nenhuma placa (o corte já passava em todas), e por construção o resultado
+## nunca fica abaixo de 4,17:1 -- que é o pior valor possível de
+## max(clara, escura), no fundo cuja luminância WCAG é 0,2016.
+##
+## É diferente de "escolher sempre por maior razão de contraste", que foi
+## considerado e recusado numa rodada anterior: aquilo inverteria o glifo para
+## escuro em placas de meio-tom que hoje leem bem, o que ninguém pediu e nenhuma
+## medição sustentou.
 static func icon_tint_for(background: Color) -> Color:
-	return ICON_DARK if background.get_luminance() > ICON_LUMA_THRESHOLD else ICON_LIGHT
+	var escolhida := ICON_DARK if background.get_luminance() > ICON_LUMA_THRESHOLD else ICON_LIGHT
+	var oposta := ICON_LIGHT if escolhida == ICON_DARK else ICON_DARK
+	if contrast_ratio(escolhida, background) < GRAPHIC_MIN \
+			and contrast_ratio(oposta, background) >= GRAPHIC_MIN:
+		return oposta
+	return escolhida
+
+## Contorno do NOME da nota sobre placa colorida: a tinta oposta à do glifo.
+##
+## Por que o nome precisa de contorno e o glifo não: o piso do glifo é 3:1 e a
+## regra acima garante 4,17:1, mas o de TEXTO é 4,5:1 -- e 4,17 é o pior caso
+## possível, então existe cor de nota em que nenhuma das duas tintas alcança o
+## piso de texto. Medido nas paletas embarcadas: 4,10:1 no #009218 do Pedagógico
+## e 4,12:1 no #388E3C do Clássico.
+##
+## A cor da nota não pode ceder -- ela existe para DISTINGUIR uma nota das outras
+## 11, não para contrastar com a tinta. Duas exigências sobre a mesma cor é a
+## causa estrutural; o contorno separa as duas, porque o que fica encostado na
+## letra passa a ser o halo e não a placa. Fica em 17,4:1 contra a tinta, para
+## qualquer cor de placa, em qualquer estado -- inclusive no pressed, que mexe no
+## fundo. É a mesma saída que o DirectionJoystick já usava para cair sobre
+## cenário de cor imprevisível.
+static func outline_tint_for(background: Color) -> Color:
+	return ICON_LIGHT if icon_tint_for(background) == ICON_DARK else ICON_DARK
+
+## Espessura do contorno, em px. Fração da fonte de 16px dos rótulos de placa na
+## mesma proporção que o joystick já usa (6px numa fonte de 31px).
+const TEXT_OUTLINE_PX := 3
+
+## Fundo do estado "pressed" de uma placa/tecla colorida.
+##
+## Antes era sempre `fundo * 0,85`. Escurecer é o que se espera de um botão
+## apertado, mas a TINTA é decidida uma vez, sobre a cor de repouso: quando ela é
+## escura, escurecer o fundo aproxima os dois e apertar a tecla PIORA o
+## contraste. Medido: Ré em 4,15:1 e a placa Sol# em 4,20:1, ambas piores
+## apertadas do que soltas.
+##
+## A regra vira "afasta o fundo da tinta": escurece quando a tinta é clara,
+## clareia quando a tinta é escura. O feedback de toque continua existindo (o
+## fundo muda), e agora o estado apertado nunca pode ficar menos legível que o
+## solto -- em nenhuma paleta, inclusive na personalizada, que é do jogador.
+const PRESSED_SHIFT := 0.15
+
+static func pressed_shade_for(background: Color) -> Color:
+	if icon_tint_for(background) == ICON_DARK:
+		return Color(
+			lerpf(background.r, 1.0, PRESSED_SHIFT),
+			lerpf(background.g, 1.0, PRESSED_SHIFT),
+			lerpf(background.b, 1.0, PRESSED_SHIFT),
+			background.a)
+	return Color(
+		background.r * (1.0 - PRESSED_SHIFT),
+		background.g * (1.0 - PRESSED_SHIFT),
+		background.b * (1.0 - PRESSED_SHIFT),
+		background.a)
 
 ## Mapa índice cromático -> ΔE, só dos que ficam perto demais de `candidate`.
 ## `skip_index` é a nota sendo editada. Existe separado de conflicts_for porque
