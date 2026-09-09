@@ -191,14 +191,19 @@ func test_icon_tint_is_white_on_dark_key():
 	assert_eq(p._key_icons[idx]._tint, Color.WHITE, "tecla preta pede ícone branco")
 
 func test_icon_tint_follows_note_color_luminance():
-	# No nível 0 o fundo é a cor da nota, então o tint tem que variar nota a
-	# nota: Mi (#FBC02D) é claro, Dó (#E91E63) é escuro.
+	# No nível 0 o fundo é a cor da nota, então o tint tem que variar nota a nota.
+	# Os hexadecimais citados aqui eram os do Clássico, mas o esquema padrão é o
+	# Pedagógico: as asserções passavam por acaso, documentando cores que o teste
+	# não estava usando. O esquema agora é escolhido explicitamente.
 	CueSettings.set_level(0)
+	ColorSchemeSettings.set_scheme("pedagogico")
 	var p = _make()
+	assert_eq(NoteMapping.color_for("E4"), Color("#FFF200"), "pré-condição: o Mi é o amarelo claro")
+	assert_eq(NoteMapping.color_for("C4"), Color("#9C000A"), "pré-condição: o Dó é o vermelho escuro")
 	assert_eq(p._key_icons[p._button_notes.find("E4")]._tint, p.ICON_DARK_ON_LIGHT,
-		"fundo claro (#FBC02D) pede ícone escuro")
+		"fundo claro (#FFF200) pede ícone escuro")
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
-		"fundo escuro (#E91E63) pede ícone branco")
+		"fundo escuro (#9C000A) pede ícone branco")
 
 func test_keys_repaint_when_scheme_changes():
 	# Trocar de esquema tem que repintar sem reiniciar a fase.

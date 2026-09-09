@@ -135,12 +135,22 @@ func test_slice_icons_point_to_correct_screen_direction():
 		"fatia da E4 (sul do joystick, oposta à C4) deveria exibir a seta south")
 
 func test_slices_repaint_when_scheme_changes():
-	# A repintura na troca de esquema só era testada no PianoInput; joystick e
-	# painel de ações dependiam de uma linha de conexão que ninguém verificava.
+	# A versão anterior lia slice_display_color(), que é função PURA (consulta o
+	# esquema ativo na hora): passava mesmo com a conexão de scheme_changed
+	# apagada, ou seja, com o defeito que ela deveria cobrir presente. Agora lê a
+	# cor do polígono DESENHADO.
 	CueSettings.set_level(0)
 	var j = _make_joystick()
-	var antes = j.slice_display_color("C4")
+	var i: int = j._slice_note_keys.find("C4")
+	assert_gte(i, 0, "pré-condição: o Dó ocupa uma fatia do joystick")
+	var antes: Color = j._slice_polygons[i].color
 	ColorSchemeSettings.set_scheme("alto_contraste")
-	var depois = j.slice_display_color("C4")
-	assert_ne(antes, depois, "as fatias deveriam seguir o esquema ativo")
-	ColorSchemeSettings.reset_to_defaults()
+	var depois: Color = j._slice_polygons[i].color
+	# O alfa é gerido por _refresh_slice_alphas (fatia ativa/inativa); só o RGB
+	# vem do esquema de cor.
+	var esperado: Color = ColorSchemes.colors_for("alto_contraste")[0]
+	assert_ne(Color(antes.r, antes.g, antes.b), Color(depois.r, depois.g, depois.b),
+		"a fatia desenhada precisa mudar de cor com o esquema")
+	assert_almost_eq(depois.r, esperado.r, 0.001)
+	assert_almost_eq(depois.g, esperado.g, 0.001)
+	assert_almost_eq(depois.b, esperado.b, 0.001)

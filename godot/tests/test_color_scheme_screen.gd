@@ -1,6 +1,7 @@
 extends GutTest
 
 const ScreenScene := preload("res://scenes/ColorSchemeScreen.tscn")
+const CD := preload("res://scripts/ColorDistance.gd")
 
 ## A tela salva em disco a cada troca de esquema. Redireciona o autoload para um
 ## arquivo de teste: antes daqui a suíte gravava e apagava o color_scheme.cfg
@@ -98,9 +99,22 @@ func test_peeking_at_custom_in_the_dropdown_does_not_freeze_the_palette():
 func test_edit_buttons_have_readable_disabled_text():
 	# Estado em que a tela SEMPRE abre (esquema fixo): o padrão do tema deixava
 	# o rótulo em 1,14:1 contra o fundo do botão.
+	#
+	# O defeito era a RAZÃO de contraste, não a ausência de override -- a versão
+	# anterior comparava a constante do script com ela mesma, e passava com
+	# DISABLED_TEXT trocada por um cinza claro ilegível. O fundo aqui é amostrado
+	# da textura do próprio stylebox "disabled" do tema.
 	var s = _make()
-	var cor = s._rows[0].button.get_theme_color("font_disabled_color")
-	assert_eq(cor, s.DISABLED_TEXT, "precisa de override de cor no estado desabilitado")
+	var botao: Button = s._rows[0].button
+	assert_true(botao.disabled, "pré-condição: a tela abre com os botões desabilitados")
+	var estilo = botao.get_theme_stylebox("disabled")
+	assert_true(estilo is StyleBoxTexture, "o tema desenha o botão desabilitado com textura")
+	var img: Image = (estilo as StyleBoxTexture).texture.get_image()
+	assert_not_null(img, "não foi possível amostrar a textura do botão")
+	var fundo: Color = img.get_pixel(img.get_width() / 2, img.get_height() / 2)
+	var razao: float = CD.contrast_ratio(botao.get_theme_color("font_disabled_color"), fundo)
+	assert_gte(razao, 4.5,
+		"rótulo 'Editar' desabilitado a %.2f:1 sobre o fundo do botão" % razao)
 
 func test_sync_selector_matches_the_active_scheme():
 	var s = _make()
@@ -180,10 +194,20 @@ func test_color_screen_rows_fit_the_design_width():
 	var s = ScreenScene.instantiate()
 	_screen_vp.add_child(s)
 	await wait_frames(2)
+	# A comparação é contra a largura REAL da linha, não contra os 720px da tela:
+	# as linhas vivem dentro de um MarginContainer (16 de cada lado) dentro de um
+	# PanelContainer cuja moldura come outros 16, logo o orçamento é 656px. Uma
+	# linha de 680px cabia nos 720 do viewport e mesmo assim estourava o
+	# container, acendendo a barra de rolagem horizontal.
 	var visivel := _screen_vp.get_visible_rect()
 	for i in range(s._rows.size()):
 		var linha: Control = s._rows[i].button.get_parent()
 		var r := linha.get_global_rect()
+		assert_lt(r.size.x, visivel.size.x,
+			"a linha não pode ocupar a tela inteira -- as margens do painel existem")
+		assert_lte(linha.get_combined_minimum_size().x, r.size.x,
+			"a linha da nota %d precisa de %.0fpx e só tem %.0f" % [
+				i, linha.get_combined_minimum_size().x, r.size.x])
 		assert_lte(r.end.x, visivel.end.x,
 			"a linha da nota %d passa da borda direita (%s > %s)" % [i, r.end.x, visivel.end.x])
 		assert_gte(r.position.x, visivel.position.x,
@@ -192,14 +216,18 @@ func test_color_screen_rows_fit_the_design_width():
 func test_opening_from_playground_adds_exactly_one_screen():
 	# O handler do Playground usa $UI; só um teste que instancia a cena de jogo
 	# de verdade prova que esse caminho existe.
+	#
+	# O toque vai no BOTÃO do HUD, não no handler: chamando o handler direto, o
+	# teste passava com a linha que liga color_settings_requested ao Playground
+	# apagada -- o jogador apertaria "Cores" e não aconteceria nada.
 	_screen_vp = SubViewport.new()
 	_screen_vp.size = _design_size()
 	add_child_autofree(_screen_vp)
 	var p = PlaygroundScene.instantiate()
 	_screen_vp.add_child(p)
 	await wait_frames(2)
-	p._on_color_settings_requested()
-	p._on_color_settings_requested()  # segunda vez não pode abrir outra
+	p._hud._color_btn.pressed.emit()
+	p._hud._color_btn.pressed.emit()  # segunda vez não pode abrir outra
 	await wait_frames(2)
 	var abertas := 0
 	for child in p.get_node("UI").get_children():

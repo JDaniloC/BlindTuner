@@ -109,14 +109,18 @@ func test_conflict_distances_reports_how_close_each_conflict_is():
 
 func test_conflicts_are_ordered_nearest_first():
 	# A ordenação é prometida na documentação da função (o modal nomeia as notas
-	# na ordem em que ela devolve) e não era asseverada.
+	# na ordem em que ela devolve).
+	#
+	# A cor MAIS parecida fica no índice MAIOR de propósito: a versão anterior
+	# punha a mais parecida no índice menor, então a ordem por distância coincidia
+	# com a ordem de iteração e o teste passava com o sort_custom removido.
 	var palette: Array[Color] = []
 	for i in range(12):
 		palette.append(Color.BLACK)
 	var alvo = Color("#FF9800")
-	palette[2] = Color("#FF9A02")   # praticamente idêntica
-	palette[5] = Color("#F08A10")   # parecida, porém menos
+	palette[5] = Color("#FF9A02")   # praticamente idêntica, mas iterada DEPOIS
+	palette[2] = Color("#F08A10")   # parecida, porém menos
 	var conflitos = CD.conflicts_for(alvo, palette, 9)
-	assert_true(conflitos.size() >= 2, "as duas deveriam conflitar")
-	assert_eq(conflitos[0], 2, "a mais próxima vem primeiro")
-	assert_eq(conflitos[1], 5)
+	assert_eq(conflitos.size(), 2, "só essas duas ficam abaixo do limiar")
+	assert_eq(conflitos[0], 5, "a mais próxima vem primeiro, mesmo estando depois na paleta")
+	assert_eq(conflitos[1], 2)

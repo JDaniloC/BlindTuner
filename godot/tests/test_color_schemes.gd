@@ -58,14 +58,24 @@ const CD := preload("res://scripts/ColorDistance.gd")
 ## mesma letra compartilham o valor.
 const LETRA_DE := [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
 
-## Piso de ΔE exigido das paletas DESENHADAS (Pedagógico e Alto Contraste).
-## Fica abaixo do CD.MIN_DELTA_E (20.0) que o editor usa para avisar o jogador,
-## e a diferença é deliberada: medindo, o par de verdes Fá#/Sol do Pedagógico
-## fica em 18,3. Em vez de mexer numa paleta já validada com o usuário só para
-## satisfazer um número, o jogo assume a folga -- e é também por isso que o
-## aviso do editor só dispara DEPOIS que o jogador altera uma cor, nunca na
-## abertura, para não acusá-lo de um conflito que veio de fábrica.
-const PISO_EMBARCADO := 18.0
+## Piso de ΔE entre notas de LETRAS DIFERENTES. A exclusão de "mesma letra"
+## (Dó/Dó#) só se justifica no Alto Contraste, onde o sustenido é a natural com
+## L* +10 -- são parecidos POR DESIGN, e é o que torna o esquema memorizável.
+const PISO_ENTRE_LETRAS := 18.0
+
+## Piso de TODOS os 66 pares, esquema a esquema. Estes números NÃO são metas
+## redondas: são o que cada paleta real entrega hoje, medido.
+##
+## A versão anterior declarava um piso único de 18,0 e aplicava a exclusão de
+## "mesma letra" às duas paletas. No Pedagógico -- um arco-íris ordenado por
+## luminância, sem nenhuma regra natural/sustenido -- essa exclusão escondia o
+## pior par de verdade: Fá/Fá# (#009218 vs #00BC58) a 17,6, abaixo do piso que
+## o teste dizia estar honrando. O número cabia na paleta só depois de uma
+## exclusão que a escondia.
+const PISO_ABSOLUTO := {
+	"pedagogico": 17.5,      # pior par real: Fá/Fá#, dois verdes, 17,6
+	"alto_contraste": 10.5,  # pior par real: Dó/Dó#, 10,9, deliberado
+}
 
 func _pior_par(cores: Array, ignorar_mesma_letra: bool) -> Array:
 	var pior := 999.0
@@ -80,17 +90,36 @@ func _pior_par(cores: Array, ignorar_mesma_letra: bool) -> Array:
 				par = [i, j]
 	return [pior, par[0], par[1]]
 
-func test_designed_palettes_stay_above_the_shipped_floor():
+func test_designed_palettes_stay_above_the_between_letter_floor():
 	# O jogo cobrava do jogador um limiar de ΔE ao qual as próprias paletas
 	# embarcadas nunca tinham sido submetidas.
-	#
-	# Pares de MESMA letra (Dó/Dó#) ficam de fora de propósito: no Alto
-	# Contraste o sustenido é a natural com L* +10, ou seja, são parecidos POR
-	# DESIGN -- é justamente o que torna o esquema memorizável.
 	for id in ["pedagogico", "alto_contraste"]:
 		var r = _pior_par(ColorSchemes.colors_for(id), true)
-		assert_gte(r[0], PISO_EMBARCADO,
-			"%s: notas %d e %d a ΔE %.1f, abaixo do piso %.1f" % [id, r[1], r[2], r[0], PISO_EMBARCADO])
+		assert_gte(r[0], PISO_ENTRE_LETRAS,
+			"%s: notas %d e %d a ΔE %.1f, abaixo do piso %.1f" % [id, r[1], r[2], r[0], PISO_ENTRE_LETRAS])
+
+func test_the_absolute_floor_tells_the_truth_about_each_palette():
+	# Sem exclusão nenhuma: os 66 pares. É o teste que impede o piso declarado de
+	# voltar a ser um número escolhido para caber depois de esconder o pior par.
+	for id in PISO_ABSOLUTO:
+		var piso: float = PISO_ABSOLUTO[id]
+		var r = _pior_par(ColorSchemes.colors_for(id), false)
+		assert_gte(r[0], piso,
+			"%s piorou: notas %d e %d a ΔE %.1f, abaixo do piso declarado %.1f" % [id, r[1], r[2], r[0], piso])
+		assert_lt(r[0], piso + 2.0,
+			"%s melhorou para ΔE %.1f: o piso declarado (%.1f) ficou desatualizado" % [id, r[0], piso])
+
+func test_no_designed_palette_meets_the_threshold_the_editor_demands():
+	# Registro honesto da folga: o editor avisa o jogador abaixo de ΔE 20, e
+	# nenhuma das paletas embarcadas cumpre isso em todos os pares. Em vez de
+	# mexer numa paleta já validada com o usuário só para satisfazer um número,
+	# o jogo assume a folga -- e é por isso que o aviso do editor compara com os
+	# conflitos que a nota JÁ TINHA, para nunca acusar o jogador de um conflito
+	# que veio de fábrica.
+	for id in ["pedagogico", "alto_contraste"]:
+		var r = _pior_par(ColorSchemes.colors_for(id), false)
+		assert_lt(r[0], CD.MIN_DELTA_E,
+			"se %s passou a cumprir ΔE %.1f em todos os pares, o aviso do editor pode voltar a ser absoluto" % [id, CD.MIN_DELTA_E])
 
 func test_classico_is_the_known_bad_palette_that_motivated_the_others():
 	# O Clássico é preservado como estava, defeitos e tudo, para quem já se
@@ -98,13 +127,16 @@ func test_classico_is_the_known_bad_palette_that_motivated_the_others():
 	# como tal. Este teste registra o defeito em vez de escondê-lo: as duas
 	# laranjas quase idênticas (Ré #FF9800 e Lá #FB8C00) foram exatamente o que
 	# motivou a criação dos outros dois esquemas.
-	var r = _pior_par(ColorSchemes.colors_for("classico"), true)
-	assert_lt(r[0], PISO_EMBARCADO,
+	var r = _pior_par(ColorSchemes.colors_for("classico"), false)
+	assert_lt(r[0], PISO_ENTRE_LETRAS,
 		"se o Clássico passou a cumprir o piso, este teste virou obsoleto")
 	assert_eq(r[1], 2, "o pior par do Clássico é o Ré...")
 	assert_eq(r[2], 9, "...com o Lá")
 
 func test_designed_palettes_are_much_better_than_the_legacy_one():
+	# Os dois lados medidos entre LETRAS diferentes: é a única métrica em que a
+	# comparação é justa, já que no Alto Contraste a proximidade dentro da mesma
+	# letra é deliberada.
 	var legado = _pior_par(ColorSchemes.colors_for("classico"), true)[0]
 	for id in ["pedagogico", "alto_contraste"]:
 		var novo = _pior_par(ColorSchemes.colors_for(id), true)[0]
