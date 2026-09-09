@@ -3,6 +3,7 @@ extends Control
 
 signal start_requested(preset_id: String, cue_level: int, input_mode: int)
 signal restart_requested
+signal color_settings_requested
 
 const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
 const PLAY_ICON := preload("res://assets/ui/flat/UI_Flat_ButtonPlay01a.png")
@@ -11,6 +12,7 @@ var _preset_opt: OptionButton
 var _cue_opt: OptionButton
 var _mode_opt: OptionButton
 var _start_btn: Button
+var _color_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -59,6 +61,11 @@ func _ready() -> void:
 	_start_btn.pressed.connect(_on_start_pressed)
 	row.add_child(_start_btn)
 
+	_color_btn = Button.new()
+	_color_btn.text = "Cores"
+	_color_btn.pressed.connect(_on_color_pressed)
+	row.add_child(_color_btn)
+
 	_progress = Label.new()
 	_progress.text = "—"
 	top_vbox.add_child(_progress)
@@ -85,6 +92,9 @@ func _on_start_pressed() -> void:
 		return
 	var pid: String = SequencePresets.ALL[_preset_opt.selected].id
 	start_requested.emit(pid, _cue_opt.selected, _mode_opt.selected)
+
+func _on_color_pressed() -> void:
+	color_settings_requested.emit()
 
 func _on_restart_pressed() -> void:
 	restart_requested.emit()

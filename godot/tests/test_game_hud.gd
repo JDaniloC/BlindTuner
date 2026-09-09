@@ -59,3 +59,14 @@ func test_hide_stats_conceals_panel():
 func test_mode_dropdown_has_four_options():
 	var h = _hud()
 	assert_eq(h._mode_opt.item_count, 4)
+
+func test_hud_has_color_settings_button():
+	var h = _hud()
+	assert_not_null(h._color_btn)
+	assert_eq(h._color_btn.text, "Cores")
+
+func test_color_button_emits_request():
+	var h = _hud()
+	watch_signals(h)
+	h._color_btn.pressed.emit()
+	assert_signal_emitted(h, "color_settings_requested")

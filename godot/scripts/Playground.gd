@@ -1,6 +1,10 @@
 extends Node2D
 ## Cena raiz. Chão/paredes procedurais + loop de jogo (Conductor + GameHUD).
 
+const COLOR_SCREEN_SCENE := preload("res://scenes/ColorSchemeScreen.tscn")
+
+var _color_screen: Control = null
+
 @onready var _character: Node2D = $Character
 @onready var _joystick: Control = $UI/DirectionJoystick
 @onready var _note_panel: PanelContainer = $UI/NotePanel
@@ -68,6 +72,7 @@ func _ready() -> void:
 	_conductor.sequence_complete.connect(_on_sequence_complete)
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
+	_hud.color_settings_requested.connect(_on_color_settings_requested)
 	# Garante a invariante de _apply_input_mode() (só um grupo visível+clicável)
 	# desde o frame zero, em vez de depender "por coincidência" dos defaults do
 	# .tscn até a 1ª chamada de _begin_preset().
@@ -75,6 +80,14 @@ func _ready() -> void:
 
 func _on_start_requested(preset_id: String, cue_level: int, input_mode: int) -> void:
 	_begin_preset(preset_id, cue_level, input_mode)
+
+## Abre a tela de paleta por cima do jogo. Uma instância por vez -- abrir duas
+## deixaria dois seletores disputando o mesmo esquema ativo.
+func _on_color_settings_requested() -> void:
+	if _color_screen != null and is_instance_valid(_color_screen):
+		return
+	_color_screen = COLOR_SCREEN_SCENE.instantiate()
+	$UI.add_child(_color_screen)
 
 func _on_restart_requested() -> void:
 	if _conductor._preset != null:

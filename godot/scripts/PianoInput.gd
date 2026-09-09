@@ -82,10 +82,15 @@ func _ready() -> void:
 			move_child(_buttons[i], -1)
 
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
+	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
+	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
 	_apply_cue()
 
 func _emit_note(note_key: String) -> void:
 	note_triggered.emit(note_key)
+
+func _on_scheme_changed(_id: String) -> void:
+	_apply_cue()
 
 func _on_cue_changed(_level: int) -> void:
 	_apply_cue()

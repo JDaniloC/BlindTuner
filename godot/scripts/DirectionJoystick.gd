@@ -33,6 +33,8 @@ func _ready() -> void:
 	_build_thumb()
 	_refresh_slice_alphas()
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
+	# Repinta na troca de esquema de cor, sem precisar reiniciar a fase.
+	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
 
 ## Disco + anel circulares atrás das fatias (substitui o antigo NinePatchRect).
 ## Adicionados primeiro em _slices_root, logo desenhados atrás das fatias.
@@ -94,6 +96,9 @@ func slice_display_color(note_key: String) -> Color:
 	if CueSettings.shows_color():
 		return NoteMapping.color_for(note_key)
 	return NEUTRAL_SLICE
+
+func _on_scheme_changed(_id: String) -> void:
+	_on_cue_changed(0)
 
 func _on_cue_changed(_level: int) -> void:
 	for i in range(_slice_polygons.size()):

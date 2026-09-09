@@ -199,3 +199,16 @@ func test_icon_tint_follows_note_color_luminance():
 		"fundo claro (#FBC02D) pede ícone escuro")
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
 		"fundo escuro (#E91E63) pede ícone branco")
+
+func test_keys_repaint_when_scheme_changes():
+	# Trocar de esquema tem que repintar sem reiniciar a fase.
+	CueSettings.set_level(0)
+	var p = _make()
+	var idx = p._button_notes.find("C4")
+	# A cor da nota mora no bg_color da stylebox (o modulate fica neutro de
+	# propósito, senão tingiria o ícone filho junto -- ver I1 do Plano A).
+	var antes = p._buttons[idx].get_theme_stylebox("normal").bg_color
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	var depois = p._buttons[idx].get_theme_stylebox("normal").bg_color
+	assert_ne(depois, antes, "as teclas deveriam repintar ao trocar de esquema")
+	assert_eq(depois, Color("#0D4A74"), "deveria pintar com a cor do esquema novo")
