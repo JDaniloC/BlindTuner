@@ -30,7 +30,8 @@ const AGRAVO_MIN := 2.0
 
 var _index: int = -1
 var _pending: Color = Color.WHITE
-## ΔE dos conflitos que a cor ORIGINAL desta nota já tinha, medidos na abertura.
+## ΔE dos conflitos que a cor DE FÁBRICA desta nota já tinha, medidos na
+## abertura -- ver _baseline_for(), que é quem decide se há cor de fábrica.
 ## O aviso só fala dos conflitos que o jogador criou ou agravou: as paletas
 ## embarcadas têm pares abaixo de MIN_DELTA_E de propósito (o Alto Contraste
 ## repete matiz entre natural e sustenido em 8 das 12 notas), e acusá-lo por
@@ -195,11 +196,29 @@ func open_for(chromatic_index: int) -> void:
 	_title.text = "Cor de %s" % NoteMapping.label_for(key)
 	_warning_dismissed = false
 	var original := NoteMapping.color_for(key)
-	_baseline_conflicts = ColorDistance.conflict_distances(
-		original, ColorSchemeSettings.active_palette(), _index)
+	_baseline_conflicts = _baseline_for(chromatic_index, original)
 	_set_pending(original, false)
 	_hue.set_value_no_signal(_pending.h * 360.0)
 	visible = true
+
+## Conflitos que NÃO são culpa do jogador -- só a cor DE FÁBRICA da nota dá álibi.
+##
+## Enquanto a linha de base era recalculada a partir da cor gravada, o conflito
+## que o próprio jogador criou virava desculpa para si mesmo: confirmar no Dó uma
+## cor igual à do Dó# gravava uma linha de base de ΔE ~0, e como ΔE nunca é
+## negativo a comparação `atuais >= antes - AGRAVO_MIN` passava a ser sempre
+## verdadeira. Reabrir o Dó justamente para consertar não avisava mais nunca --
+## num público que não julga a colisão a olho, o editor cegava exatamente na nota
+## que o jogador já tinha errado.
+##
+## Cor escolhida pelo jogador não tem álibi: responde por todos os conflitos que
+## tiver. Dicionário vazio = nenhuma isenção, porque `_refresh_warning` usa INF
+## como padrão para índice ausente.
+func _baseline_for(chromatic_index: int, atual: Color) -> Dictionary:
+	if not ColorSchemes.is_stock_color(chromatic_index, atual):
+		return {}
+	return ColorDistance.conflict_distances(
+		atual, ColorSchemeSettings.active_palette(), chromatic_index)
 
 func _on_hue_changed(value: float) -> void:
 	# Mexe só no matiz: alterar a luminância quebraria a regra altura<->luminosidade

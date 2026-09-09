@@ -55,6 +55,22 @@ func _from_hex(hexes: Array) -> Array[Color]:
 		out.append(Color(h))
 	return out
 
+## Esta cor é a DE FÁBRICA desta nota, em algum esquema fixo?
+##
+## É por ÍNDICE, não "existe em alguma paleta": a cor do Dó# não é cor de fábrica
+## do Dó. O editor usa isto para saber se a cor que a nota tem agora tem álibi
+## (veio da paleta embarcada) ou é escolha do jogador -- sem a distinção, um
+## conflito que o próprio jogador gravou virava desculpa para nunca mais avisar
+## sobre ele.
+func is_stock_color(chromatic_index: int, color: Color) -> bool:
+	for id in SCHEME_IDS:
+		var cores := colors_for(id)
+		if chromatic_index < 0 or chromatic_index >= cores.size():
+			continue
+		if cores[chromatic_index] == color:
+			return true
+	return false
+
 ## Válido = exatamente 12 cores opacas. Usado na carga do disco e nos testes.
 func is_valid_palette(colors: Array) -> bool:
 	if colors.size() != 12:

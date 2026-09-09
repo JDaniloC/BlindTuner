@@ -143,6 +143,29 @@ func test_designed_palettes_are_much_better_than_the_legacy_one():
 		assert_gt(novo, legado * 2.0,
 			"%s deveria separar as notas bem melhor que o Clássico" % id)
 
+func test_is_stock_color_accepts_the_factory_color_of_that_note_in_any_scheme():
+	# Todas as 12 cores dos 3 esquemas, no índice a que pertencem.
+	for id in ColorSchemes.SCHEME_IDS:
+		var cores = ColorSchemes.colors_for(id)
+		for i in range(cores.size()):
+			assert_true(ColorSchemes.is_stock_color(i, cores[i]),
+				"%s[%d] deveria ser reconhecida como cor de fábrica" % [id, i])
+
+func test_is_stock_color_rejects_the_factory_color_of_a_DIFFERENT_note():
+	# É por índice, não "existe em alguma paleta". O caso que motivou a função é
+	# exatamente este: o jogador copiar no Dó a cor do Dó#. Se isso passasse por
+	# cor de fábrica, o editor daria álibi ao erro que o jogador acabou de gravar.
+	assert_false(ColorSchemes.is_stock_color(0, ColorSchemes.colors_for("pedagogico")[1]),
+		"a cor do Dó# não é cor de fábrica DO DÓ")
+
+func test_is_stock_color_rejects_a_hand_made_color():
+	assert_false(ColorSchemes.is_stock_color(0, Color("#123456")))
+
+func test_is_stock_color_rejects_out_of_range_indices():
+	var cor = ColorSchemes.colors_for("pedagogico")[0]
+	assert_false(ColorSchemes.is_stock_color(-1, cor))
+	assert_false(ColorSchemes.is_stock_color(99, cor))
+
 func test_is_valid_palette_rejects_wrong_size_and_transparency():
 	assert_false(ColorSchemes.is_valid_palette([]))
 	var onze: Array[Color] = []

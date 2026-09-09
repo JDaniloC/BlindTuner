@@ -164,6 +164,81 @@ func test_the_warning_still_appears_when_the_player_creates_the_conflict():
 	m._set_pending(NoteMapping.color_for("Cs4"))  # copiou a cor da vizinha
 	assert_true(m._warning.visible, "agravar um conflito até a cor idêntica precisa avisar")
 
+func test_reopening_a_note_the_player_broke_keeps_warning_about_it():
+	# Regressão: a linha de base saía da cor ATUAL da nota. Quem confirmasse (por
+	# engano, ou depois de "Manter assim mesmo") uma cor idêntica à do Dó# e
+	# reabrisse o Dó justamente para consertar recebia {Dó#: ~0} como linha de
+	# base -- e como ΔE nunca é negativo, "atuais >= antes - AGRAVO_MIN" ficava
+	# sempre verdadeiro. O conflito que o jogador criou virava desculpa para si
+	# mesmo, e o editor cegava justamente na nota que ele já tinha errado.
+	var m = _make()
+	m.open_for(0)
+	m._set_pending(NoteMapping.color_for("Cs4"))
+	m._on_confirm_pressed()
+
+	m.open_for(0)
+	assert_true(m._warning.visible, "reabrir a nota errada tem que continuar avisando")
+	assert_true(m._warning_label.text.contains(NoteMapping.label_for("Cs4")),
+		"o aviso precisa nomear o Dó#, que é com quem a cor gravada colide")
+
+func test_a_broken_note_still_warns_when_the_player_slides_back_onto_the_conflict():
+	# O mesmo beco dentro de UMA sessão de edição: com a linha de base
+	# contaminada, o aviso funcionava nos outros matizes e emudecia justamente
+	# quando o jogador voltava para a cor que colide.
+	var m = _make()
+	m.open_for(0)
+	m._set_pending(NoteMapping.color_for("Cs4"))
+	m._on_confirm_pressed()
+
+	m.open_for(0)
+	m._on_hue_changed(150.0)
+	m._set_pending(NoteMapping.color_for("Cs4"))
+	assert_true(m._warning.visible, "voltar para a cor que colide não pode emudecer o aviso")
+
+func test_reopening_a_note_edited_to_a_distinct_color_stays_quiet():
+	# A contrapartida: tirar o álibi da cor gravada não pode transformar o modal
+	# num acusador que abre gritando. Cor sem conflito nenhum continua sem aviso.
+	var m = _make()
+	m.open_for(0)
+	m._set_pending(NoteMapping.color_for("Cs4"))
+	m._on_auto_adjust_pressed()
+	m._on_confirm_pressed()
+
+	m.open_for(0)
+	assert_false(m._warning.visible, "cor sem conflito não pode avisar ao reabrir")
+
+func test_no_scheme_opens_the_editor_already_accusing_the_player():
+	# Contrapartida do achado acima, nos TRÊS esquemas e nas 12 notas: a linha de
+	# base passou a exigir cor de fábrica, e o risco de conserto era o modal virar
+	# acusador e abrir gritando em cima de uma paleta que o jogador nem tocou.
+	# O Clássico entra de propósito -- é a paleta reconhecidamente ruim (Ré e Lá a
+	# ΔE ~8), e nem ela pode ser cobrada de quem só a escolheu.
+	for id in ColorSchemes.SCHEME_IDS:
+		ColorSchemeSettings.reset_to_defaults()
+		ColorSchemeSettings.set_scheme(id)
+		ColorSchemeSettings.set_scheme(ColorSchemeSettings.CUSTOM_ID)
+		var m = _make()
+		for i in range(12):
+			m.open_for(i)
+			assert_false(m._warning.visible,
+				"%s: nota %d acusada sem o jogador ter mexido em nada" % [id, i])
+
+func test_auto_adjust_still_works_on_a_note_reopened_in_conflict():
+	# Caminho novo criado pelo conserto: o aviso agora aparece já na abertura de
+	# uma nota que o jogador estragou. A saída oferecida ali não pode ser um botão
+	# que não resolve nada.
+	var m = _make()
+	m.open_for(0)
+	m._set_pending(NoteMapping.color_for("Cs4"))
+	m._on_confirm_pressed()
+
+	m.open_for(0)
+	assert_true(m._warning.visible, "pré-condição: reabre avisando")
+	m._on_auto_adjust_pressed()
+	assert_false(m._warning.visible, "'Ajustar automaticamente' precisa resolver o conflito")
+	assert_true(CD.conflicts_for(m._pending, ColorSchemeSettings.active_palette(), 0).is_empty(),
+		"e resolver de verdade, não só esconder o aviso")
+
 func test_warning_text_is_readable_against_the_warning_panel():
 	# O painel ganhou fundo próprio, mas o Label herdava a fonte escura do tema:
 	# 1,53:1, abaixo até do piso de 3:1 de texto grande. É a única frase que
