@@ -142,6 +142,37 @@ static func outline_tint_for(background: Color) -> Color:
 ## mesma proporção que o joystick já usa (6px numa fonte de 31px).
 const TEXT_OUTLINE_PX := 3
 
+## Piso do WCAG 2.1 para texto normal (1.4.3). Vive aqui pelo mesmo motivo que
+## GRAPHIC_MIN: é o número que a regra abaixo precisa respeitar.
+const TEXT_MIN := 4.5
+
+## Espessura do contorno do nome PARA ESTE FUNDO -- 0 quando a tinta já se vira
+## sozinha.
+##
+## O halo resolveu um problema real (existe meio-tom em que nenhuma das duas
+## tintas alcança 4,5:1), mas aplicá-lo sempre custava caro no caso comum: numa
+## placa clara e saturada ele desenha uma franja BRANCA em volta de letra escura,
+## que engorda o traço e lê como adesivo. Foi exatamente o que o usuário apontou
+## nas placas de ação.
+##
+## Então o halo vira EXCEÇÃO: só entra onde a tinta sozinha não chega ao piso de
+## texto. Quem já passa fica com a letra limpa. Medido nas paletas embarcadas,
+## só 1 ou 2 das 12 notas de cada esquema precisam dele.
+##
+## Olha só o fundo de REPOUSO, e isso é suficiente -- não é descuido com o estado
+## apertado. pressed_shade_for() desloca o fundo PARA LONGE da tinta, então o
+## apertado nunca lê pior que o solto; o invariante está afirmado em
+## test_pressing_never_lowers_the_contrast_of_the_ink, varrendo o cubo de cor.
+##
+## A primeira versão fazia minf(repouso, apertado) "por segurança". Mutação
+## provou que era peso morto: trocar o minf pelo repouso sozinho não reprovava
+## nada, porque o outro termo nunca é o menor. Código que nenhum teste consegue
+## distinguir é código que mente sobre o que protege -- o invariante virou
+## asserção e a conta ficou com um termo só.
+static func text_outline_px_for(background: Color) -> int:
+	var ink := icon_tint_for(background)
+	return 0 if contrast_ratio(ink, background) >= TEXT_MIN else TEXT_OUTLINE_PX
+
 ## Fundo do estado "pressed" de uma placa/tecla colorida.
 ##
 ## Antes era sempre `fundo * 0,85`. Escurecer é o que se espera de um botão

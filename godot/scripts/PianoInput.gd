@@ -166,7 +166,10 @@ func _apply_cue() -> void:
 		# 17,4:1 da tinta em qualquer tecla e em qualquer estado -- inclusive no
 		# pressed, que mexe no fundo. Mesma saída que o joystick já usava.
 		_buttons[i].add_theme_color_override("font_outline_color", ColorDistance.outline_tint_for(bg))
-		_buttons[i].add_theme_constant_override("outline_size", ColorDistance.TEXT_OUTLINE_PX)
+		# ...mas SÓ onde ele é necessário. Numa tecla clara a franja branca em volta
+		# da letra escura engorda o traço e lê como adesivo; a tecla branca
+		# autêntica, que já dá 17:1, não tem por que carregar halo nenhum.
+		_buttons[i].add_theme_constant_override("outline_size", ColorDistance.text_outline_px_for(bg))
 		# Estado "pressed" ganha um stylebox próprio (mesma geometria, fundo
 		# deslocado) pra dar feedback visual de toque -- sem isso, apertar
 		# uma tecla não mudava nada visualmente (normal/hover/pressed

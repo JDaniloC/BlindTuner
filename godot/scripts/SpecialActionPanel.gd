@@ -166,7 +166,10 @@ func _apply_cue() -> void:
 		# 17,4:1 contra a tinta em qualquer placa e qualquer estado, inclusive
 		# armada (bg x1,6) e apertada.
 		_labels[i].add_theme_color_override("font_outline_color", ColorDistance.outline_tint_for(base_color))
-		_labels[i].add_theme_constant_override("outline_size", ColorDistance.TEXT_OUTLINE_PX)
+		# ...mas SÓ onde ele é necessário: numa placa clara e saturada a franja
+		# branca em volta da letra escura engorda o traço e lê como adesivo. A
+		# regra decide por placa, testando repouso e apertado.
+		_labels[i].add_theme_constant_override("outline_size", ColorDistance.text_outline_px_for(base_color))
 		_icons[i].set_tint(ink)
 
 ## Conectado pelo Playground ao sinal armed_state_changed do Character.

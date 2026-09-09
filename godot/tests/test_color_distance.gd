@@ -142,3 +142,64 @@ func test_icon_tint_always_clears_the_minimum_contrast():
 			var tint = CD.icon_tint_for(c)
 			var razao = CD.contrast_ratio(c, tint)
 			assert_gt(razao, 3.0, "contraste insuficiente do ícone sobre %s" % c.to_html())
+
+func test_the_outline_only_shows_up_where_the_ink_cannot_reach_the_text_floor():
+	# O halo resolve um problema real, mas aplicado sempre ele desenha uma franja
+	# clara em volta de letra escura e engorda o traço -- foi o que o usuário
+	# apontou nas placas de ação. A regra é: entra só onde a tinta sozinha não
+	# alcança 4,5:1.
+	#
+	# Varre as 12 cores dos 3 esquemas e exige as DUAS direções. Sem a segunda,
+	# `return 0` incondicional passaria; sem a primeira, passaria o comportamento
+	# antigo de halo sempre.
+	var com_halo := 0
+	var sem_halo := 0
+	for id in ColorSchemes.SCHEME_IDS:
+		for c in ColorSchemes.colors_for(id):
+			var px = CD.text_outline_px_for(c)
+			var ink = CD.icon_tint_for(c)
+			var pior = minf(CD.contrast_ratio(ink, c),
+				CD.contrast_ratio(ink, CD.pressed_shade_for(c)))
+			if px == 0:
+				sem_halo += 1
+				assert_gte(pior, CD.TEXT_MIN,
+					"%s ficou sem halo com a tinta em só %.2f:1" % [c.to_html(), pior])
+			else:
+				com_halo += 1
+				assert_lt(pior, CD.TEXT_MIN,
+					"%s carrega halo sem precisar (a tinta já dá %.2f:1)" % [c.to_html(), pior])
+	# Censo: se a regra virasse degenerada (sempre 0 ou sempre 3) as asserções
+	# acima continuariam passando e ninguém veria.
+	assert_gt(sem_halo, 0, "nenhuma cor ficou limpa -- a regra virou halo sempre")
+	assert_gt(com_halo, 0, "nenhuma cor ganhou halo -- a rede de meio-tom sumiu")
+
+func test_pressing_never_lowers_the_contrast_of_the_ink():
+	# ESTE é o invariante que sustenta text_outline_px_for() olhar só o fundo de
+	# repouso. pressed_shade_for() desloca o fundo PARA LONGE da tinta (clareia
+	# quando a tinta é escura, escurece quando é clara), então o estado apertado
+	# nunca pode ler pior que o solto.
+	#
+	# A versão anterior desta regra fazia minf(repouso, apertado) "por segurança".
+	# Mutação provou que era peso morto: trocar o minf pelo fundo de repouso
+	# sozinho não reprovava nada, porque o outro termo nunca é o menor. Em vez de
+	# manter código que nenhum teste consegue distinguir, o invariante virou
+	# asserção -- e aí quem quebrar pressed_shade_for() ouve daqui.
+	#
+	# Varre o cubo de cor, não as paletas embarcadas: a paleta personalizada é do
+	# jogador e pode ser qualquer cor, e foi exatamente por varrer o cubo que o
+	# piso de icon_tint_for() apareceu.
+	var pior_margem := 99.0
+	var amostras := 0
+	for r in range(0, 6):
+		for g in range(0, 6):
+			for b in range(0, 6):
+				var c := Color(r / 5.0, g / 5.0, b / 5.0)
+				var ink = CD.icon_tint_for(c)
+				var repouso = CD.contrast_ratio(ink, c)
+				var apertado = CD.contrast_ratio(ink, CD.pressed_shade_for(c))
+				assert_gte(apertado, repouso - 0.001,
+					"%s: apertada dá %.2f:1 contra %.2f:1 solta" % [c.to_html(), apertado, repouso])
+				pior_margem = minf(pior_margem, apertado - repouso)
+				amostras += 1
+	assert_eq(amostras, 216, "pré-condição: o cubo varrido tem 6x6x6 amostras")
+	gut.p("margem mínima apertado-solto: %+.3f em %d amostras" % [pior_margem, amostras])

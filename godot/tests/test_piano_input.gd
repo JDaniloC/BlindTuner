@@ -245,18 +245,32 @@ func test_icon_tint_follows_note_color_luminance():
 	assert_eq(p._key_icons[p._button_notes.find("C4")]._tint, Color.WHITE,
 		"fundo escuro (#9C000A) pede ícone branco")
 
-## Pior contraste do NOME contra o que fica encostado nele, entre TODOS os
+## Pior contraste do NOME contra o que fica ENCOSTADO nele, entre TODOS os
 ## estados de cor de texto do Button.
 ##
-## O que fica encostado na letra é o CONTORNO, não a tecla: os seis estados de
-## cor de fonte são sobrescritos com a tinta e o contorno é a tinta oposta. Medir
-## contra a tecla seria medir o que a letra não toca -- e daria o número errado
-## nos meio-tons, que é justamente onde a régua precisa acertar.
+## O que encosta na letra depende de existir halo. Com contorno, é ele -- os seis
+## estados de cor de fonte levam a tinta e o contorno é a tinta oposta. Sem
+## contorno, é a própria tecla, e aí os estados de FUNDO passam a importar
+## (normal e pressed pintam cores diferentes).
+##
+## Esta distinção nasceu quando o halo virou exceção em vez de padrão: medir
+## sempre contra o halo passaria a medir uma cor que, na maioria das teclas, não
+## chega a ser desenhada -- e daria aprovação a um rótulo que ninguém consegue
+## ler.
 func _pior_contraste_do_rotulo(btn: Button) -> float:
 	var halo: Color = btn.get_theme_color("font_outline_color")
+	var fundos: Array[Color] = []
+	if btn.get_theme_constant("outline_size") >= 2 and halo.a > 0.0:
+		fundos.append(halo)
+	else:
+		for estado in ["normal", "pressed"]:
+			var sb := btn.get_theme_stylebox(estado)
+			if sb is StyleBoxFlat:
+				fundos.append((sb as StyleBoxFlat).bg_color * btn.self_modulate)
 	var pior := 99.0
 	for nome in PianoInputScript.BUTTON_FONT_COLORS:
-		pior = minf(pior, ColorDistance.contrast_ratio(halo, btn.get_theme_color(nome)))
+		for fundo in fundos:
+			pior = minf(pior, ColorDistance.contrast_ratio(btn.get_theme_color(nome), fundo))
 	return pior
 
 func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
@@ -277,8 +291,12 @@ func test_key_name_contrasts_with_its_own_key_when_the_cues_are_on():
 		ColorSchemeSettings.set_scheme(esquema)
 		for i in range(p._buttons.size()):
 			assert_ne(p._buttons[i].text, "", "pré-condição: a tecla %s exibe o nome" % p._button_notes[i])
-			assert_gte(p._buttons[i].get_theme_constant("outline_size"), 2,
-				"a tecla %s precisa de contorno pra sustentar 4,5:1" % p._button_notes[i])
+			# A barra é a PROPRIEDADE (o nome é legível), não o MECANISMO (tem
+			# contorno). A versão anterior exigia outline_size >= 2 em toda tecla,
+			# o que fixava a implementação: quando o halo virou exceção -- ele
+			# desenha uma franja branca em volta de letra escura e engorda o traço,
+			# então só entra onde a tinta não se vira sozinha -- 11 teclas
+			# reprovaram sem que nada tivesse ficado ilegível.
 			assert_gte(_pior_contraste_do_rotulo(p._buttons[i]), 4.5,
 				"%s: o nome da tecla %s dá %.2f:1 contra o próprio contorno" % [
 					esquema, p._button_notes[i], _pior_contraste_do_rotulo(p._buttons[i])])
