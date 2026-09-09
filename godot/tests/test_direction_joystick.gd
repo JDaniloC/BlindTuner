@@ -133,3 +133,14 @@ func test_slice_icons_point_to_correct_screen_direction():
 		"fatia da C4 (norte do joystick) deveria exibir a seta north")
 	assert_eq(j._slice_icons[e4_index]._texture.resource_path, "res://assets/ui/icons/south.svg",
 		"fatia da E4 (sul do joystick, oposta à C4) deveria exibir a seta south")
+
+func test_slices_repaint_when_scheme_changes():
+	# A repintura na troca de esquema só era testada no PianoInput; joystick e
+	# painel de ações dependiam de uma linha de conexão que ninguém verificava.
+	CueSettings.set_level(0)
+	var j = _make_joystick()
+	var antes = j.slice_display_color("C4")
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	var depois = j.slice_display_color("C4")
+	assert_ne(antes, depois, "as fatias deveriam seguir o esquema ativo")
+	ColorSchemeSettings.reset_to_defaults()

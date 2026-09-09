@@ -7,9 +7,13 @@ extends RefCounted
 ## ordem de grandeza acima.
 const MIN_DELTA_E := 20.0
 
-## Fator de absorção do azul por cristalino amarelado (catarata senil). O olho
-## do público-alvo separa azuis pior que o modelo padrão, então a comparação
-## roda depois deste filtro.
+## Fator de absorção do azul por cristalino amarelado (catarata senil), aplicado
+## antes de comparar duas cores.
+##
+## Modela a LUZ que chega à retina do público-alvo, não uma garantia de que
+## azuis fiquem perceptualmente mais próximos: em CIELAB a distância entre dois
+## azuis pode inclusive crescer depois do filtro, porque escurecer um azul
+## saturado mexe bastante no L* (medido em test_color_distance.gd).
 const AGED_BLUE_FACTOR := 0.55
 
 static func to_lab(c: Color) -> Vector3:

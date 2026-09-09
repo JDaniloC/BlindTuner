@@ -70,3 +70,32 @@ func test_color_button_emits_request():
 	watch_signals(h)
 	h._color_btn.pressed.emit()
 	assert_signal_emitted(h, "color_settings_requested")
+
+# --- Layout na largura de projeto (720px) --------------------------------------
+
+func _design_width() -> int:
+	return ProjectSettings.get_setting("display/window/size/viewport_width")
+
+func test_top_rows_fit_the_design_width():
+	# O botão "Cores" tinha sido enfiado na primeira linha, que ficou com 7px de
+	# folga em 720 -- qualquer rótulo maior (ou fonte maior por acessibilidade)
+	# já transbordaria, e nenhum teste media isso.
+	var vp = SubViewport.new()
+	vp.size = Vector2i(_design_width(), ProjectSettings.get_setting("display/window/size/viewport_height"))
+	add_child_autofree(vp)
+	var h = HudScene.instantiate()
+	vp.add_child(h)
+	await wait_frames(2)
+
+	var linha1: Control = h._preset_opt.get_parent()
+	var linha2: Control = h._color_btn.get_parent()
+	for par in [["primeira", linha1], ["segunda", linha2]]:
+		var nome: String = par[0]
+		var linha: Control = par[1]
+		var largura := 0.0
+		for filho in linha.get_children():
+			if filho is Control:
+				largura += (filho as Control).get_combined_minimum_size().x
+		largura += linha.get_theme_constant("separation") * maxi(0, linha.get_child_count() - 1)
+		assert_lte(largura, float(_design_width()),
+			"a %s linha do HUD precisa de %.0fpx e a tela tem %d" % [nome, largura, _design_width()])

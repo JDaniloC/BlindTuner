@@ -144,3 +144,12 @@ func test_armed_brighten_respects_neutral_at_cue_3():
 		p.NEUTRAL_BUTTON.g * p.ARMED_BRIGHTNESS,
 		p.NEUTRAL_BUTTON.b * p.ARMED_BRIGHTNESS, p.NEUTRAL_BUTTON.a)
 	assert_eq(p._buttons[2].modulate, expected)
+
+func test_buttons_repaint_when_scheme_changes():
+	CueSettings.set_level(0)
+	var p = _make()
+	var antes = p._buttons[0].modulate
+	ColorSchemeSettings.set_scheme("alto_contraste")
+	var depois = p._buttons[0].modulate
+	assert_ne(antes, depois, "os botões de ação deveriam seguir o esquema ativo")
+	ColorSchemeSettings.reset_to_defaults()
