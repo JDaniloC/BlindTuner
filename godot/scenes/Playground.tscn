@@ -47,10 +47,10 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -410.0
-offset_top = -438.0
+offset_left = -385.0
+offset_top = -390.5
 offset_right = -32.0
-offset_bottom = -60.0
+offset_bottom = -37.5
 
 [node name="PianoInput" parent="UI" instance=ExtResource("93")]
 visible = false
@@ -82,6 +82,6 @@ anchor_top = 1.0
 anchor_right = 0.0
 anchor_bottom = 1.0
 offset_left = 32.0
-offset_top = -300.0
+offset_top = -334.0
 offset_right = 272.0
-offset_bottom = -60.0
+offset_bottom = -94.0

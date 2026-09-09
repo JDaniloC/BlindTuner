@@ -106,6 +106,24 @@ func test_joystick_drawn_reach_is_fully_on_screen():
 	assert_true(j.get_global_rect().encloses(Rect2(centro - Vector2.ONE * alcance, Vector2.ONE * alcance * 2.0)),
 		"a área de toque do joystick precisa cobrir o desenho inteiro")
 
+func test_joystick_and_actions_sit_on_the_same_line():
+	# Relato do usuário: "a posição do joystick e dessas ações devem ficar uma ao
+	# lado da outra, um está acima do outro". Os dois já dividiam a faixa de baixo
+	# e nenhum teste reprovou -- "na tela" e "sem sobrepor" não dizem nada sobre
+	# altura relativa, então o desalinhamento crescia calado.
+	#
+	# Compara o centro do DESENHO do joystick, não o da caixa: a caixa tem 35px de
+	# folga de toque em volta do disco, e foi justamente essa folga que fez o
+	# joystick parecer mais alto que as placas mesmo com as duas caixas
+	# encostadas na mesma margem de baixo.
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var j: Control = p.get_node("UI/DirectionJoystick")
+	var disco := j.get_global_rect().get_center().y
+	var placas := (p.get_node("UI/SpecialActionPanel") as Control).get_global_rect().get_center().y
+	assert_almost_eq(disco, placas, 2.0,
+		"o joystick está centrado em y=%.1f e as placas em y=%.1f" % [disco, placas])
+
 func test_joystick_does_not_overlap_the_note_panel_or_the_actions():
 	# O joystick cresceu na direção do painel de ações (mesma faixa de baixo) e
 	# para cima, na direção do NotePanel.

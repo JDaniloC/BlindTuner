@@ -38,7 +38,13 @@ const PEG_INSET := 5.0                      # quanto a cravelha entra no cravelh
 const NECK_WIDTH := 84.0
 const NECK_TOP := 101.0
 # 4 cordas, como violino/cello de verdade. A ativa é a que responde ao dedo.
-const STRING_OFFSETS_X: Array[float] = [-29.0, -10.0, 10.0, 25.0]
+#
+# Simétricas e de espaçamento igual. Os valores antigos (-29, -10, 10, 25) davam
+# vãos de 19, 20 e 15px e deixavam o conjunto 2px à esquerda do centro do braço
+# -- resto de um redimensionamento por fator horizontal, não uma decisão. Num
+# instrumento as cordas são igualmente espaçadas, e a assimetria só ficou
+# aparente quando o marcador de dedo foi pro centro.
+const STRING_OFFSETS_X: Array[float] = [-30.0, -10.0, 10.0, 30.0]
 const ACTIVE_STRING_INDEX := 1
 const BOARD_COLOR_TOP := Color(0.227, 0.165, 0.102)     # #3a2a1a
 const BOARD_COLOR_BOTTOM := Color(0.141, 0.094, 0.063)  # #241809
@@ -148,8 +154,16 @@ func _draw() -> void:
 		var w := 3.0 if is_active else 2.0
 		draw_line(Vector2(sx, top), Vector2(sx, bottom), col, w, true)
 
-	# Marcador de dedo, sempre sobre a corda ativa
-	var fx: float = cx + STRING_OFFSETS_X[ACTIVE_STRING_INDEX]
+	# Marcador de dedo, centrado no braço.
+	#
+	# Antes ficava colado na corda ativa (offset -10), o que contava a história
+	# certa -- "o dedo está NESTA corda" -- mas deixava a bolinha fora do eixo do
+	# controle, e o que o olho procura num controle vertical é o eixo. Com raio 18
+	# ela cobre as duas cordas de dentro, então a leitura de "dedo sobre a corda"
+	# sobrevive; o que muda é que o marcador passa a indicar ALTURA, que é a única
+	# coisa que o arrasto de fato controla (a corda nunca troca -- ver
+	# test_audio_manager: arrastar muda o comprimento que vibra, não a corda).
+	var fx := cx
 	draw_circle(Vector2(fx, _finger_y), FINGER_RADIUS, FINGER_FILL)
 	draw_arc(Vector2(fx, _finger_y), FINGER_RADIUS, 0, TAU, 24, FINGER_BORDER, 2.0, true)
 
