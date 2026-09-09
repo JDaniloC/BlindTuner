@@ -242,6 +242,29 @@ func test_the_envelope_never_asks_for_a_negative_sustain():
         assert_eq(seg[0] + seg[1] + seg[2] + seg[3], int(AudioManager.MIX_RATE * som[1]),
             "%s: os quatro trechos têm que somar o buffer inteiro -- sobrando release fora dele, o som é cortado antes de esmaecer" % nome)
 
+func test_a_note_that_fits_keeps_its_sustain_instead_of_being_squeezed():
+    # A recompressão existe para a duração que NÃO cabe. Quando cabe, ela não pode
+    # entrar: os quatro trechos têm que ser os nominais, com o resto virando
+    # sustain.
+    #
+    # Sem esta asserção o ramo rápido não é fixado por ninguém. Medido: forçando a
+    # recompressão em toda duração, a nota de 0,6s vira 575/8626/0/17259 -- ataque
+    # e decay esticados 1,3x e o platô de sustain SUMINDO -- e a suíte inteira
+    # continuava verde, porque as outras asserções cobram continuidade e soma, que
+    # a recompressão preserva. O que ela não preserva é a forma da envoltória, que
+    # é o que define o timbre da nota.
+    var attack := int(AudioManager.MIX_RATE * AudioManager.ATTACK_SEC)
+    var decay := int(AudioManager.MIX_RATE * AudioManager.DECAY_SEC)
+    var release := int(AudioManager.MIX_RATE * AudioManager.RELEASE_SEC)
+    var total := int(AudioManager.MIX_RATE * AudioManager.NOTE_DURATION_SEC)
+    assert_gt(total, attack + decay + release,
+        "pré-condição: a nota do jogo tem que caber, senão este teste não diz nada")
+    var seg := AudioManager._envelope_segments(AudioManager.NOTE_DURATION_SEC)
+    assert_eq(seg[0], attack, "o ataque da nota foi comprimido sem precisar")
+    assert_eq(seg[1], decay, "o decay da nota foi comprimido sem precisar")
+    assert_eq(seg[3], release, "o release da nota foi comprimido sem precisar")
+    assert_gt(seg[2], 0, "a nota perdeu o platô de sustain")
+
 func test_the_collision_sfx_the_player_hears_has_no_step_in_it():
     # A onda da colisão é QUADRADA: |amostra| é exatamente 1 em todo ponto, então
     # o módulo do PCM que _make_stream escreve É a envoltória. Isso deixa medir o
