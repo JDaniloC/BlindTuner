@@ -244,12 +244,14 @@ func _show_confirmation(message: String, on_confirm: Callable, cancel_text: Stri
 	vbox.add_child(hbox)
 	
 	var cancel_btn := Button.new()
+	cancel_btn.name = "CancelBtn"
 	cancel_btn.custom_minimum_size = Vector2(130, 44)
 	cancel_btn.text = cancel_text
 	cancel_btn.pressed.connect(_close_confirm_dialog)
 	hbox.add_child(cancel_btn)
 	
 	var confirm_btn := Button.new()
+	confirm_btn.name = "ConfirmBtn"
 	confirm_btn.custom_minimum_size = Vector2(130, 44)
 	confirm_btn.text = confirm_text
 	confirm_btn.pressed.connect(func():
