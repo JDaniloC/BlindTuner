@@ -461,3 +461,19 @@ func test_pular_toggle_disarms():
 	c.handle_action("B4")
 	assert_false(c._jump_next, "2º toque em Pular desarma a ação")
 	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_character_reset_restores_idle_and_disarms_all():
+	var c = _make_character()
+	c.handle_action("As4")
+	c.handle_action("B4")
+	c.state = c.State.TRIP
+	assert_true(c._run_next)
+	assert_true(c._jump_next)
+	assert_eq(c.state, c.State.TRIP)
+	watch_signals(c)
+	c.reset()
+	assert_false(c._run_next, "reset deve desarmar correr")
+	assert_false(c._jump_next, "reset deve desarmar pular")
+	assert_eq(c.state, c.State.IDLE, "reset deve restaurar IDLE")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+

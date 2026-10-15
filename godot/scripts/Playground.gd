@@ -193,6 +193,8 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 		var beacon_s = str(preset.get("beacon_sound_id"))
 		if not beacon_s.is_empty():
 			_goal_beacon.setup(beacon_s)
+			_goal_beacon.start()
+	_character.reset()
 	_character.grid_position = map.start_grid
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(map.start_grid)

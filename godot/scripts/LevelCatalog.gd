@@ -4,6 +4,39 @@ extends Node
 
 const LevelDataScript := preload("res://scripts/LevelData.gd")
 
+const CHAPTER_INFO := {
+	1: {
+		"title": "Capítulo 1: A Casa Conhecida",
+		"subtitle": "Onde cada quina é gravada na ponta dos dedos e o silêncio tem voz.",
+		"description": "O refúgio seguro da residência. Pistas visuais altas, instrumentos familiares e a segurança dos objetos cotidianos.",
+		"status": "available"
+	},
+	2: {
+		"title": "Capítulo 2: O Bairro e o Cotidiano",
+		"subtitle": "O mundo além do portão: ruídos que se cruzam e passos que exigem coragem.",
+		"description": "A travessia para o exterior. Calçadas, sons do comércio, praças e a transição para a percepção auditiva refinada.",
+		"status": "coming_soon",
+		"teasers": [
+			{ "num": "2.1", "title": "O Portão de Ferro", "beacon": "Trinco metálico", "icon": "🗝️", "story": "A maçaneta fria é a fronteira entre o que conheço e o que aprendo a ouvir." },
+			{ "num": "2.2", "title": "O Pão da Esquina", "beacon": "Sino de porta", "icon": "🔔", "story": "O sino tilinta ao abrir da porta: cheiro de fermento e conversa baixa." },
+			{ "num": "2.3", "title": "O Banco da Praça", "beacon": "Pássaros no chafariz", "icon": "🐦", "story": "O vento balança as copas dos jacarandás; sigo o farfalhar das folhas." },
+			{ "num": "2.4", "title": "O Carrilhão da Matriz", "beacon": "Badalo solene", "icon": "⛪", "story": "As doze badaladas vibram no meu peito muito antes de alcançar a praça." }
+		]
+	},
+	3: {
+		"title": "Capítulo 3: As Últimas Paisagens",
+		"subtitle": "Quando os olhos descansam, a música se torna a única luz.",
+		"description": "A escuta plena. O mundo se transforma em pura paisagem sonora com ecolocalização e violoncelo.",
+		"status": "coming_soon",
+		"teasers": [
+			{ "num": "3.1", "title": "O Sussurro da Maré", "beacon": "Ondas na areia", "icon": "🌊", "story": "O mar vem e vai, apagando minhas pegadas e afinando meus passos." },
+			{ "num": "3.2", "title": "A Neblina da Estação", "beacon": "Vapor de locomotiva", "icon": "🚂", "story": "Na névoa branca que tomou meus olhos, o apito do trem desenha a saída." },
+			{ "num": "3.3", "title": "A Melodia Guardada", "beacon": "Violoncelo solo", "icon": "🎻", "story": "As cordas de aço não envelhecem. O som de um ré continua límpido." },
+			{ "num": "3.4", "title": "O Recital no Vazio", "beacon": "Sinos de vento", "icon": "✨", "story": "Não preciso mais enxergar a sala. Aprendi a ver com os ouvidos." }
+		]
+	}
+}
+
 # Array[LevelData] omitido de propósito: GUT requer compatibilidade com preload sem class_name.
 var ALL: Array = []
 
@@ -155,3 +188,13 @@ func get_next_level(current_id: String) -> Resource:
 				return ALL[i + 1]
 			return null
 	return null
+
+func get_chapter_info(chapter_num: int) -> Dictionary:
+	return CHAPTER_INFO.get(chapter_num, {
+		"title": "Capítulo %d" % chapter_num,
+		"subtitle": "",
+		"description": "",
+		"status": "unknown",
+		"teasers": []
+	})
+

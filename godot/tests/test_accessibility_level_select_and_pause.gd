@@ -135,3 +135,21 @@ func test_pause_modal_submodal_restores_focus():
 	await wait_frames(2)
 	assert_null(modal._sub_modal, "Submodal deve ser liberado")
 	assert_true(modal._colors_btn.has_focus(), "Foco deve retornar imediatamente para o botão Cores das Notas")
+
+func test_level_select_chapter_switch_shows_teasers():
+	var screen: Control = LevelSelectScene.instantiate()
+	_screen.add_child(screen)
+	await wait_frames(2)
+	
+	# Seleciona Capítulo 2 (O Bairro e o Cotidiano)
+	screen._on_chapter_selected(1)
+	await wait_frames(2)
+	
+	var buttons: Array = []
+	for child in screen._cards_container.find_children("*", "Button", true, false):
+		buttons.append(child)
+	
+	assert_gt(buttons.size(), 0, "Capítulo 2 deve exibir botões de teasers acessíveis")
+	for btn in buttons:
+		assert_true(btn.text.begins_with("🔒 Memória"), "Teasers de memórias futuras devem iniciar com 🔒 Memória: %s" % btn.text)
+

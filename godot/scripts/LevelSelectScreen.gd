@@ -44,9 +44,9 @@ func _ready() -> void:
 
 	# --- Seletor de Capítulos ---
 	_chapter_opt = OptionButton.new()
-	_chapter_opt.add_item("Capítulo 1: O Refúgio Conhecido (A Casa)")
-	_chapter_opt.add_item("Capítulo 2: O Bairro e a Rotina (Em breve)")
-	_chapter_opt.add_item("Capítulo 3: As Últimas Imagens (Em breve)")
+	_chapter_opt.add_item("Capítulo 1: A Casa Conhecida")
+	_chapter_opt.add_item("Capítulo 2: O Bairro e o Cotidiano (Em breve)")
+	_chapter_opt.add_item("Capítulo 3: As Últimas Paisagens (Em breve)")
 	_chapter_opt.item_selected.connect(_on_chapter_selected)
 	_chapter_opt.focus_entered.connect(func():
 		AccessibleAnnouncer.announce("focus", "Seletor de Capítulos: %s. Use as setas ou clique para alterar." % _chapter_opt.get_item_text(_chapter_opt.selected))
@@ -99,12 +99,37 @@ func _populate_levels_for_chapter(chapter_num: int) -> void:
 	for child in _cards_container.get_children():
 		child.queue_free()
 
+	var ch_info: Dictionary = LevelCatalog.get_chapter_info(chapter_num)
+	if not ch_info.is_empty() and not str(ch_info.get("subtitle", "")).is_empty():
+		var banner := PanelContainer.new()
+		_cards_container.add_child(banner)
+		var b_margin := MarginContainer.new()
+		for s in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+			b_margin.add_theme_constant_override(s, 10)
+		banner.add_child(b_margin)
+		var b_vbox := VBoxContainer.new()
+		b_vbox.add_theme_constant_override("separation", 2)
+		b_margin.add_child(b_vbox)
+
+		var sub_lbl := Label.new()
+		sub_lbl.text = "“%s”" % ch_info.get("subtitle")
+		sub_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b_vbox.add_child(sub_lbl)
+
 	var levels := LevelCatalog.by_chapter(chapter_num)
 	if levels.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "Novas memórias serão desbloqueadas em breve."
-		_cards_container.add_child(empty_lbl)
-		AccessibleAnnouncer.speak("Capítulo em breve. Nenhuma memória disponível ainda.")
+		var teasers: Array = ch_info.get("teasers", [])
+		if teasers.is_empty():
+			var empty_lbl := Label.new()
+			empty_lbl.text = "Novas memórias serão desbloqueadas em breve."
+			_cards_container.add_child(empty_lbl)
+			AccessibleAnnouncer.speak("Capítulo em breve. Nenhuma memória disponível ainda.")
+		else:
+			for t in teasers:
+				var btn = _create_teaser_card(t)
+				if _first_focusable == null and btn != null:
+					_first_focusable = btn
+			AccessibleAnnouncer.speak("%s. Memórias em breve disponíveis para consulta." % ch_info.get("title", ""))
 		return
 
 	for lvl in levels:
@@ -117,8 +142,24 @@ func _format_scenario_name(map_id: String) -> String:
 		"quarto": return "Quarto"
 		"quarto_lullaby": return "Quarto à Noite"
 		"sala": return "Sala de Estar"
+		"banheiro": return "Banheiro"
 		"jardim": return "Jardim"
 		_: return map_id.replace("_", " ").capitalize()
+
+func _format_beacon_name(beacon_id: String) -> String:
+	match beacon_id:
+		"radio": return "📻 Farol: Rádio Vintage"
+		"music_box": return "🧸 Farol: Caixa de Música"
+		"drip": return "💧 Farol: Fio d'Água na Pia"
+		"clock": return "🕰️ Farol: Carrilhão da Sala"
+		_: return "👂 Farol Sonoro"
+
+func _stars_taxonomy_text(stars: int) -> String:
+	match stars:
+		3: return "3 de 3 estrelas: Memória Resgatada, Ouvido Fino e Passo Firme"
+		2: return "2 de 3 estrelas: Memória Resgatada e Ouvido Fino"
+		1: return "1 de 3 estrelas: Memória Resgatada"
+		_: return "Nenhuma estrela conquistada ainda"
 
 func _create_level_card(lvl) -> Button:
 	var card_panel := PanelContainer.new()
@@ -152,11 +193,12 @@ func _create_level_card(lvl) -> Button:
 	stars_lbl.text = "%s (%d/3)" % [stars_text, stars]
 	top_row.add_child(stars_lbl)
 
-	# Linha 2: Resumo / Detalhes da música
+	# Linha 2: Resumo / Detalhes da música e farol sonoro
 	var details_lbl := Label.new()
 	var inst_name: String = "Piano" if lvl.instrument == "piano" else "Cello"
 	var scenario_name: String = _format_scenario_name(lvl.map_id)
-	details_lbl.text = "Cenário: %s • Instrumento: %s • %d notas" % [scenario_name, inst_name, lvl.total_steps()]
+	var beacon_desc: String = _format_beacon_name(lvl.beacon_sound_id)
+	details_lbl.text = "%s • %s • %s • %d notas" % [beacon_desc, scenario_name, inst_name, lvl.total_steps()]
 	card_vbox.add_child(details_lbl)
 
 	# Linha 3: Texto de história
@@ -170,13 +212,13 @@ func _create_level_card(lvl) -> Button:
 	play_level_btn.custom_minimum_size = Vector2(0, 48)
 	card_vbox.add_child(play_level_btn)
 
-	var stars_desc := "%d de 3 estrelas" % stars if stars > 0 else "Nenhuma estrela ainda"
+	var stars_desc := _stars_taxonomy_text(stars)
 	var speech_text: String
 	
 	if is_unlocked:
 		play_level_btn.text = "Reviver Memória %d.%d: %s" % [lvl.chapter, lvl.level_number, lvl.title]
-		speech_text = "Memória %d.%d: %s. %s. Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
-			lvl.chapter, lvl.level_number, lvl.title, stars_desc, scenario_name, inst_name, lvl.total_steps()
+		speech_text = "Memória %d.%d: %s. %s. %s, Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
+			lvl.chapter, lvl.level_number, lvl.title, stars_desc, beacon_desc, scenario_name, inst_name, lvl.total_steps()
 		]
 		play_level_btn.pressed.connect(func():
 			AccessibleAnnouncer.announce("confirm", "Iniciando memória %s" % lvl.title)
@@ -187,7 +229,6 @@ func _create_level_card(lvl) -> Button:
 		speech_text = "Memória %d.%d: %s, bloqueada. Conclua as memórias anteriores para desbloquear." % [
 			lvl.chapter, lvl.level_number, lvl.title
 		]
-		# Permite foco para navegação não-visual sem crashar ou travar o cursor
 		play_level_btn.pressed.connect(func():
 			AccessibleAnnouncer.announce("error", "Esta memória está bloqueada. Conclua as memórias anteriores primeiro.")
 		)
@@ -198,6 +239,68 @@ func _create_level_card(lvl) -> Button:
 
 	return play_level_btn
 
+func _create_teaser_card(t: Dictionary) -> Button:
+	var card_panel := PanelContainer.new()
+	_cards_container.add_child(card_panel)
+
+	var card_margin := MarginContainer.new()
+	for s in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		card_margin.add_theme_constant_override(s, 12)
+	card_panel.add_child(card_margin)
+
+	var card_vbox := VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 6)
+	card_margin.add_child(card_vbox)
+
+	# Linha 1: Título e Status Em Breve
+	var top_row := HBoxContainer.new()
+	card_vbox.add_child(top_row)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "%s %s" % [t.get("num", ""), t.get("title", "")]
+	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(title_lbl)
+
+	var badge_lbl := Label.new()
+	badge_lbl.text = "🔒 Em Breve"
+	top_row.add_child(badge_lbl)
+
+	# Linha 2: Farol Sonoro
+	var beacon_lbl := Label.new()
+	beacon_lbl.text = "%s Farol Sonoro: %s" % [t.get("icon", "👂"), t.get("beacon", "")]
+	card_vbox.add_child(beacon_lbl)
+
+	# Linha 3: Texto de história poética
+	var story_lbl := Label.new()
+	story_lbl.text = "\"%s\"" % t.get("story", "")
+	story_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card_vbox.add_child(story_lbl)
+
+	# Linha 4: Botão de Foco Acessível
+	var teaser_btn := Button.new()
+	teaser_btn.custom_minimum_size = Vector2(0, 48)
+	card_vbox.add_child(teaser_btn)
+
+	var num_str: String = str(t.get("num", ""))
+	var title_str: String = str(t.get("title", ""))
+	var beacon_str: String = str(t.get("beacon", ""))
+	var story_str: String = str(t.get("story", ""))
+
+	teaser_btn.text = "🔒 Memória %s: Bloqueada (Em breve)" % num_str
+	var speech_text := "Memória %s: %s. Em breve. Farol sonoro: %s. %s" % [
+		num_str, title_str, beacon_str, story_str
+	]
+
+	teaser_btn.pressed.connect(func():
+		AccessibleAnnouncer.announce("locked", "Esta memória faz parte de um próximo capítulo e estará disponível em breve.")
+	)
+	teaser_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("locked", speech_text)
+	)
+
+	return teaser_btn
+
 func _on_back_pressed() -> void:
 	AccessibleAnnouncer.announce("cancel", "Retornando ao Menu Principal.")
 	SceneManager.go_to_main_menu()
+

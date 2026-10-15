@@ -112,6 +112,23 @@ func _ensure_audio_listener() -> void:
 func _process(_delta: float) -> void:
 	z_index = int(position.y) + 1
 
+## Reseta o estado do personagem para início ou repetição de fase.
+func reset() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	if _arc_tween != null and _arc_tween.is_valid():
+		_arc_tween.kill()
+	if _animated_sprite != null:
+		_animated_sprite.position.y = _sprite_base_y
+	_set_jump_loop(false)
+	_run_next = false
+	_jump_next = false
+	state = State.IDLE
+	_last_note_key = ""
+	_last_note_time_ms = 0
+	_play_animation("idle", _last_direction)
+	armed_state_changed.emit(false, false)
+
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
 func handle_note(note_key: String) -> void:
 	if state == State.TRIP:
