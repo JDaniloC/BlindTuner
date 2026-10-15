@@ -19,6 +19,8 @@ func test_catalog_levels_exist_and_are_valid():
 	assert_gt(LevelCatalog.ALL.size(), 0)
 	for lvl in LevelCatalog.ALL:
 		assert_true(lvl.is_valid(), "Nível %s do catálogo deve ser válido" % lvl.id)
+		assert_false(lvl.song_title.is_empty(), "Nível %s deve ter música de domínio público definida" % lvl.id)
+		assert_false(lvl.composer.is_empty(), "Nível %s deve ter compositor definido" % lvl.id)
 
 func test_catalog_level_ids_are_unique():
 	var seen := {}

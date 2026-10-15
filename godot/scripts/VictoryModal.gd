@@ -154,10 +154,10 @@ func display_result(level_data, summary: Dictionary) -> void:
 				stars_narrative = "2 de 3 estrelas: Memória Resgatada e Ouvido Fino."
 		1:
 			stars_narrative = "1 de 3 estrelas: Memória Resgatada."
-		_:
-			stars_narrative = "Memória concluída."
-	
-	var intro_speech := "%s. %s %s" % [_title_lbl.text, stars_narrative, _story_lbl.text]
+	var song_title: String = str(level_data.get("song_title")) if level_data != null else ""
+	var composer: String = str(level_data.get("composer")) if level_data != null else ""
+	var song_extra: String = (" Peça: %s de %s." % [song_title, composer]) if not song_title.is_empty() else ""
+	var intro_speech := "%s.%s %s %s" % [_title_lbl.text, song_extra, stars_narrative, _story_lbl.text]
 	AccessibleAnnouncer.announce("confirm", intro_speech)
 	if has_next:
 		_next_btn.call_deferred("grab_focus")

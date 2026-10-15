@@ -10,6 +10,7 @@ const PORTRAIT_SCENE := preload("res://scenes/CharacterPortrait.tscn")
 
 var _chapter_tag_lbl: Label
 var _title_lbl: Label
+var _song_lbl: Label
 var _portrait: Control
 var _story_lbl: Label
 var _beacon_lbl: Label
@@ -59,6 +60,13 @@ func _ready() -> void:
 	_title_lbl.text = "A Canção de Ninar"
 	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_title_lbl)
+
+	# Peça Musical em Domínio Público
+	_song_lbl = Label.new()
+	_song_lbl.text = ""
+	_song_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_song_lbl.add_theme_color_override("font_color", Color(0.85, 0.90, 0.98))
+	col.add_child(_song_lbl)
 
 	# Retrato do Personagem ouvindo atentamente
 	var portrait_box := CenterContainer.new()
@@ -128,6 +136,15 @@ func _apply_data(data: Resource) -> void:
 	_title_lbl.text = str(data.get("title"))
 	_story_lbl.text = str(data.get("story_intro"))
 
+	var song_name: String = str(data.get("song_title"))
+	var comp_name: String = str(data.get("composer"))
+	if not song_name.is_empty():
+		_song_lbl.text = "🎵 %s  •  %s" % [song_name, comp_name]
+		_song_lbl.visible = true
+	else:
+		_song_lbl.text = ""
+		_song_lbl.visible = false
+
 	var hint: String = str(data.get("beacon_hint"))
 	if hint.is_empty():
 		hint = "Siga o som guia no espaço para alcançar o objetivo."
@@ -148,8 +165,9 @@ func _apply_data(data: Resource) -> void:
 
 	_config_lbl.text = "%s  •  %s" % [cue_desc, mode_desc]
 
-	var speech_text := "Memória %d.%d: %s. %s. %s. Toque na tela ou pressione Espaço para começar a ouvir." % [
-		ch, num, _title_lbl.text, _story_lbl.text, _beacon_lbl.text
+	var song_speech := (" Música: %s de %s." % [song_name, comp_name]) if not song_name.is_empty() else ""
+	var speech_text := "Memória %d.%d: %s.%s %s. %s. Toque na tela ou pressione Espaço para começar a ouvir." % [
+		ch, num, _title_lbl.text, song_speech, _story_lbl.text, _beacon_lbl.text
 	]
 	AccessibleAnnouncer.announce("focus", speech_text)
 

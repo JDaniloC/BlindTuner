@@ -11,6 +11,8 @@ class_name LevelData
 @export_multiline var story_outro: String = ""
 @export var beacon_sound_id: String = "" # "radio" | "music_box" | "drip" | "clock"
 @export var beacon_hint: String = ""     # Ex: "Siga o som do rádio sobre a cômoda."
+@export var song_title: String = ""      # Peça em domínio público (ex: "Ode à Alegria")
+@export var composer: String = ""        # Compositor e ano (ex: "Ludwig van Beethoven (1824)")
 
 @export var map_id: String = ""
 @export var notes: Array = []

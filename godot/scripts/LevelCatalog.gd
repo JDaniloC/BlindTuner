@@ -63,7 +63,9 @@ func _build_all() -> Array:
 			"radio",
 			"Siga o som do rádio sobre a cômoda.",
 			0.0, 1.2, 0.0, 0.0,
-			true, true, true
+			true, true, true,
+			"Ode à Alegria",
+			"Ludwig van Beethoven (1824)"
 		),
 
 		# 1.2 Quarto (Noite): A Canção de Ninar para ir dormir entre os obstáculos
@@ -82,7 +84,9 @@ func _build_all() -> Array:
 			"music_box",
 			"Siga a suave canção de ninar perto da cama.",
 			0.0, 0.95, 0.25, 0.35,
-			true, true, true
+			true, true, true,
+			"Canção de Ninar (Wiegenlied)",
+			"Johannes Brahms (1868)"
 		),
 
 		# 1.3 Banheiro: Passos com cautela e desvios
@@ -101,7 +105,9 @@ func _build_all() -> Array:
 			"drip",
 			"Siga o som da torneira pingando na pia.",
 			0.0, 0.70, 0.55, 0.75,
-			true, false, false # Pistas visuais e contornos neon retirados
+			true, false, false, # Pistas visuais e contornos neon retirados
+			"Au Clair de la Lune",
+			"Folclore Francês (séc. XVIII)"
 		),
 
 		# 1.4 Sala de Estar: Caminho mais longo até a poltrona
@@ -120,7 +126,9 @@ func _build_all() -> Array:
 			"clock",
 			"Siga o tique-taque ritmado do relógio de pêndulo.",
 			0.0, 0.40, 0.95, 1.0,
-			false, false, false # Sem chão e sem pistas visuais (pura percepção auditiva)
+			false, false, false, # Sem chão e sem pistas visuais (pura percepção auditiva)
+			"Minueto em Sol Maior (BWV Anh. 114)",
+			"J.S. Bach / C. Petzold (1725)"
 		),
 	]
 
@@ -145,7 +153,9 @@ func _make(
 	p_vision_desat: float = 0.0,
 	p_show_floor: bool = true,
 	p_show_visual_cues: bool = true,
-	p_show_obstacle_outlines: bool = true
+	p_show_obstacle_outlines: bool = true,
+	p_song_title: String = "",
+	p_composer: String = ""
 ) -> Resource:
 	var lvl = LevelDataScript.new()
 	lvl.id = p_id
@@ -173,6 +183,8 @@ func _make(
 	lvl.show_floor = p_show_floor
 	lvl.show_visual_cues = p_show_visual_cues
 	lvl.show_obstacle_outlines = p_show_obstacle_outlines
+	lvl.song_title = p_song_title
+	lvl.composer = p_composer
 	return lvl
 
 func by_id(p_id: String) -> Resource:

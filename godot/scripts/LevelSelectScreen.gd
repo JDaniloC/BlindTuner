@@ -198,7 +198,8 @@ func _create_level_card(lvl) -> Button:
 	var inst_name: String = "Piano" if lvl.instrument == "piano" else "Cello"
 	var scenario_name: String = _format_scenario_name(lvl.map_id)
 	var beacon_desc: String = _format_beacon_name(lvl.beacon_sound_id)
-	details_lbl.text = "%s • %s • %s • %d notas" % [beacon_desc, scenario_name, inst_name, lvl.total_steps()]
+	var song_info: String = ("🎵 %s • " % lvl.song_title) if not lvl.song_title.is_empty() else ""
+	details_lbl.text = "%s%s • %s • %s • %d notas" % [song_info, beacon_desc, scenario_name, inst_name, lvl.total_steps()]
 	card_vbox.add_child(details_lbl)
 
 	# Linha 3: Texto de história
@@ -213,12 +214,13 @@ func _create_level_card(lvl) -> Button:
 	card_vbox.add_child(play_level_btn)
 
 	var stars_desc := _stars_taxonomy_text(stars)
+	var song_speech: String = (" Música: %s de %s." % [lvl.song_title, lvl.composer]) if not lvl.song_title.is_empty() else ""
 	var speech_text: String
 	
 	if is_unlocked:
 		play_level_btn.text = "Reviver Memória %d.%d: %s" % [lvl.chapter, lvl.level_number, lvl.title]
-		speech_text = "Memória %d.%d: %s. %s. %s, Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
-			lvl.chapter, lvl.level_number, lvl.title, stars_desc, beacon_desc, scenario_name, inst_name, lvl.total_steps()
+		speech_text = "Memória %d.%d: %s.%s %s. %s, Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
+			lvl.chapter, lvl.level_number, lvl.title, song_speech, stars_desc, beacon_desc, scenario_name, inst_name, lvl.total_steps()
 		]
 		play_level_btn.pressed.connect(func():
 			AccessibleAnnouncer.announce("confirm", "Iniciando memória %s" % lvl.title)
