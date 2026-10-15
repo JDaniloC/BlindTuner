@@ -51,27 +51,27 @@ func _ready() -> void:
 	margin.add_child(col)
 
 	var title := Label.new()
-	title.text = "Jogo Pausado"
+	title.text = "Um Instante de Silêncio"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
 
 	# 1. Continuar
 	_resume_btn = Button.new()
 	_resume_btn.custom_minimum_size = Vector2(0, 50)
-	_resume_btn.text = "Continuar"
+	_resume_btn.text = "Retomar os Passos"
 	_resume_btn.pressed.connect(_on_resume_pressed)
 	_resume_btn.focus_entered.connect(func():
-		AccessibleAnnouncer.announce("focus", "Continuar. Botão 1 de 6.")
+		AccessibleAnnouncer.announce("focus", "Retomar os passos. Volta à melodia e à caminhada. Botão 1 de 6.")
 	)
 	col.add_child(_resume_btn)
 
 	# 2. Reiniciar
 	_restart_btn = Button.new()
 	_restart_btn.custom_minimum_size = Vector2(0, 50)
-	_restart_btn.text = "Reiniciar Fase"
+	_restart_btn.text = "Recomeçar a Memória"
 	_restart_btn.pressed.connect(_on_restart_pressed)
 	_restart_btn.focus_entered.connect(func():
-		AccessibleAnnouncer.announce("focus", "Reiniciar Fase. Pede confirmação. Botão 2 de 6.")
+		AccessibleAnnouncer.announce("focus", "Recomeçar a memória do primeiro passo. Pede confirmação. Botão 2 de 6.")
 	)
 	col.add_child(_restart_btn)
 
@@ -104,20 +104,20 @@ func _ready() -> void:
 	# 5. Cores das Notas
 	_colors_btn = Button.new()
 	_colors_btn.custom_minimum_size = Vector2(0, 50)
-	_colors_btn.text = "Cores das Notas..."
+	_colors_btn.text = "Cores e Contrastes..."
 	_colors_btn.pressed.connect(_on_colors_pressed)
 	_colors_btn.focus_entered.connect(func():
-		AccessibleAnnouncer.announce("focus", "Cores das Notas. Abre tela de personalização. Botão 5 de 6.")
+		AccessibleAnnouncer.announce("focus", "Cores e Contrastes. Abre tela de personalização da paleta. Botão 5 de 6.")
 	)
 	col.add_child(_colors_btn)
 
 	# 6. Diário de Memórias
 	_menu_btn = Button.new()
 	_menu_btn.custom_minimum_size = Vector2(0, 50)
-	_menu_btn.text = "Sair para o Diário de Memórias"
+	_menu_btn.text = "Guardar Diário e Sair"
 	_menu_btn.pressed.connect(_on_menu_pressed)
 	_menu_btn.focus_entered.connect(func():
-		AccessibleAnnouncer.announce("focus", "Sair para o Diário de Memórias. O progresso desta tentativa será perdido. Botão 6 de 6.")
+		AccessibleAnnouncer.announce("focus", "Guardar Diário e Sair. O progresso desta tentativa será desfeito. Botão 6 de 6.")
 	)
 	col.add_child(_menu_btn)
 
@@ -142,14 +142,13 @@ func _setup_focus_trap() -> void:
 	_colors_btn.focus_neighbor_bottom = _menu_btn.get_path()
 
 	_menu_btn.focus_neighbor_top = _colors_btn.get_path()
-	_menu_btn.focus_neighbor_top = _colors_btn.get_path()
 	_menu_btn.focus_neighbor_bottom = _resume_btn.get_path()
 
 func _focus_initial() -> void:
 	_previous_focus = get_viewport().gui_get_focus_owner()
 	if _resume_btn != null and is_instance_valid(_resume_btn):
 		_resume_btn.grab_focus()
-	AccessibleAnnouncer.announce("pause", "Jogo Pausado. Foco em Continuar.")
+	AccessibleAnnouncer.announce("pause", "Um instante de silêncio. Jogo pausado. Foco em Retomar os Passos.")
 
 func _update_cues_toggle_text() -> void:
 	var on := _cues_toggle.button_pressed
@@ -197,26 +196,30 @@ func _on_resume_pressed() -> void:
 
 func _on_restart_pressed() -> void:
 	_show_confirmation(
-		"Deseja realmente reiniciar a fase atual?",
+		"Deseja recomeçar esta lembrança do primeiro passo?",
 		func():
 			_restore_previous_focus()
-			restart_requested.emit()
+			restart_requested.emit(),
+		"Continuar Ouvindo",
+		"Recomeçar"
 	)
 
 func _on_menu_pressed() -> void:
 	_show_confirmation(
-		"Deseja sair para o Diário de Memórias? O progresso não salvo será perdido.",
+		"Deseja fechar esta página por enquanto? Os passos desta tentativa serão desfeitos.",
 		func():
 			_restore_previous_focus()
-			level_select_requested.emit()
+			level_select_requested.emit(),
+		"Ficar na Memória",
+		"Fechar Página"
 	)
 
-func _show_confirmation(message: String, on_confirm: Callable) -> void:
+func _show_confirmation(message: String, on_confirm: Callable, cancel_text: String = "Cancelar", confirm_text: String = "Confirmar") -> void:
 	if _confirm_dialog != null and is_instance_valid(_confirm_dialog):
 		_close_confirm_dialog()
 	
 	_confirm_dialog = PanelContainer.new()
-	_confirm_dialog.custom_minimum_size = Vector2(340, 180)
+	_confirm_dialog.custom_minimum_size = Vector2(360, 180)
 	add_child(_confirm_dialog)
 	_confirm_dialog.set_anchors_preset(Control.PRESET_CENTER)
 	
@@ -241,14 +244,14 @@ func _show_confirmation(message: String, on_confirm: Callable) -> void:
 	vbox.add_child(hbox)
 	
 	var cancel_btn := Button.new()
-	cancel_btn.custom_minimum_size = Vector2(120, 44)
-	cancel_btn.text = "Cancelar"
+	cancel_btn.custom_minimum_size = Vector2(130, 44)
+	cancel_btn.text = cancel_text
 	cancel_btn.pressed.connect(_close_confirm_dialog)
 	hbox.add_child(cancel_btn)
 	
 	var confirm_btn := Button.new()
-	confirm_btn.custom_minimum_size = Vector2(120, 44)
-	confirm_btn.text = "Confirmar"
+	confirm_btn.custom_minimum_size = Vector2(130, 44)
+	confirm_btn.text = confirm_text
 	confirm_btn.pressed.connect(func():
 		_close_confirm_dialog()
 		on_confirm.call()
@@ -260,7 +263,7 @@ func _show_confirmation(message: String, on_confirm: Callable) -> void:
 	
 	# Foco padrão no Cancelar por segurança
 	cancel_btn.call_deferred("grab_focus")
-	AccessibleAnnouncer.announce("focus", "%s Foco em Cancelar." % message)
+	AccessibleAnnouncer.announce("focus", "%s Foco em %s." % [message, cancel_text])
 
 func _close_confirm_dialog() -> void:
 	if _confirm_dialog != null and is_instance_valid(_confirm_dialog):

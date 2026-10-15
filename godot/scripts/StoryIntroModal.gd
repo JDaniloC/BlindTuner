@@ -107,7 +107,7 @@ func _ready() -> void:
 
 	# Dica de tecla rápida
 	var hint_lbl := Label.new()
-	hint_lbl.text = "(Toque ou pressione Espaço / Enter)"
+	hint_lbl.text = "(Toque em qualquer lugar ou aperte Espaço / Enter)"
 	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
 	col.add_child(hint_lbl)
@@ -124,7 +124,7 @@ func setup(level_data: Resource) -> void:
 func _apply_data(data: Resource) -> void:
 	var ch: int = int(data.get("chapter"))
 	var num: int = int(data.get("level_number"))
-	_chapter_tag_lbl.text = "CAPÍTULO %d • FASE %d.%d" % [ch, ch, num]
+	_chapter_tag_lbl.text = "CAPÍTULO %d • MEMÓRIA %d.%d" % [ch, ch, num]
 	_title_lbl.text = str(data.get("title"))
 	_story_lbl.text = str(data.get("story_intro"))
 
@@ -134,11 +134,11 @@ func _apply_data(data: Resource) -> void:
 	_beacon_lbl.text = "👂 Farol Sonoro: %s" % hint
 
 	var cue_lvl: int = int(data.get("default_cue_level"))
-	var cue_desc := "Pistas: Todas ativas"
+	var cue_desc := "Pistas: Claras (Tudo ativo)"
 	match cue_lvl:
-		1: cue_desc = "Pistas: Nomes ocultos (Freq + Cor)"
-		2: cue_desc = "Pistas: Somente Cor"
-		3: cue_desc = "Pistas: Somente Audição"
+		1: cue_desc = "Pistas: Lembrança Fluida (Sem nomes)"
+		2: cue_desc = "Pistas: Memória Cromática (Somente cor)"
+		3: cue_desc = "Pistas: Escuta Plena (Só som)"
 
 	var mode_val: int = int(data.get("default_input_mode"))
 	var mode_desc := "Modo: Joystick"
@@ -147,6 +147,11 @@ func _apply_data(data: Resource) -> void:
 		2: mode_desc = "Modo: Scroll de Afinação"
 
 	_config_lbl.text = "%s  •  %s" % [cue_desc, mode_desc]
+
+	var speech_text := "Memória %d.%d: %s. %s. %s. Toque na tela ou pressione Espaço para começar a ouvir." % [
+		ch, num, _title_lbl.text, _story_lbl.text, _beacon_lbl.text
+	]
+	AccessibleAnnouncer.announce("focus", speech_text)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _is_closing:

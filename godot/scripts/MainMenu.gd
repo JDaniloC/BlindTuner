@@ -44,7 +44,7 @@ func _ready() -> void:
 	header_box.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "Uma jornada de sons e memórias"
+	subtitle.text = "Onde a visão descansa e a música lembra"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header_box.add_child(subtitle)
 
@@ -62,7 +62,6 @@ func _ready() -> void:
 	# --- Contador de Estrelas ---
 	_stars_label = Label.new()
 	_stars_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_update_stars_display()
 	col.add_child(_stars_label)
 
 	# --- Lista de Botões ---
@@ -72,46 +71,67 @@ func _ready() -> void:
 
 	_play_btn = Button.new()
 	_play_btn.custom_minimum_size = Vector2(260, 56)
-	_play_btn.text = "Continuar Jornada"
+	_play_btn.text = "Começar a Lembrar"
 	_play_btn.pressed.connect(_on_play_pressed)
+	_play_btn.focus_entered.connect(func():
+		var total: int = SaveManager.get_total_stars()
+		var action_text := "Retomar o caminho da memória atual" if total > 0 else "Começar a lembrar. Inicia a primeira memória"
+		AccessibleAnnouncer.announce("focus", "%s. Botão 1 de 5." % action_text)
+	)
 	btn_box.add_child(_play_btn)
 
 	_select_btn = Button.new()
 	_select_btn.custom_minimum_size = Vector2(260, 56)
 	_select_btn.text = "Diário de Memórias"
 	_select_btn.pressed.connect(_on_select_pressed)
+	_select_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Diário de Memórias. Folheie os capítulos e memórias gravadas. Botão 2 de 5.")
+	)
 	btn_box.add_child(_select_btn)
 
 	var sandbox_btn := Button.new()
 	sandbox_btn.custom_minimum_size = Vector2(260, 56)
-	sandbox_btn.text = "Modo Livre (Sandbox)"
+	sandbox_btn.text = "Prática Livre"
 	sandbox_btn.pressed.connect(func(): SceneManager.start_sandbox())
+	sandbox_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Prática Livre. Dedilhe notas e explore passos sem objetivos ou tempo. Botão 3 de 5.")
+	)
 	btn_box.add_child(sandbox_btn)
 
 	_settings_btn = Button.new()
 	_settings_btn.custom_minimum_size = Vector2(260, 56)
-	_settings_btn.text = "Configurações"
+	_settings_btn.text = "Ajustes e Acessibilidade"
 	_settings_btn.pressed.connect(_on_settings_pressed)
+	_settings_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Ajustes e Acessibilidade. Configure volume, voz do narrador e contraste. Botão 4 de 5.")
+	)
 	btn_box.add_child(_settings_btn)
 
 	_colors_btn = Button.new()
 	_colors_btn.custom_minimum_size = Vector2(260, 56)
-	_colors_btn.text = "Cores das Notas"
+	_colors_btn.text = "Cores e Contrastes"
 	_colors_btn.pressed.connect(_on_colors_pressed)
+	_colors_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Cores e Contrastes. Personalize a paleta visual das doze notas. Botão 5 de 5.")
+	)
 	btn_box.add_child(_colors_btn)
 
 	# --- Rodapé ---
 	var footer := Label.new()
-	footer.text = "BlindTuner • Godot 4"
+	footer.text = "BlindTuner • Uma jornada de afeto e som"
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(footer)
+
+	_update_stars_display()
 
 func _update_stars_display() -> void:
 	var total: int = SaveManager.get_total_stars()
 	if total > 0:
-		_stars_label.text = "⭐ %d Estrelas Conquistadas" % total
+		_stars_label.text = "✨ %d lembranças afinadas no diário" % total
+		_play_btn.text = "Retomar o Caminho"
 	else:
-		_stars_label.text = "Toque em 'Continuar' para iniciar"
+		_stars_label.text = "Abra os ouvidos para o primeiro acorde"
+		_play_btn.text = "Começar a Lembrar"
 
 func _on_play_pressed() -> void:
 	# Encontra o último nível desbloqueado

@@ -82,8 +82,11 @@ func _ready() -> void:
 	# Botões
 	_next_btn = Button.new()
 	_next_btn.custom_minimum_size = Vector2(0, 48)
-	_next_btn.text = "Próxima Memória"
+	_next_btn.text = "Seguir para a Próxima Lembrança"
 	_next_btn.pressed.connect(func(): next_level_requested.emit())
+	_next_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Seguir para a próxima lembrança. Botão principal.")
+	)
 	col.add_child(_next_btn)
 
 	var row := HBoxContainer.new()
@@ -93,23 +96,32 @@ func _ready() -> void:
 	_retry_btn = Button.new()
 	_retry_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_retry_btn.custom_minimum_size = Vector2(0, 44)
-	_retry_btn.text = "Repetir"
+	_retry_btn.text = "Tocar Outra Vez"
 	_retry_btn.pressed.connect(func(): restart_requested.emit())
+	_retry_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Tocar outra vez. Repete esta memória do primeiro passo.")
+	)
 	row.add_child(_retry_btn)
 
 	_menu_btn = Button.new()
 	_menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_menu_btn.custom_minimum_size = Vector2(0, 44)
-	_menu_btn.text = "Diário"
+	_menu_btn.text = "Folhear Diário"
 	_menu_btn.pressed.connect(func(): level_select_requested.emit())
+	_menu_btn.focus_entered.connect(func():
+		AccessibleAnnouncer.announce("focus", "Folhear Diário. Retorna à lista de memórias e capítulos.")
+	)
 	row.add_child(_menu_btn)
 
 func display_result(level_data, summary: Dictionary) -> void:
+	var stars: int = int(summary.get("stars", 1))
 	if level_data != null:
-		_title_lbl.text = "%s Concluído!" % level_data.title
+		if stars == 3:
+			_title_lbl.text = "%s Afinada com Afeto" % level_data.title
+		else:
+			_title_lbl.text = "%s Guardada no Coração" % level_data.title
 		_story_lbl.text = "\"%s\"" % level_data.story_outro
 	
-	var stars: int = int(summary.get("stars", 1))
 	var stars_text := ""
 	for i in range(3):
 		stars_text += "★" if i < stars else "☆"
@@ -118,9 +130,24 @@ func display_result(level_data, summary: Dictionary) -> void:
 	var hits: int = int(summary.get("first_try_hits", 0))
 	var trips: int = int(summary.get("trips", 0))
 	var elapsed: float = float(summary.get("elapsed_sec", 0.0))
-	_stats_lbl.text = "Acertos de 1ª: %d\nTropeços: %d  •  Tempo: %.1fs" % [hits, trips, elapsed]
+	var trips_desc: String = "Passos firmes e seguros" if trips == 0 else ("%d tropeço(s)" % trips)
+	_stats_lbl.text = "Afinação de 1ª: %d acerto(s)\nPassos: %s  •  Tempo: %.1fs" % [hits, trips_desc, elapsed]
 	
 	var has_next: bool = bool(summary.get("has_next_level", false))
 	_next_btn.visible = has_next
 	if _portrait != null and _portrait.has_method("on_victory"):
 		_portrait.on_victory()
+
+	var stars_narrative: String
+	match stars:
+		3: stars_narrative = "3 de 3 estrelas: Memória Resgatada, Ouvido Fino e Passo Firme."
+		2: stars_narrative = "2 de 3 estrelas: Memória Resgatada e Ouvido Fino."
+		1: stars_narrative = "1 de 3 estrelas: Memória Resgatada."
+		_: stars_narrative = "Memória concluída."
+	
+	var intro_speech := "%s. %s %s" % [_title_lbl.text, stars_narrative, _story_lbl.text]
+	AccessibleAnnouncer.announce("confirm", intro_speech)
+	if has_next:
+		_next_btn.call_deferred("grab_focus")
+	else:
+		_retry_btn.call_deferred("grab_focus")
