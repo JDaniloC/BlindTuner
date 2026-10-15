@@ -82,7 +82,7 @@ func _ready() -> void:
 
 	var vision_toggle := Button.new()
 	vision_toggle.toggle_mode = true
-	vision_toggle.text = "Efeitos de Baixa Visão (Blur/Túnel)"
+	vision_toggle.text = "Efeitos de Transição Visual (Cores/Túnel)"
 	vision_toggle.button_pressed = CueSettings.vision_effects_enabled
 	vision_toggle.toggled.connect(func(pressed: bool): CueSettings.set_vision_effects_enabled(pressed))
 	content.add_child(vision_toggle)

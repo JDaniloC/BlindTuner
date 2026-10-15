@@ -9,8 +9,11 @@ func test_level_1_3_exists_in_catalog():
 	assert_eq(lvl.level_number, 3)
 	assert_eq(lvl.map_id, "banheiro")
 	assert_eq(lvl.beacon_sound_id, "drip")
-	assert_gt(lvl.vision_blur, 1.0)
-	assert_lt(lvl.vision_vignette, 0.7)
+	assert_eq(lvl.vision_blur, 0.0, "Nível 1.3 não deve usar borrão artificial")
+	assert_gt(lvl.vision_desaturation, 0.5, "Nível 1.3 deve ter desaturação cromática avançada")
+	assert_lt(lvl.vision_vignette, 0.8)
+	assert_false(lvl.show_visual_cues, "Nível 1.3 não deve ter pistas visuais do mundo")
+	assert_false(lvl.show_obstacle_outlines, "Nível 1.3 não deve ter contornos neon na bengala")
 	assert_false(lvl.beacon_hint.is_empty())
 
 func test_level_1_3_path_reaches_goal_without_collision():
@@ -40,8 +43,11 @@ func test_level_1_4_exists_in_catalog():
 	assert_eq(lvl.level_number, 4)
 	assert_eq(lvl.map_id, "sala")
 	assert_eq(lvl.beacon_sound_id, "clock")
-	assert_gt(lvl.vision_blur, 2.0)
+	assert_eq(lvl.vision_blur, 0.0, "Nível 1.4 não deve usar borrão artificial")
+	assert_eq(lvl.vision_desaturation, 1.0, "Nível 1.4 deve ser 100% monocromático")
 	assert_lt(lvl.vision_vignette, 0.5)
+	assert_false(lvl.show_floor, "Nível 1.4 não deve ter visualização do chão")
+	assert_eq(lvl.default_cue_level, 3, "Nível 1.4 deve operar na pista 3 (só som)")
 	assert_false(lvl.beacon_hint.is_empty())
 
 func test_level_1_4_path_reaches_goal_without_collision():
@@ -97,11 +103,13 @@ func test_playground_loads_banheiro_with_furniture_and_sink():
 			has_mat = true
 			break
 	assert_true(has_mat, "Tapete de banheiro deve ser spawnado no piso")
+	assert_true(pg._floor_node.visible, "Chão deve estar visível no nível 1.3")
+	assert_false(pg._goal_diamond_marker.visible, "Marcador de chão do objetivo deve estar invisível no nível 1.3")
 
 func test_playground_loads_sala_with_furniture_and_clock():
 	var pg = PlaygroundScene.instantiate()
 	add_child_autofree(pg)
-	pg._begin_preset("ch1_sala_poltrona", 2, 1, false)
+	pg._begin_preset("ch1_sala_poltrona", 3, 1, false)
 	assert_eq(pg._current_map_id, "sala")
 	assert_not_null(pg._goal_beacon)
 	assert_eq(pg._goal_beacon.beacon_type, "clock")
@@ -135,3 +143,5 @@ func test_playground_loads_sala_with_furniture_and_clock():
 			has_rug = true
 			break
 	assert_true(has_rug, "Tapete dobrado deve ser spawnado no piso da sala")
+	assert_false(pg._floor_node.visible, "Visualização do chão deve estar desligada no nível 1.4")
+	assert_false(pg._goal_diamond_marker.visible, "Marcador de chão do objetivo deve estar invisível no nível 1.4")

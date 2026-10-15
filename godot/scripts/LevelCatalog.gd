@@ -57,12 +57,13 @@ func _build_all() -> Array:
 			"quarto",
 			["Cs4", "D4", "D4", "D4", "Ds4", "D4"],
 			"piano",
-			0, # Pista 0: tudo visível
+			0, # Pista 0: tudo visível (nome, Hz e cor)
 			0, # Joystick
 			25.0,
 			"radio",
 			"Siga o som do rádio sobre a cômoda.",
-			0.0, 1.2, 0.0, 0.0
+			0.0, 1.2, 0.0, 0.0,
+			true, true, true
 		),
 
 		# 1.2 Quarto (Noite): A Canção de Ninar para ir dormir entre os obstáculos
@@ -80,7 +81,8 @@ func _build_all() -> Array:
 			30.0,
 			"music_box",
 			"Siga a suave canção de ninar perto da cama.",
-			0.8, 0.75, 0.35, 0.2
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true
 		),
 
 		# 1.3 Banheiro: Passos com cautela e desvios
@@ -93,12 +95,13 @@ func _build_all() -> Array:
 			"banheiro",
 			["C4", "Cs4", "C4", "Cs4", "C4", "Cs4", "G4", "Cs4", "G4"],
 			"piano",
-			1, # Pista 1: freq + cor
+			2, # Pista 2: só cor (nomes e Hz somem)
 			0, # Joystick
 			35.0,
 			"drip",
 			"Siga o som da torneira pingando na pia.",
-			1.6, 0.60, 0.50, 0.4
+			0.0, 0.70, 0.55, 0.75,
+			true, false, false # Pistas visuais e contornos neon retirados
 		),
 
 		# 1.4 Sala de Estar: Caminho mais longo até a poltrona
@@ -111,12 +114,13 @@ func _build_all() -> Array:
 			"sala",
 			["C4", "Cs4", "C4", "G4", "Cs4", "C4", "Cs4", "C4", "G4", "Cs4", "Cs4", "G4", "G4", "G4"],
 			"piano",
-			2, # Pista 2: só cor (nomes e Hz somem)
+			3, # Pista 3: só som (sem pistas visuais no HUD)
 			1, # Piano Virtual
 			45.0,
 			"clock",
 			"Siga o tique-taque ritmado do relógio de pêndulo.",
-			2.4, 0.45, 0.65, 0.7
+			0.0, 0.40, 0.95, 1.0,
+			false, false, false # Sem chão e sem pistas visuais (pura percepção auditiva)
 		),
 	]
 
@@ -138,7 +142,10 @@ func _make(
 	p_vision_blur: float = 0.0,
 	p_vision_vignette: float = 1.2,
 	p_vision_darkness: float = 0.0,
-	p_vision_desat: float = 0.0
+	p_vision_desat: float = 0.0,
+	p_show_floor: bool = true,
+	p_show_visual_cues: bool = true,
+	p_show_obstacle_outlines: bool = true
 ) -> Resource:
 	var lvl = LevelDataScript.new()
 	lvl.id = p_id
@@ -163,6 +170,9 @@ func _make(
 	lvl.vision_vignette = p_vision_vignette
 	lvl.vision_darkness = p_vision_darkness
 	lvl.vision_desaturation = p_vision_desat
+	lvl.show_floor = p_show_floor
+	lvl.show_visual_cues = p_show_visual_cues
+	lvl.show_obstacle_outlines = p_show_obstacle_outlines
 	return lvl
 
 func by_id(p_id: String) -> Resource:

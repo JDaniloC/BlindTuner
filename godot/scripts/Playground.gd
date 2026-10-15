@@ -32,6 +32,7 @@ var _pause_modal: Control = null
 var _victory_modal: Control = null
 var _story_intro_modal: Control = null
 var _goal_beacon: Node2D = null
+var _goal_diamond_marker: Polygon2D = null
 var _vision_overlay: CanvasLayer = null
 
 @onready var _character: Node2D = $Character
@@ -205,6 +206,7 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 		if not beacon_s.is_empty():
 			_goal_beacon.setup(beacon_s)
 			_goal_beacon.start()
+	_apply_level_visual_cues(preset)
 	_character.reset()
 	_character.grid_position = map.start_grid
 	_character.blocked_tiles = _wall_tiles
@@ -213,6 +215,16 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 	if start_conductor:
 		_conductor.start()
 	_hud.set_progress(0, preset.notes.size())
+
+func _apply_level_visual_cues(preset: Resource) -> void:
+	if preset == null:
+		return
+	var show_fl: bool = bool(preset.get("show_floor")) if preset.get("show_floor") != null else true
+	_floor_node.visible = show_fl
+
+	var show_cues: bool = bool(preset.get("show_visual_cues")) if preset.get("show_visual_cues") != null else true
+	if _goal_diamond_marker != null and is_instance_valid(_goal_diamond_marker):
+		_goal_diamond_marker.visible = show_cues
 
 func _apply_input_mode() -> void:
 	var joystick_active := InputModeSettings.mode == InputModeSettings.Mode.JOYSTICK
@@ -455,8 +467,11 @@ func _build_room() -> void:
 		_spawn_banheiro_furniture()
 	elif _current_map_id == "sala":
 		_spawn_sala_furniture()
+	if _conductor._preset != null:
+		_apply_level_visual_cues(_conductor._preset)
 
 func _clear_room() -> void:
+	_goal_diamond_marker = null
 	for n in [_floor_node, _walls_node, _goal_node]:
 		for c in n.get_children():
 			c.queue_free()
@@ -675,6 +690,7 @@ func _spawn_goal_marker(tile: Vector2i, theme) -> void:
 	poly.position = center
 	poly.z_index = int(center.y) - 2
 	_goal_node.add_child(poly)
+	_goal_diamond_marker = poly
 	var tw := poly.create_tween().set_loops()
 	tw.tween_property(poly, "modulate:a", 0.5, 1.0)
 	tw.tween_property(poly, "modulate:a", 1.0, 1.0)
@@ -781,7 +797,11 @@ func _on_tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, _facing
 	var ripple = TactileRippleScript.new()
 	ripple.position = world_pos
 	add_child(ripple)
-	_highlight_nearby_obstacles(grid_pos, 3)
+	var show_outlines: bool = true
+	if _conductor != null and _conductor._preset != null and _conductor._preset.get("show_obstacle_outlines") != null:
+		show_outlines = bool(_conductor._preset.get("show_obstacle_outlines"))
+	if show_outlines:
+		_highlight_nearby_obstacles(grid_pos, 3)
 
 func _highlight_nearby_obstacles(center_grid: Vector2i, radius: int) -> void:
 	for tile in _wall_tiles.keys():
@@ -813,9 +833,13 @@ func _on_listening_focus_requested(world_pos: Vector2) -> void:
 		_goal_beacon.pulse_now()
 	var map = MapPresets.by_id(_current_map_id)
 	var goal_world: Vector2 = _character.grid_to_world(map.goal_grid) if map != null else (_goal_beacon.position if _goal_beacon != null else world_pos)
-	var guide = AcousticFocusGuideScript.new()
-	guide.setup(goal_world, world_pos)
-	add_child(guide)
+	var show_cues: bool = true
+	if _conductor != null and _conductor._preset != null and _conductor._preset.get("show_visual_cues") != null:
+		show_cues = bool(_conductor._preset.get("show_visual_cues"))
+	if show_cues:
+		var guide = AcousticFocusGuideScript.new()
+		guide.setup(goal_world, world_pos)
+		add_child(guide)
 	if _conductor != null and _conductor._timer != null and not _conductor._timer.is_stopped() and not _conductor._timer.paused:
 		_conductor._timer.paused = true
 		get_tree().create_timer(2.5).timeout.connect(func():
