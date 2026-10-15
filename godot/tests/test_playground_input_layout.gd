@@ -148,3 +148,22 @@ func test_character_portrait_does_not_overlap_note_panel():
 	var note_panel := (p.get_node("UI/NotePanel") as Control).get_global_rect()
 	assert_false(portrait.intersects(note_panel), "o CharacterPortrait sobrepõe o NotePanel")
 
+func test_joystick_is_on_the_left_and_actions_are_on_the_right():
+	# Convenção canônica da indústria e ergonomia bimanual mobile:
+	# D-Pad/Direcional no polegar esquerdo (X < 360), Ações no polegar direito (X > 360).
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var j_rect := (p.get_node("UI/DirectionJoystick") as Control).get_global_rect()
+	var a_rect := (p.get_node("UI/SpecialActionPanel") as Control).get_global_rect()
+	assert_lt(j_rect.get_center().x, 360.0, "o joystick deve ficar no quadrante esquerdo")
+	assert_gt(a_rect.get_center().x, 360.0, "o painel de ações deve ficar no quadrante direito")
+
+func test_camera_viewport_offset_centers_character_in_useful_gameplay_window():
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	assert_gt(p.CAMERA_VIEWPORT_OFFSET_Y, 0.0, "a câmera deve possuir offset vertical para compensar a UI")
+	var target_y: float = p._character.position.y + p.CAMERA_VIEWPORT_OFFSET_Y
+	assert_almost_eq(p._camera.position.y, target_y, 1.0,
+		"a câmera deve centrar o personagem na janela útil de jogo")
+
+

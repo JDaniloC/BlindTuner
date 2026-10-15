@@ -66,6 +66,12 @@ const FLASH_DURATION := 0.18
 # A nota dura NOTE_DURATION_SEC=0.6s; 0.5s deixa o pitch ser percebido antes do "erro".
 const COLLISION_SFX_DELAY := 0.5
 
+## Deslocamento vertical da câmera para centralizar a visão do personagem na janela
+## útil da sala isométrica (entre a barra superior Y=252 e os controles da base Y=889).
+## Em zoom 1.6x, 42px no mundo correspondem a ~67px na tela (640 - 67 = 573px,
+## o centro exato da janela desobstruída).
+const CAMERA_VIEWPORT_OFFSET_Y := 42.0
+
 var _wall_tiles: Dictionary = {}
 var _shake_remaining := 0.0
 var _flash_tween: Tween
@@ -83,6 +89,7 @@ func _ready() -> void:
 	_character.grid_position = first_map.start_grid
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(first_map.start_grid)
+	_camera.position = _character.position + Vector2(0.0, CAMERA_VIEWPORT_OFFSET_Y)
 	_character.blocked.connect(_on_character_blocked)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
@@ -198,6 +205,7 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 	_character.grid_position = map.start_grid
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(map.start_grid)
+	_camera.position = _character.position + Vector2(0.0, CAMERA_VIEWPORT_OFFSET_Y)
 	if start_conductor:
 		_conductor.start()
 	_hud.set_progress(0, preset.notes.size())
@@ -686,7 +694,8 @@ func _diamond_polygon(w: int, h: int) -> PackedVector2Array:
 
 func _process(delta: float) -> void:
 	var alpha := 1.0 - pow(0.9, delta * 60.0)
-	_camera.position = _camera.position.lerp(_character.position, alpha)
+	var target_cam_pos := _character.position + Vector2(0.0, CAMERA_VIEWPORT_OFFSET_Y)
+	_camera.position = _camera.position.lerp(target_cam_pos, alpha)
 	if _vision_overlay != null and is_instance_valid(_vision_overlay):
 		var screen_pos: Vector2 = _character.get_global_transform_with_canvas().origin
 		var vp_size: Vector2 = get_viewport_rect().size

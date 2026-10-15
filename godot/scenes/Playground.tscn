@@ -50,13 +50,13 @@ offset_right = -16.0
 offset_bottom = 216.0
 
 [node name="DirectionJoystick" parent="UI" instance=ExtResource("3")]
-anchor_left = 1.0
+anchor_left = 0.0
 anchor_top = 1.0
-anchor_right = 1.0
+anchor_right = 0.0
 anchor_bottom = 1.0
-offset_left = -385.0
+offset_left = 32.0
 offset_top = -390.5
-offset_right = -32.0
+offset_right = 385.0
 offset_bottom = -37.5
 
 [node name="PianoInput" parent="UI" instance=ExtResource("93")]
@@ -84,11 +84,11 @@ offset_bottom = 390.0
 [node name="GameHUD" parent="UI" instance=ExtResource("91")]
 
 [node name="SpecialActionPanel" parent="UI" instance=ExtResource("92")]
-anchor_left = 0.0
+anchor_left = 1.0
 anchor_top = 1.0
-anchor_right = 0.0
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 32.0
+offset_left = -272.0
 offset_top = -334.0
-offset_right = 272.0
+offset_right = -32.0
 offset_bottom = -94.0
