@@ -315,18 +315,33 @@ func escutar() -> void:
 	action_performed.emit("pegar", grid_position, _last_direction)
 
 func _do_correr() -> void:
+	if _run_next:
+		_run_next = false
+		_play_animation("idle", _last_direction)
+		armed_state_changed.emit(_run_next, _jump_next)
+		AccessibleAnnouncer.announce("cancel", "Corrida desarmada.")
+		return
 	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.
 	_run_next = true
 	_play_animation("run", _last_direction)
 	armed_state_changed.emit(_run_next, _jump_next)
+	AccessibleAnnouncer.announce("confirm", "Corrida armada.")
 
 func _do_pular() -> void:
+	if _jump_next:
+		_jump_next = false
+		_set_jump_loop(false)
+		_play_animation("idle", _last_direction)
+		armed_state_changed.emit(_run_next, _jump_next)
+		AccessibleAnnouncer.announce("cancel", "Salto desarmado.")
+		return
 	# Arma pular: jump anim LOOPA enquanto armado (vira "saltando no lugar").
 	# Loop é desligado em handle_note ao consumir, ou em _enter_trip.
 	_jump_next = true
 	_set_jump_loop(true)
 	_play_animation("jump", _last_direction)
 	armed_state_changed.emit(_run_next, _jump_next)
+	AccessibleAnnouncer.announce("confirm", "Salto armado.")
 
 func _return_to_idle_if_static() -> void:
 	if not is_instance_valid(self):

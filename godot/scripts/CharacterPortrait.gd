@@ -28,6 +28,7 @@ var persistent_state: State = State.IDLE
 
 var _reaction_timer_id: int = 0
 var _shake_tween: Tween
+var _happy_priority_until_ms: int = 0
 
 @onready var _texture_rect: TextureRect = $Margin/TextureRect
 
@@ -42,6 +43,10 @@ func set_state(state: State) -> void:
 
 ## Dispara uma reação transitória que retorna ao estado persistente após duration segundos.
 func trigger_reaction(state: State, duration: float = 0.8) -> void:
+	var now := Time.get_ticks_msec()
+	# Prioridade: não corta o sorriso de alívio imediatamente se um novo CALL chegar logo em seguida
+	if now < _happy_priority_until_ms and state == State.LISTENING:
+		return
 	_apply_state(state)
 	_reaction_timer_id += 1
 	var current_id := _reaction_timer_id
@@ -59,14 +64,18 @@ func set_listening(listening: bool) -> void:
 func on_wall_bump() -> void:
 	trigger_reaction(State.BUMP, 0.9)
 	_shudder()
+	AccessibleAnnouncer.play_earcon("boundary")
 
 ## Reação de erro na nota ou dúvida.
 func on_note_miss() -> void:
 	trigger_reaction(State.CONFUSED, 1.0)
+	AccessibleAnnouncer.play_earcon("error")
 
 ## Reação de acerto na nota.
 func on_note_hit() -> void:
+	_happy_priority_until_ms = Time.get_ticks_msec() + 450
 	trigger_reaction(State.HAPPY, 0.8)
+	AccessibleAnnouncer.play_earcon("confirm")
 
 ## Reação de conclusão da sequência.
 func on_victory() -> void:

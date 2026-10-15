@@ -42,6 +42,7 @@ var _labels: Array[Label] = []
 # Paralelo a _buttons; true quando o flag correspondente está armado no Character.
 # Atualizado por on_armed_state_changed (conectado pelo Playground).
 var _armed: Array[bool] = [false, false, false, false]
+var _active_tweens: Array = [null, null, null, null]
 
 func _ready() -> void:
 	var grid := GridContainer.new()
@@ -52,6 +53,7 @@ func _ready() -> void:
 	for note_key in ACTION_NOTES:
 		var btn := Button.new()
 		btn.custom_minimum_size = BUTTON_SIZE
+		btn.pivot_offset = BUTTON_SIZE * 0.5
 		btn.pressed.connect(_emit_note.bind(note_key))
 		grid.add_child(btn)
 		# Glifo e nome vivem numa VBox que os trata como UM grupo: ela centra o
@@ -93,6 +95,21 @@ func _ready() -> void:
 
 func _emit_note(note_key: String) -> void:
 	note_triggered.emit(note_key)
+	var idx := ACTION_NOTES.find(note_key)
+	if idx == 0 or idx == 1:
+		_pulse_action_button(idx, 2.5)
+
+func _pulse_action_button(idx: int, duration: float) -> void:
+	if idx < 0 or idx >= _buttons.size():
+		return
+	var btn := _buttons[idx]
+	if _active_tweens[idx] != null and _active_tweens[idx].is_valid():
+		_active_tweens[idx].kill()
+	var tw := create_tween()
+	_active_tweens[idx] = tw
+	tw.tween_property(btn, "scale", Vector2(1.08, 1.08), 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(duration - 0.45)
+	tw.tween_property(btn, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
 
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()

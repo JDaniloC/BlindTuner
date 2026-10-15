@@ -443,3 +443,21 @@ func test_combo_spawns_dust_at_run_segment():
 	c.handle_note("C4")
 	var after := c.get_child_count()
 	assert_eq(after - before, c.DUST_PUFF_COUNT, "combo spawna dust no segmento de run")
+
+func test_correr_toggle_disarms():
+	var c = _make_character()
+	c.handle_action("As4")
+	assert_true(c._run_next, "1º toque em Correr arma a ação")
+	watch_signals(c)
+	c.handle_action("As4")
+	assert_false(c._run_next, "2º toque em Correr desarma a ação")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])
+
+func test_pular_toggle_disarms():
+	var c = _make_character()
+	c.handle_action("B4")
+	assert_true(c._jump_next, "1º toque em Pular arma a ação")
+	watch_signals(c)
+	c.handle_action("B4")
+	assert_false(c._jump_next, "2º toque em Pular desarma a ação")
+	assert_signal_emitted_with_parameters(c, "armed_state_changed", [false, false])

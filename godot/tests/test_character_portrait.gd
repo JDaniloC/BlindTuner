@@ -56,3 +56,11 @@ func test_reset_restores_idle() -> void:
 	_portrait.reset()
 	assert_eq(_portrait.current_state, CharacterPortraitScript.State.IDLE)
 	assert_eq(_portrait.persistent_state, CharacterPortraitScript.State.IDLE)
+
+func test_on_note_hit_protects_happy_against_immediate_listening() -> void:
+	_portrait.on_note_hit()
+	assert_eq(_portrait.current_state, CharacterPortraitScript.State.HAPPY)
+	# Um novo CALL que chegue imediatamente (< 450ms) não deve cortar o sorriso de acerto
+	_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 0.8)
+	assert_eq(_portrait.current_state, CharacterPortraitScript.State.HAPPY, "o alívio/sorriso deve ser protegido")
+
