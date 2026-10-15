@@ -42,9 +42,9 @@ func calculate_stars(level, stats: Dictionary) -> int:
 	if total_notes > 0 and first_try_hits >= total_notes:
 		stars += 1
 	
-	# Estrela 3: Passo Firme (sem tropeços ou dentro da tolerância do nível)
-	var total_trips: int = int(stats.get("total_trips", 0))
-	if total_trips <= level.max_trips_for_three_stars:
+	# Estrela 3: Passo Firme (sem tropeços em paredes/obstáculos ou dentro da tolerância)
+	var bumps: int = int(stats.get("wall_bumps", stats.get("total_trips", 0)))
+	if bumps <= level.max_trips_for_three_stars:
 		stars += 1
 	
 	return stars
@@ -56,6 +56,8 @@ func complete_level(stats: Dictionary) -> Dictionary:
 	var stars := calculate_stars(current_level, stats)
 	var elapsed: float = float(stats.get("elapsed_sec", 0.0))
 	var trips: int = int(stats.get("total_trips", 0))
+	var wall_bumps: int = int(stats.get("wall_bumps", trips))
+	var pitch_misses: int = int(stats.get("pitch_misses", 0))
 	var first_try: int = int(stats.get("first_try_hits", 0))
 	
 	var prev_stars := SaveManager.get_level_stars(current_level.id)
@@ -77,6 +79,8 @@ func complete_level(stats: Dictionary) -> Dictionary:
 		"is_new_high_score": stars > prev_stars,
 		"elapsed_sec": elapsed,
 		"trips": trips,
+		"wall_bumps": wall_bumps,
+		"pitch_misses": pitch_misses,
 		"first_try_hits": first_try,
 		"has_next_level": next_level != null,
 		"next_level_id": next_id,

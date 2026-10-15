@@ -50,6 +50,17 @@ func test_calculate_stars():
 	}
 	assert_eq(LevelManager.calculate_stars(lvl, stats_3), 3)
 
+	# Caso 4: Concluiu com erros de pitch (sem Ouvido Fino), mas sem esbarrar nas paredes (Passo Firme) -> 2 estrelas
+	var stats_4 := {
+		"first_try_hits": 4,
+		"total_notes": 6,
+		"pitch_misses": 2,
+		"wall_bumps": 0,
+		"total_trips": 2,
+		"elapsed_sec": 22.0
+	}
+	assert_eq(LevelManager.calculate_stars(lvl, stats_4), 2)
+
 func test_complete_level_unlocks_next():
 	LevelManager.select_level("ch1_quarto_radio")
 	assert_false(SaveManager.is_level_unlocked("ch1_lullaby_dormir"))
@@ -65,4 +76,6 @@ func test_complete_level_unlocks_next():
 	assert_eq(summary.get("stars"), 3)
 	assert_true(summary.get("is_new_unlock"))
 	assert_eq(summary.get("next_level_id"), "ch1_lullaby_dormir")
+	assert_eq(summary.get("wall_bumps"), 0)
+	assert_eq(summary.get("pitch_misses"), 0)
 	assert_true(SaveManager.is_level_unlocked("ch1_lullaby_dormir"))

@@ -129,9 +129,14 @@ func display_result(level_data, summary: Dictionary) -> void:
 	
 	var hits: int = int(summary.get("first_try_hits", 0))
 	var trips: int = int(summary.get("trips", 0))
+	var wall_bumps: int = int(summary.get("wall_bumps", trips))
 	var elapsed: float = float(summary.get("elapsed_sec", 0.0))
-	var trips_desc: String = "Passos firmes e seguros" if trips == 0 else ("%d tropeço(s)" % trips)
-	_stats_lbl.text = "Afinação de 1ª: %d acerto(s)\nPassos: %s  •  Tempo: %.1fs" % [hits, trips_desc, elapsed]
+	var total_notes: int = level_data.total_steps() if level_data != null else hits
+	var has_ear: bool = (total_notes > 0 and hits >= total_notes)
+	var max_bumps: int = level_data.max_trips_for_three_stars if level_data != null else 0
+	var has_step: bool = (wall_bumps <= max_bumps)
+	var steps_desc: String = "Passos firmes e seguros" if wall_bumps == 0 else ("%d tropeço(s)" % wall_bumps)
+	_stats_lbl.text = "Afinação de 1ª: %d acerto(s)\nPassos: %s  •  Tempo: %.1fs" % [hits, steps_desc, elapsed]
 	
 	var has_next: bool = bool(summary.get("has_next_level", false))
 	_next_btn.visible = has_next
@@ -140,10 +145,17 @@ func display_result(level_data, summary: Dictionary) -> void:
 
 	var stars_narrative: String
 	match stars:
-		3: stars_narrative = "3 de 3 estrelas: Memória Resgatada, Ouvido Fino e Passo Firme."
-		2: stars_narrative = "2 de 3 estrelas: Memória Resgatada e Ouvido Fino."
-		1: stars_narrative = "1 de 3 estrelas: Memória Resgatada."
-		_: stars_narrative = "Memória concluída."
+		3:
+			stars_narrative = "3 de 3 estrelas: Memória Resgatada, Ouvido Fino e Passo Firme."
+		2:
+			if has_step and not has_ear:
+				stars_narrative = "2 de 3 estrelas: Memória Resgatada e Passo Firme."
+			else:
+				stars_narrative = "2 de 3 estrelas: Memória Resgatada e Ouvido Fino."
+		1:
+			stars_narrative = "1 de 3 estrelas: Memória Resgatada."
+		_:
+			stars_narrative = "Memória concluída."
 	
 	var intro_speech := "%s. %s %s" % [_title_lbl.text, stars_narrative, _story_lbl.text]
 	AccessibleAnnouncer.announce("confirm", intro_speech)
