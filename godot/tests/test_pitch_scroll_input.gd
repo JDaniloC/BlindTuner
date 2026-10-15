@@ -51,6 +51,17 @@ func test_drag_ended_resolves_nearest_note_and_emits():
 	p._on_drag_ended()
 	assert_signal_emitted_with_parameters(p, "note_triggered", ["A4"])
 
+func test_drag_ended_uses_touch_up_hysteresis_when_drifting_at_release():
+	var p = _make()
+	watch_signals(p)
+	var target_y: float = p._y_for_frequency(440.0) # A4
+	var past_time: int = Time.get_ticks_msec() - 70
+	p._drag_samples.append({ "y": target_y, "time": past_time })
+	p._drag_samples.append({ "y": target_y, "time": past_time + 10 })
+	p._move_finger_to(p._y_for_frequency(494.0)) # B4 flick
+	p._on_drag_ended()
+	assert_signal_emitted_with_parameters(p, "note_triggered", ["A4"])
+
 func test_drag_ended_stops_continuous_pitch():
 	var p = _make()
 	p._move_finger_to(100.0)

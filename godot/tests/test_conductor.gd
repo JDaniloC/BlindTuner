@@ -84,7 +84,17 @@ func test_miss_does_not_advance_and_counts_trip():
 	_enter_call(c, ["C4", "D4"])
 	c.submit_note("D4")  # errado (alvo C4)
 	assert_eq(c._index, 0)
+	assert_eq(c._stats.pitch_misses, 1)
 	assert_eq(c._stats.total_trips, 1)
+
+func test_wall_bumps_and_pitch_misses_sum_to_total_trips():
+	var c = _conductor()
+	_enter_call(c, ["C4", "D4"])
+	c.submit_note("D4")  # pitch miss
+	c.record_wall_bump() # wall bump
+	assert_eq(c._stats.pitch_misses, 1)
+	assert_eq(c._stats.wall_bumps, 1)
+	assert_eq(c._stats.total_trips, 2)
 
 func test_miss_then_hit_does_not_count_first_try():
 	var c = _conductor()

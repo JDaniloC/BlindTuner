@@ -319,7 +319,11 @@ func _update_thumb(offset: Vector2) -> void:
 	_thumb_offset = offset.limit_length(RADIUS)
 	var center := size / 2.0
 	_thumb.position = center + _thumb_offset
+	var prev_slice := _active_slice_index
 	_active_slice_index = slice_index_for_offset(_thumb_offset)
+	if prev_slice != _active_slice_index and _active_slice_index >= 0:
+		if OS.has_feature("mobile"):
+			Input.vibrate_handheld(15)
 	_refresh_slice_alphas()
 
 func _reset_thumb() -> void:

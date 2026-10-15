@@ -200,8 +200,12 @@ func set_phase(phase: int) -> void:
 			_phase_label.text = ""
 
 func show_stats(stats: Dictionary) -> void:
-	_stats_label.text = "Acertos de 1ª: %d\nErros: %d\nTempo: %.1f s" % [
-		stats.first_try_hits, stats.total_trips, stats.elapsed_sec]
+	if stats.has("pitch_misses") and stats.has("wall_bumps") and (stats.pitch_misses > 0 or stats.wall_bumps > 0):
+		_stats_label.text = "Acertos de 1ª: %d\nErros: %d (Tom: %d | Parede: %d)\nTempo: %.1f s" % [
+			stats.first_try_hits, stats.total_trips, stats.pitch_misses, stats.wall_bumps, stats.elapsed_sec]
+	else:
+		_stats_label.text = "Acertos de 1ª: %d\nErros: %d\nTempo: %.1f s" % [
+			stats.first_try_hits, stats.total_trips, stats.elapsed_sec]
 	_stats_panel.visible = true
 
 func hide_stats() -> void:

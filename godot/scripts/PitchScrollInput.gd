@@ -103,6 +103,7 @@ const TAPE_EDGE := 2.0
 
 var _dragging := false
 var _finger_y := 0.0
+var _drag_samples: Array[Dictionary] = []
 
 func _ready() -> void:
 	custom_minimum_size = BOARD_SIZE
@@ -198,6 +199,10 @@ func _gui_input(event: InputEvent) -> void:
 
 func _move_finger_to(local_y: float) -> void:
 	_finger_y = clampf(local_y, _neck_usable_top(), _neck_usable_bottom())
+	var now := Time.get_ticks_msec()
+	_drag_samples.append({ "y": _finger_y, "time": now })
+	while _drag_samples.size() > 12 or (not _drag_samples.is_empty() and now - _drag_samples[0]["time"] > 180):
+		_drag_samples.pop_front()
 	queue_redraw()
 	AudioManager.play_continuous_pitch(_frequency_for_finger_y())
 
@@ -222,10 +227,13 @@ func _neck_usable_bottom() -> float:
 ##
 ## `x` é normalizado pelo x da nota mais aguda pra oitava inteira ocupar
 ## exatamente o braço útil.
-func _frequency_for_finger_y() -> float:
-	var t := (_finger_y - _neck_usable_top()) / (_neck_usable_bottom() - _neck_usable_top())
+func _frequency_for_y(y: float) -> float:
+	var t := (y - _neck_usable_top()) / (_neck_usable_bottom() - _neck_usable_top())
 	var low := _lowest_frequency()
 	return low / (1.0 - t * _neck_span_ratio())
+
+func _frequency_for_finger_y() -> float:
+	return _frequency_for_y(_finger_y)
 
 ## Onde no braço mora uma frequência -- a inversa exata de
 ## _frequency_for_finger_y(). Fonte única da posição de cada nota: quem precisar
@@ -331,7 +339,16 @@ func _highest_frequency() -> float:
 
 func _on_drag_ended() -> void:
 	AudioManager.stop_continuous_pitch()
-	var note := NoteMapping.nearest_note_for_frequency(_frequency_for_finger_y())
+	var final_y := _finger_y
+	var now := Time.get_ticks_msec()
+	# Touch-Up Hysteresis: filtra saltos involuntários nos últimos 50ms de soltura do dedo na tela touch
+	if _drag_samples.size() >= 3:
+		for s in _drag_samples:
+			if now - s["time"] >= 50:
+				final_y = s["y"]
+				break
+	_drag_samples.clear()
+	var note := NoteMapping.nearest_note_for_frequency(_frequency_for_y(final_y))
 	note_triggered.emit(note)
 
 func _exit_tree() -> void:

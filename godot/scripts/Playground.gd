@@ -754,6 +754,9 @@ func _on_character_blocked(_dir: Vector2i, reason: int) -> void:
 			_character_portrait.on_note_miss()
 		else:
 			_character_portrait.on_wall_bump()
+	if reason == _character.TripReason.WALL:
+		if _conductor != null:
+			_conductor.record_wall_bump()
 	if reason == _character.TripReason.NOTE_MISS:
 		# Erro de conhecimento no CALL: só o SFX suave, sem shake/flash de colisão.
 		# Mesmo delay do WALL abaixo: a nota errada que o jogador tocou (play_note,

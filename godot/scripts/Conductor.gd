@@ -53,7 +53,13 @@ func _reset_state() -> void:
 	_preview_index = 0
 	_replay_index = 0
 	_attempted_current = false
-	_stats = { "first_try_hits": 0, "total_trips": 0, "elapsed_sec": 0.0 }
+	_stats = {
+		"first_try_hits": 0,
+		"pitch_misses": 0,
+		"wall_bumps": 0,
+		"total_trips": 0,
+		"elapsed_sec": 0.0
+	}
 
 func start() -> void:
 	if _preset == null:
@@ -91,10 +97,17 @@ func submit_note(note_key: String) -> void:
 		else:
 			_schedule_call_cue(_preset.notes[_index], _index)
 	else:
+		_stats.pitch_misses += 1
 		_stats.total_trips += 1
 		_attempted_current = true
 		note_resolved.emit(false, _index)
 		_schedule_call_cue(_preset.notes[_index], _index)
+
+## Registra colisão física com obstáculo ou parede
+func record_wall_bump() -> void:
+	if _stats.has("wall_bumps"):
+		_stats.wall_bumps += 1
+		_stats.total_trips += 1
 
 func _schedule_call_cue(note: String, idx: int) -> void:
 	var t := get_tree().create_timer(CUE_GAP_AFTER_USER_SEC)
