@@ -49,6 +49,7 @@ var _vision_overlay: CanvasLayer = null
 @onready var _pitch_scroll_input: Control = $UI/PitchScrollInput
 @onready var _goal_node: Node2D = $Goal
 var _current_map_id: String = ""
+var _last_triggered_note: String = ""
 var _joystick_default_filter: int
 var _special_actions_default_filter: int
 var _piano_input_default_filter: int
@@ -109,6 +110,7 @@ func _ready() -> void:
 	_hud.restart_requested.connect(_on_restart_requested)
 	_hud.color_settings_requested.connect(_on_color_settings_requested)
 	_hud.pause_requested.connect(_on_pause_requested)
+	_note_panel.replay_cue_requested.connect(_on_replay_cue_requested)
 	# O NotePanel estava fixado em offset_top=140 no .tscn, e a barra do topo
 	# passou de ~134 para 150px quando "Cores" ganhou uma segunda linha: o painel
 	# opaco do HUD (irmão posterior na CanvasLayer) passou a desenhar 10px por
@@ -192,6 +194,7 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 	_hud.hide_stats()
 	if _character_portrait != null:
 		_character_portrait.reset()
+	_note_panel.clear_guide()
 	_conductor.load_preset(preset)
 	if _current_map_id != map.id:
 		_current_map_id = map.id
@@ -267,6 +270,7 @@ func _on_phase_changed(phase: int) -> void:
 		_character.position = _character.grid_to_world(sg)
 
 func _on_note_triggered(note_key: String) -> void:
+	_last_triggered_note = note_key
 	match _conductor.phase:
 		_conductor.Phase.IDLE:
 			# Modo livre: anda de verdade (Character.handle_note trata
@@ -281,6 +285,10 @@ func _on_note_triggered(note_key: String) -> void:
 		_:
 			pass  # PREVIEW/REPLAY: não conflita com playback; DONE: sem nota ativa para submeter
 
+func _on_replay_cue_requested() -> void:
+	if _conductor != null and _conductor.phase == _conductor.Phase.CALL:
+		_conductor.replay_current_cue()
+
 func _on_note_resolved(hit: bool, index: int) -> void:
 	if _character_portrait != null:
 		if hit:
@@ -288,6 +296,10 @@ func _on_note_resolved(hit: bool, index: int) -> void:
 		else:
 			_character_portrait.on_note_miss()
 	var note_key: String = _conductor._preset.notes[index]
+	if hit:
+		_note_panel.clear_guide()
+	else:
+		_note_panel.display_miss(_last_triggered_note, note_key)
 	if NoteMapping.is_action_note(note_key):
 		# Acerto numa ação: dispara a ação; erro: tropeço com a última direção.
 		if hit:

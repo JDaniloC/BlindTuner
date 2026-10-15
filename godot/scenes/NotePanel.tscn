@@ -30,3 +30,13 @@ theme_override_font_sizes/font_size = 24
 [node name="Freq" type="Label" parent="Margin/HBox"]
 text = "—"
 theme_override_font_sizes/font_size = 18
+
+[node name="Guide" type="Label" parent="Margin/HBox"]
+visible = false
+text = ""
+theme_override_font_sizes/font_size = 18
+
+[node name="ReplayBtn" type="Button" parent="Margin/HBox"]
+custom_minimum_size = Vector2(96, 36)
+size_flags_horizontal = 10
+text = "Ouvir 👂"

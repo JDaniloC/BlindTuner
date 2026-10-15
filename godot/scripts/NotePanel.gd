@@ -1,13 +1,17 @@
 extends PanelContainer
 ## HUD da última nota. Visibilidade dos elementos segue CueSettings.
 
+signal replay_cue_requested
+
 ## ColorDistance é RefCounted, não autoload -- precisa de preload pra ser usado.
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
 @onready var _label: Label = $Margin/HBox/Label
 @onready var _freq: Label = $Margin/HBox/Freq
+@onready var _guide_lbl: Label = $Margin/HBox/Guide
 @onready var _chip_frame: PanelContainer = $Margin/HBox/ChipFrame
 @onready var _color_chip: ColorRect = $Margin/HBox/ChipFrame/ColorChip
+@onready var _replay_btn: Button = $Margin/HBox/ReplayBtn
 
 ## Espessura da moldura em volta do chip, em px de cada lado.
 ##
@@ -53,6 +57,11 @@ var _last_note: String = ""
 func _ready() -> void:
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	if _replay_btn != null:
+		_replay_btn.pressed.connect(func(): replay_cue_requested.emit())
+		_replay_btn.focus_entered.connect(func():
+			AccessibleAnnouncer.announce("focus", "Ouvir a nota novamente sem penalidade de tropeço. Botão.")
+		)
 	_paint_chip_frame()
 	_apply_cue()
 
@@ -115,6 +124,8 @@ func _apply_cue() -> void:
 	visible = CueSettings.cue_level < 3
 	_label.visible = CueSettings.shows_name()
 	_freq.visible = CueSettings.shows_freq()
+	if _guide_lbl != null:
+		_guide_lbl.visible = not _guide_lbl.text.is_empty() and (CueSettings.shows_name() or CueSettings.shows_freq())
 	# Os dois juntos: esconder só o chip deixaria a moldura sozinha, um quadrado
 	# escuro vazio; esconder só a moldura deixaria o chip sem borda de novo.
 	_chip_frame.visible = CueSettings.shows_color()
@@ -125,3 +136,22 @@ func display_note(note_key: String) -> void:
 	_label.text = NoteMapping.label_for(note_key)
 	_freq.text = "%d Hz" % NoteMapping.frequency_for(note_key)
 	_color_chip.color = NoteMapping.color_for(note_key)
+
+func display_miss(played_note: String, target_note: String) -> void:
+	var played_freq := NoteMapping.frequency_for(played_note)
+	var target_freq := NoteMapping.frequency_for(target_note)
+	var is_lower := played_freq < target_freq
+	
+	if _guide_lbl != null:
+		_guide_lbl.text = "▲ Suba (Mais agudo)" if is_lower else "▼ Desça (Mais grave)"
+		_guide_lbl.visible = CueSettings.shows_name() or CueSettings.shows_freq()
+	
+	var dir_speech := "mais aguda" if is_lower else "mais grave"
+	AccessibleAnnouncer.announce("miss", "Nota %s tocada. A afinação correta é %s." % [
+		NoteMapping.label_for(played_note), dir_speech
+	])
+
+func clear_guide() -> void:
+	if _guide_lbl != null:
+		_guide_lbl.text = ""
+		_guide_lbl.visible = false

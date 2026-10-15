@@ -112,6 +112,17 @@ func _fire_call_cue(note: String, idx: int, timer: SceneTreeTimer) -> void:
 	_pending_cue_timer = null
 	call_cue.emit(note, idx)
 
+## Reemite o call_cue da nota atual no modo CALL sem computar tropeço nem penalizar estrelas.
+func replay_current_cue() -> void:
+	if phase != Phase.CALL:
+		return
+	if _preset == null:
+		return
+	if _index >= _preset.notes.size():
+		return
+	_pending_cue_timer = null
+	call_cue.emit(_preset.notes[_index], _index)
+
 func _set_phase(p: int) -> void:
 	if phase == p:
 		return

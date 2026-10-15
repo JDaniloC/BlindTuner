@@ -283,3 +283,26 @@ func test_a_moldura_vale_pra_paleta_do_jogador():
 		"fixture frouxa: se todo chip já se acha sozinho, a moldura não está sendo testada")
 	assert_gte(pior, ColorDistance.GRAPHIC_MIN,
 		"pior moldura da paleta livre: %.2f:1 (chip sozinho chega a %.2f:1)" % [pior, pior_chip])
+
+func test_display_miss_shows_relative_pitch_guidance():
+	var p = _panel()
+	# Tocando D4 (294 Hz) quando o alvo é G4 (392 Hz) -> alvo é mais agudo -> "▲ Suba"
+	p.display_miss("D4", "G4")
+	assert_true(p._guide_lbl.visible)
+	assert_true(p._guide_lbl.text.contains("Suba"))
+	
+	# Tocando B4 (494 Hz) quando o alvo é E4 (330 Hz) -> alvo é mais grave -> "▼ Desça"
+	p.display_miss("B4", "E4")
+	assert_true(p._guide_lbl.visible)
+	assert_true(p._guide_lbl.text.contains("Desça"))
+	
+	p.clear_guide()
+	assert_false(p._guide_lbl.visible)
+	assert_eq(p._guide_lbl.text, "")
+
+func test_replay_button_emits_signal():
+	var p = _panel()
+	watch_signals(p)
+	p._replay_btn.emit_signal("pressed")
+	assert_signal_emitted(p, "replay_cue_requested")
+

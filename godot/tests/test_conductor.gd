@@ -109,6 +109,18 @@ func test_call_cue_re_emitted_same_index_on_miss():
 	assert_signal_emitted_with_parameters(c, "note_resolved", [false, 0])
 	assert_eq(c._index, 0)
 
+func test_replay_current_cue_does_not_penalize_player():
+	var c = _conductor()
+	_enter_call(c, ["C4"])
+	watch_signals(c)
+	c.replay_current_cue()
+	assert_signal_emitted_with_parameters(c, "call_cue", ["C4", 0])
+	assert_eq(c._stats.total_trips, 0, "replay_current_cue não deve incrementar tropeços")
+	assert_false(c._attempted_current, "replay_current_cue não deve marcar erro de tentativa")
+	# Se acertar em seguida, ainda ganha first_try_hits!
+	c.submit_note("C4")
+	assert_eq(c._stats.first_try_hits, 1, "acerto após replay_current_cue continua sendo de 1ª tentativa")
+
 func test_completion_enters_replay():
 	var c = _conductor()
 	_enter_call(c, ["C4", "D4"])
