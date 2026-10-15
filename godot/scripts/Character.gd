@@ -10,6 +10,8 @@ signal armed_state_changed(running: bool, jumping: bool)
 signal tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, facing: Vector2i)
 ## Dispara quando o idoso para para escutar atentamente o farol sonoro.
 signal listening_focus_requested(world_pos: Vector2)
+## Dispara ao entrar (true) e sair (false) do estado de tropeço para guiar UI e feedback.
+signal trip_state_changed(is_tripping: bool)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -132,6 +134,7 @@ func reset() -> void:
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
 func handle_note(note_key: String) -> void:
 	if state == State.TRIP:
+		AudioManager.play_trip_blocked_sfx()
 		return
 	if NoteMapping.is_action_note(note_key):
 		handle_action(note_key)
@@ -274,6 +277,7 @@ func _enter_trip(dir: Vector2i, reason: int = TripReason.WALL) -> void:
 	_last_direction = dir
 	_play_animation("jump", dir)
 	blocked.emit(dir, reason)
+	trip_state_changed.emit(true)
 	get_tree().create_timer(TRIP_DURATION_SEC).timeout.connect(_exit_trip)
 
 func _exit_trip() -> void:
@@ -283,6 +287,10 @@ func _exit_trip() -> void:
 		return
 	state = State.IDLE
 	_play_animation("idle", _last_direction)
+	trip_state_changed.emit(false)
+
+func is_tripping() -> bool:
+	return state == State.TRIP
 
 ## Conversão grade → coordenadas de mundo (projeção isométrica padrão 2:1).
 func grid_to_world(g: Vector2i) -> Vector2:

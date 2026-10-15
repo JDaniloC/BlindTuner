@@ -22,6 +22,8 @@ const COLLISION_FREQ := 80.0
 # realmente mudar, pois o buffer fica sempre cheio de amostras ja geradas.
 const PITCH_BUFFER_LEN_SEC := 0.04
 const NOTE_MISS_FREQ := 220.0
+const NOTE_MISS_FREQ_1 := 186.4
+const NOTE_MISS_FREQ_2 := 194.8
 # Curto porque é feedback de erro, não uma nota a reconhecer. A envoltória NÃO
 # impõe piso a esta duração: _envelope_segments comprime os quatro trechos pra
 # caber em qualquer duração. Antes disso o piso existia e não era respeitado --
@@ -137,9 +139,82 @@ func play_note(note_key: String) -> AudioStreamPlayer:
 func play_collision_sfx() -> AudioStreamPlayer:
     return _play_synth(COLLISION_FREQ, true, COLLISION_DURATION_SEC)
 
-## Toca SFX de erro de conhecimento no CALL (curto, não-harsh). Distinto do SFX de colisão física.
+## Toca SFX de erro de conhecimento no CALL (corda acústica desafinada com batimento harmônico).
 func play_note_miss_sfx() -> AudioStreamPlayer:
-    return _play_synth(NOTE_MISS_FREQ, false, NOTE_MISS_DURATION_SEC)
+    _stop_current()
+    var player := AudioStreamPlayer.new()
+    player.stream = _generate_detuned_pluck_stream(NOTE_MISS_DURATION_SEC)
+    add_child(player)
+    _current_player = player
+    player.finished.connect(_on_player_finished.bind(player))
+    player.play()
+    return player
+
+## Gera stream sintetizado com batimento acústico de cordas desafinadas (~8.4Hz de batimento dissonante).
+func _generate_detuned_pluck_stream(duration: float) -> AudioStreamWAV:
+    var env := _envelope_segments(duration)
+    var total_samples: int = env[0] + env[1] + env[2] + env[3]
+    var bytes := PackedByteArray()
+    bytes.resize(total_samples * 2)
+
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var inc1 := NOTE_MISS_FREQ_1 / MIX_RATE
+    var inc2 := NOTE_MISS_FREQ_2 / MIX_RATE
+    var noise := 0.0
+
+    for idx in range(total_samples):
+        var amp := _envelope_at(idx, env[0], env[1], env[2], env[3])
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.12)
+        var s1 := _string_harmonics(phase1)
+        var s2 := _string_harmonics(phase2)
+        var val := (s1 * 0.45 + s2 * 0.45 + noise * 0.1) * amp * 0.5
+        var pcm: int = clampi(int(val * 32767.0), -32768, 32767)
+        bytes.encode_s16(idx * 2, pcm)
+        phase1 = fposmod(phase1 + inc1, 1.0)
+        phase2 = fposmod(phase2 + inc2, 1.0)
+
+    var stream := AudioStreamWAV.new()
+    stream.format = AudioStreamWAV.FORMAT_16_BITS
+    stream.mix_rate = int(MIX_RATE)
+    stream.stereo = false
+    stream.data = bytes
+    return stream
+
+## Toca SFX sutil de toque bloqueado/recuperação de tropeço (tap abafado de madeira, 0.05s).
+func play_trip_blocked_sfx() -> AudioStreamPlayer:
+    _stop_current()
+    var player := AudioStreamPlayer.new()
+    player.stream = _generate_blocked_tap_stream()
+    add_child(player)
+    _current_player = player
+    player.finished.connect(_on_player_finished.bind(player))
+    player.play()
+    return player
+
+func _generate_blocked_tap_stream() -> AudioStreamWAV:
+    var duration := 0.05
+    var total_samples := int(MIX_RATE * duration)
+    var bytes := PackedByteArray()
+    bytes.resize(total_samples * 2)
+    var phase := 0.0
+    var inc := 115.0 / MIX_RATE
+    var noise := 0.0
+    for idx in range(total_samples):
+        var t := float(idx) / float(MIX_RATE)
+        var env := exp(-t * 85.0)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.25)
+        var val := (sin(phase * TAU) * 0.7 + noise * 0.3) * env * 0.35
+        var pcm: int = clampi(int(val * 32767.0), -32768, 32767)
+        bytes.encode_s16(idx * 2, pcm)
+        phase = fposmod(phase + inc, 1.0)
+
+    var stream := AudioStreamWAV.new()
+    stream.format = AudioStreamWAV.FORMAT_16_BITS
+    stream.mix_rate = int(MIX_RATE)
+    stream.stereo = false
+    stream.data = bytes
+    return stream
 
 ## Toca SFX de batida tátil de bengala no chão ("toc-toc").
 func play_cane_tap_sfx() -> AudioStreamPlayer:

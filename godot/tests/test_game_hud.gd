@@ -42,6 +42,18 @@ func test_set_progress_updates_label():
 	h.set_progress(3, 8)
 	assert_eq(h._progress.text, "Nota 3 / 8")
 
+func test_set_phase_updates_phase_label():
+	var h = _hud()
+	assert_eq(h._phase_label.text, "")
+	h.set_phase(1) # PREVIEW
+	assert_string_contains(h._phase_label.text, "Ouça")
+	h.set_phase(2) # CALL
+	assert_string_contains(h._phase_label.text, "Sua Vez")
+	h.set_phase(3) # REPLAY
+	assert_string_contains(h._phase_label.text, "Passos")
+	h.set_phase(4) # DONE
+	assert_string_contains(h._phase_label.text, "Concluído")
+
 func test_show_stats_reveals_panel_and_text():
 	var h = _hud()
 	h.show_stats({ "first_try_hits": 4, "total_trips": 2, "elapsed_sec": 12.5 })

@@ -285,3 +285,23 @@ func test_the_collision_sfx_the_player_hears_has_no_step_in_it():
         "PCM da colisão: degrau de %.4f na amostra %d de %d" % [medido[0], medido[1], total])
     assert_almost_eq(float(medido[2]), 1.0, 0.01,
         "pré-condição: o PCM chega ao pico da envoltória (senão os degraus seriam pequenos por o som estar baixo)")
+
+func test_play_note_miss_sfx_uses_detuned_pluck_stream():
+    var player = AudioManager.play_note_miss_sfx()
+    assert_not_null(player)
+    assert_not_null(player.stream)
+    assert_true(player.stream is AudioStreamWAV)
+    var stream: AudioStreamWAV = player.stream
+    var total_samples: int = stream.data.size() / 2
+    assert_eq(total_samples, int(AudioManager.MIX_RATE * AudioManager.NOTE_MISS_DURATION_SEC))
+    assert_false(stream.stereo)
+    assert_eq(stream.mix_rate, int(AudioManager.MIX_RATE))
+
+func test_play_trip_blocked_sfx_returns_valid_player_and_stream():
+    var player = AudioManager.play_trip_blocked_sfx()
+    assert_not_null(player)
+    assert_not_null(player.stream)
+    assert_true(player.stream is AudioStreamWAV)
+    var stream: AudioStreamWAV = player.stream
+    var total_samples: int = stream.data.size() / 2
+    assert_eq(total_samples, int(AudioManager.MIX_RATE * 0.05))

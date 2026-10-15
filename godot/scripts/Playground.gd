@@ -92,6 +92,7 @@ func _ready() -> void:
 	_character.position = _character.grid_to_world(first_map.start_grid)
 	_camera.position = _character.position + Vector2(0.0, CAMERA_VIEWPORT_OFFSET_Y)
 	_character.blocked.connect(_on_character_blocked)
+	_character.trip_state_changed.connect(_on_character_trip_state_changed)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
 	_character.tactile_pulse_requested.connect(_on_tactile_pulse_requested)
@@ -268,8 +269,34 @@ func _on_phase_changed(phase: int) -> void:
 		var sg: Vector2i = MapPresets.by_id(preset.map_id).start_grid
 		_character.grid_position = sg
 		_character.position = _character.grid_to_world(sg)
+	# Modulação visual dos controles por fase (dim em PREVIEW/REPLAY)
+	if phase == _conductor.Phase.PREVIEW or phase == _conductor.Phase.REPLAY:
+		_set_controls_alpha(0.65)
+	elif phase == _conductor.Phase.CALL or phase == _conductor.Phase.IDLE:
+		_set_controls_alpha(1.0)
+	if _hud != null:
+		_hud.set_phase(phase)
+
+func _on_character_trip_state_changed(is_tripping: bool) -> void:
+	var alpha: float = 0.55 if is_tripping else 1.0
+	_set_controls_alpha(alpha)
+
+func _set_controls_alpha(alpha: float) -> void:
+	if _joystick != null:
+		_joystick.modulate.a = alpha
+	if _special_actions != null:
+		_special_actions.modulate.a = alpha
+	if _piano_input != null:
+		_piano_input.modulate.a = alpha
+	if _pitch_scroll_input != null:
+		_pitch_scroll_input.modulate.a = alpha
 
 func _on_note_triggered(note_key: String) -> void:
+	if _character != null and _character.is_tripping():
+		AudioManager.play_trip_blocked_sfx()
+		if OS.has_feature("mobile"):
+			Input.vibrate_handheld(25)
+		return
 	_last_triggered_note = note_key
 	match _conductor.phase:
 		_conductor.Phase.IDLE:
@@ -283,7 +310,8 @@ func _on_note_triggered(note_key: String) -> void:
 			_note_panel.display_note(note_key)
 			_conductor.submit_note(note_key)
 		_:
-			pass  # PREVIEW/REPLAY: não conflita com playback; DONE: sem nota ativa para submeter
+			# PREVIEW/REPLAY/DONE: feedback sonoro imediato sem dead click silencioso
+			AudioManager.play_trip_blocked_sfx()
 
 func _on_replay_cue_requested() -> void:
 	if _conductor != null and _conductor.phase == _conductor.Phase.CALL:

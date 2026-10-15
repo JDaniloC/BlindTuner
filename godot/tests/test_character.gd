@@ -109,6 +109,19 @@ func test_input_ignored_during_trip():
 	c.handle_note("D4")  # ignorado
 	assert_eq(c.grid_position, pos_after_trip)
 
+func test_trip_state_changed_emitted_on_enter_and_exit():
+	var c = _make_character()
+	var emitted_states: Array = []
+	c.trip_state_changed.connect(func(tripping): emitted_states.append(tripping))
+	c.blocked_tiles = { Vector2i(4, 4): true }
+	assert_false(c.is_tripping())
+	c.handle_note("C4")  # trip
+	assert_true(c.is_tripping())
+	assert_eq(emitted_states, [true])
+	c._exit_trip()
+	assert_false(c.is_tripping())
+	assert_eq(emitted_states, [true, false])
+
 func test_run_triggered_by_double_tap_same_note():
 	var c = _make_character()
 	c.handle_note("C4")

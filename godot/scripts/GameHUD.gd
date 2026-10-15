@@ -23,6 +23,7 @@ var _start_btn: Button
 var _color_btn: Button
 var _cues_btn: Button
 var _pause_btn: Button
+var _phase_label: Label
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -112,6 +113,10 @@ func _ready() -> void:
 	_pause_btn.pressed.connect(func(): pause_requested.emit())
 	row2.add_child(_pause_btn)
 
+	_phase_label = Label.new()
+	_phase_label.text = ""
+	row2.add_child(_phase_label)
+
 	_progress = Label.new()
 	_progress.text = "—"
 	_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -174,6 +179,25 @@ func _on_restart_pressed() -> void:
 
 func set_progress(index: int, total: int) -> void:
 	_progress.text = "Nota %d / %d" % [index, total]
+
+## Atualiza a insígnia de fase do Conductor e anuncia a transição para acessibilidade.
+func set_phase(phase: int) -> void:
+	match phase:
+		0:
+			_phase_label.text = ""
+		1:
+			_phase_label.text = "👂 Ouça"
+			AccessibleAnnouncer.announce("focus", "Fase de escuta. Ouça a memória com atenção.")
+		2:
+			_phase_label.text = "🎵 Sua Vez"
+			AccessibleAnnouncer.announce("confirm", "Sua vez de tocar. Repita as notas.")
+		3:
+			_phase_label.text = "🚶 Passos"
+			AccessibleAnnouncer.announce("focus", "Revivendo os passos até o objetivo.")
+		4:
+			_phase_label.text = "✨ Concluído"
+		_:
+			_phase_label.text = ""
 
 func show_stats(stats: Dictionary) -> void:
 	_stats_label.text = "Acertos de 1ª: %d\nErros: %d\nTempo: %.1f s" % [
