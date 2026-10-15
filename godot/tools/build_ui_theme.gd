@@ -25,7 +25,9 @@ const SURFACE := Color(1.0, 0.992, 0.961)
 ## tema padrão, que são claros e não temos substituto pra eles. O que se conserta
 ## aqui são os dois estados que reprovavam: hover (4,31:1) e disabled (1,61:1).
 const POPUP_PANEL := Color(0.118, 0.102, 0.082)
-const POPUP_HOVER := Color(0.478, 0.400, 0.314)
+## Ajustado para Color(0.35, 0.29, 0.22): contraste 8,38:1 com SURFACE (#FFFDF5),
+## superando o piso WCAG AAA (>= 7,0:1). O tom anterior (0.478, 0.400, 0.314) media 5,36:1.
+const POPUP_HOVER := Color(0.35, 0.29, 0.22)
 const POPUP_MUTED := Color(0.604, 0.569, 0.518)
 
 func _init() -> void:

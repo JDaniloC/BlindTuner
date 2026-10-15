@@ -1,7 +1,7 @@
 extends GutTest
 
-func test_three_maps_exist():
-    assert_eq(MapPresets.ALL.size(), 3)
+func test_all_maps_exist():
+    assert_eq(MapPresets.ALL.size(), 4)
 
 func test_all_maps_have_unique_ids():
     var seen := {}
@@ -13,7 +13,7 @@ func test_known_map_ids():
     var ids := []
     for m in MapPresets.ALL:
         ids.append(m.id)
-    assert_eq(ids, ["quarto", "banheiro", "sala"])
+    assert_eq(ids, ["quarto", "banheiro", "sala", "quarto_lullaby"])
 
 func test_all_map_themes_resolve():
     for m in MapPresets.ALL:

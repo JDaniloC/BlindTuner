@@ -4,6 +4,7 @@ extends Control
 signal start_requested(preset_id: String, cue_level: int, input_mode: int)
 signal restart_requested
 signal color_settings_requested
+signal pause_requested
 ## A barra do topo mudou de altura. Quem desenha logo abaixo dela (o NotePanel
 ## do Playground) precisa se reposicionar: a altura depende do número de linhas
 ## de controle e do tamanho da fonte, que sobe por acessibilidade.
@@ -13,12 +14,15 @@ const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
 const PLAY_ICON := preload("res://assets/ui/flat/UI_Flat_ButtonPlay01a.png")
 
 var _top_panel: PanelContainer
+var _row1: HBoxContainer
+var _title_label: Label
 var _preset_opt: OptionButton
 var _cue_opt: OptionButton
 var _mode_opt: OptionButton
 var _start_btn: Button
 var _color_btn: Button
 var _cues_btn: Button
+var _pause_btn: Button
 var _progress: Label
 var _stats_panel: PanelContainer
 var _stats_label: Label
@@ -46,6 +50,7 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	top_vbox.add_child(row)
+	_row1 = row
 
 	_preset_opt = OptionButton.new()
 	for p in SequencePresets.ALL:
@@ -67,6 +72,10 @@ func _ready() -> void:
 	_start_btn.icon = PLAY_ICON
 	_start_btn.pressed.connect(_on_start_pressed)
 	row.add_child(_start_btn)
+
+	_title_label = Label.new()
+	_title_label.visible = false
+	top_vbox.add_child(_title_label)
 
 	# "Cores" vai para a segunda linha: enfiado na primeira, os 5 controles
 	# deixavam 7px de folga em 720px de largura -- qualquer rótulo um pouco
@@ -97,6 +106,11 @@ func _ready() -> void:
 	_cues_btn.text = "Pistas nos controles"
 	_cues_btn.toggled.connect(_on_cues_toggled)
 	row2.add_child(_cues_btn)
+
+	_pause_btn = Button.new()
+	_pause_btn.text = "Pausa"
+	_pause_btn.pressed.connect(func(): pause_requested.emit())
+	row2.add_child(_pause_btn)
 
 	_progress = Label.new()
 	_progress.text = "—"
@@ -168,3 +182,16 @@ func show_stats(stats: Dictionary) -> void:
 
 func hide_stats() -> void:
 	_stats_panel.visible = false
+
+func set_campaign_mode(title_text: String) -> void:
+	_row1.visible = false
+	_title_label.text = "🎵 %s" % title_text
+	_title_label.visible = true
+	_color_btn.visible = false
+	top_bar_resized.emit()
+
+func set_sandbox_mode() -> void:
+	_row1.visible = true
+	_title_label.visible = false
+	_color_btn.visible = true
+	top_bar_resized.emit()

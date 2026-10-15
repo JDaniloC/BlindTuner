@@ -134,3 +134,17 @@ func test_joystick_does_not_overlap_the_note_panel_or_the_actions():
 		"o joystick cobre o NotePanel")
 	assert_false(j.intersects((p.get_node("UI/SpecialActionPanel") as Control).get_global_rect()),
 		"o joystick cobre os botões de ação")
+
+func test_character_portrait_is_fully_on_screen():
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var portrait: Control = p.get_node("UI/CharacterPortrait")
+	_assert_on_screen(portrait.get_global_rect(), "CharacterPortrait")
+
+func test_character_portrait_does_not_overlap_note_panel():
+	var p = _playground_at_design_size()
+	await wait_frames(2)
+	var portrait := (p.get_node("UI/CharacterPortrait") as Control).get_global_rect()
+	var note_panel := (p.get_node("UI/NotePanel") as Control).get_global_rect()
+	assert_false(portrait.intersects(note_panel), "o CharacterPortrait sobrepõe o NotePanel")
+

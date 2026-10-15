@@ -59,19 +59,10 @@ const HARMONIC_GAIN_TOTAL := 2.1
 const VIBRATO_CONTROL_RATE_SAMPLES := 32
 
 const STRINGS_BUS_NAME := "Strings"
-# Reduzido de 6.0: nas notas do jogo (262-494Hz), as bandas de 250/500Hz
-# reforçadas caem quase exatamente sobre a fundamental e o 2º harmônico da
-# nota tocada (não sobre formantes "genéricos" de corpo de violino) -- +6dB
-# ali deixava o timbre nasal/ressonante e empurrava o sinal perto do clipping
-# antes do chorus processar.
 const STRINGS_EQ_BOOST_DB := 2.5
-# Frequências-alvo pra reforçar (~formantes graves/médios/agudos de um corpo
-# de violino/cello) -- mapeadas pra banda mais próxima do AudioEffectEQ10 em
-# _eq10_band_index_for. Um único EQ10 evita o problema de encadear vários
-# AudioEffectBandPassFilter em série (cada um restringe mais o sinal que o
-# anterior -- 3 seguidos quase silenciariam o tom).
 const STRINGS_EQ_BOOST_TARGETS_HZ := [300.0, 700.0, 2500.0]
 const EQ10_BAND_FREQS := [31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0]
+const BEACON_BUS_NAME := "Beacon"
 
 var _current_player: AudioStreamPlayer = null
 var _pitch_player: AudioStreamPlayer = null
@@ -81,9 +72,11 @@ var _pitch_freq := 0.0
 var _pitch_lfo_phase := 0.0
 var _noise_lp := 0.0
 var _vibrato_sample_counter := 0
+var _beacon_stream_cache: Dictionary = {}
 
 func _ready() -> void:
     _ensure_strings_bus()
+    _ensure_beacon_bus()
 
 ## Cria (se ainda não existir) o bus "Strings" com EQ + chorus, só pro tom
 ## contínuo do Scroll de Afinação -- fica separado do bus Master, onde tocam
@@ -100,6 +93,16 @@ func _ensure_strings_bus() -> void:
         eq.set_band_gain_db(_eq10_band_index_for(target_hz), STRINGS_EQ_BOOST_DB)
     AudioServer.add_bus_effect(idx, eq)
     AudioServer.add_bus_effect(idx, _make_strings_chorus())
+
+## Cria (se ainda não existir) o bus "Beacon" para áudio espacial 2D dos objetivos das fases.
+func _ensure_beacon_bus() -> void:
+    if AudioServer.get_bus_index(BEACON_BUS_NAME) != -1:
+        return
+    var idx := AudioServer.bus_count
+    AudioServer.add_bus(idx)
+    AudioServer.set_bus_name(idx, BEACON_BUS_NAME)
+    AudioServer.set_bus_send(idx, "Master")
+    AudioServer.set_bus_volume_db(idx, -2.0)
 
 ## Uma única voz, profundidade/nível baixos -- o padrão (2 vozes, profundidade
 ## maior) soa metálico/tipo flanger aplicado em cima de só 5 harmônicos
@@ -137,6 +140,42 @@ func play_collision_sfx() -> AudioStreamPlayer:
 ## Toca SFX de erro de conhecimento no CALL (curto, não-harsh). Distinto do SFX de colisão física.
 func play_note_miss_sfx() -> AudioStreamPlayer:
     return _play_synth(NOTE_MISS_FREQ, false, NOTE_MISS_DURATION_SEC)
+
+## Toca SFX de batida tátil de bengala no chão ("toc-toc").
+func play_cane_tap_sfx() -> AudioStreamPlayer:
+    _stop_current()
+    var player := AudioStreamPlayer.new()
+    player.stream = _generate_cane_tap_stream()
+    add_child(player)
+    _current_player = player
+    player.finished.connect(_on_player_finished.bind(player))
+    player.play()
+    return player
+
+func _generate_cane_tap_stream() -> AudioStreamWAV:
+    var duration := 0.2
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var t2 := int(MIX_RATE * 0.07)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var inc1 := 520.0 / MIX_RATE
+    var inc2 := 780.0 / MIX_RATE
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var val := 0.0
+        if i < t2:
+            var env1 := exp(-t * 45.0)
+            val += (sin(phase1 * TAU) * 0.6 + randf_range(-0.4, 0.4) * 0.4) * env1
+        else:
+            var t_rel := float(i - t2) / float(MIX_RATE)
+            var env2 := exp(-t_rel * 55.0)
+            val += (sin(phase2 * TAU) * 0.5 + randf_range(-0.3, 0.3) * 0.3) * env2
+        samples[i] = val * 0.5
+        phase1 = fposmod(phase1 + inc1, 1.0)
+        phase2 = fposmod(phase2 + inc2, 1.0)
+    return _create_pcm16_wav(samples)
 
 ## Toca (ou, já tocando, apenas atualiza) um tom contínuo na frequência dada --
 ## diferente de play_note, NÃO reinicia o player a cada chamada (permite glissando
@@ -348,3 +387,126 @@ func _envelope_at(idx: int, a: int, d: int, s: int, r: int) -> float:
     # Release com curva exponencial (t²) — mais musical que linear.
     var t := float(idx - a - d - s) / float(r)
     return lerpf(SUSTAIN_LEVEL, 0.0, t * t)
+
+## Retorna um AudioStreamWAV com síntese temática para o farol sonoro do objetivo.
+func get_beacon_stream(beacon_type: String) -> AudioStreamWAV:
+    if _beacon_stream_cache.has(beacon_type):
+        return _beacon_stream_cache[beacon_type]
+    var stream: AudioStreamWAV = null
+    match beacon_type:
+        "radio":
+            stream = _generate_radio_beacon_stream()
+        "music_box":
+            stream = _generate_music_box_beacon_stream()
+        "drip":
+            stream = _generate_drip_beacon_stream()
+        "clock":
+            stream = _generate_clock_beacon_stream()
+        _:
+            stream = _generate_radio_beacon_stream()
+    _beacon_stream_cache[beacon_type] = stream
+    return stream
+
+func _create_pcm16_wav(samples: PackedFloat32Array) -> AudioStreamWAV:
+    var total_samples := samples.size()
+    var bytes := PackedByteArray()
+    bytes.resize(total_samples * 2)
+    for i in range(total_samples):
+        var pcm: int = clampi(int(clampf(samples[i], -1.0, 1.0) * 32767.0), -32768, 32767)
+        bytes.encode_s16(i * 2, pcm)
+    var stream := AudioStreamWAV.new()
+    stream.format = AudioStreamWAV.FORMAT_16_BITS
+    stream.mix_rate = int(MIX_RATE)
+    stream.stereo = false
+    stream.data = bytes
+    return stream
+
+func _generate_radio_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.65
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var inc1 := 329.63 / MIX_RATE # E4
+    var inc2 := 440.0 / MIX_RATE   # A4
+    var noise_val := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(total_samples)
+        var env: float
+        if t < 0.1:
+            env = t / 0.1
+        elif t > 0.8:
+            env = (1.0 - t) / 0.2
+        else:
+            env = 1.0
+        noise_val = lerpf(noise_val, randf_range(-1.0, 1.0), 0.08)
+        var tone := (sin(phase1 * TAU) * 0.6 + sin(phase2 * TAU) * 0.3) + noise_val * 0.1
+        samples[i] = tone * env * 0.4
+        phase1 = fposmod(phase1 + inc1, 1.0)
+        phase2 = fposmod(phase2 + inc2, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_music_box_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.8
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var inc := 659.25 / MIX_RATE # E5
+    var attack_samples := int(MIX_RATE * 0.006)
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env: float
+        if i < attack_samples:
+            env = float(i) / float(attack_samples)
+        else:
+            env = exp(-t * 4.5)
+        var tone := sin(phase * TAU) + 0.35 * sin(phase * TAU * 2.0) + 0.15 * sin(phase * TAU * 3.0)
+        samples[i] = tone * env * 0.4
+        phase = fposmod(phase + inc, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_drip_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.25
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var attack_samples := int(MIX_RATE * 0.004)
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var cur_freq := lerpf(1350.0, 600.0, clampf(t / 0.08, 0.0, 1.0))
+        var inc := cur_freq / MIX_RATE
+        var env: float
+        if i < attack_samples:
+            env = float(i) / float(attack_samples)
+        else:
+            env = exp(-t * 18.0)
+        var tone := sin(phase * TAU) + 0.2 * sin(phase * TAU * 2.0)
+        samples[i] = tone * env * 0.5
+        phase = fposmod(phase + inc, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_clock_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.15
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var inc := 820.0 / MIX_RATE
+    var attack_samples := int(MIX_RATE * 0.003)
+    var noise_val := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env: float
+        if i < attack_samples:
+            env = float(i) / float(attack_samples)
+        else:
+            env = exp(-t * 32.0)
+        noise_val = lerpf(noise_val, randf_range(-1.0, 1.0), 0.3)
+        var tone := sin(phase * TAU) * 0.6 + noise_val * 0.4
+        samples[i] = tone * env * 0.5
+        phase = fposmod(phase + inc, 1.0)
+    return _create_pcm16_wav(samples)
+

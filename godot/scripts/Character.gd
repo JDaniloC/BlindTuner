@@ -6,6 +6,10 @@ signal blocked(direction: Vector2i, reason: int)
 signal action_performed(action_id: String, grid_position: Vector2i, facing: Vector2i)
 ## Notifica mudança de _run_next / _jump_next para UI espelhar (botão armado brilha).
 signal armed_state_changed(running: bool, jumping: bool)
+## Dispara quando o idoso tateia com a bengala, revelando obstáculos e quinas.
+signal tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, facing: Vector2i)
+## Dispara quando o idoso para para escutar atentamente o farol sonoro.
+signal listening_focus_requested(world_pos: Vector2)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -40,15 +44,15 @@ var _last_note_time_ms: int = 0
 var _run_next: bool = false   # armado por handle_action(As4); consumido pelo próximo handle_note de movimento
 var _jump_next: bool = false  # armado por handle_action(B4); idem, mas pula 1 tile com anim jump
 
-const SHEET_BASE := "res://assets/sprites/character/16x32/"
+const SHEET_BASE := "res://assets/sprites/character/16x32_elderly/"
 const SHEETS := {
 	"idle":   { "file": "16x32 Idle-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 6 },
 	"walk":   { "file": "16x32 Walk-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 10 },
 	"run":    { "file": "16x32 Run-Sheet.png",    "cols": 6, "frame_w": 32, "frame_h": 32, "loop": true,  "fps": 14 },
 	"rotate":   { "file": "16x32 Rotate-Sheet.png",   "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
-	"jump":     { "file": "16x32 Jump-Sheet.png",     "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
+	"jump":     { "file": "16x32 Jump-Sheet.png",     "cols": 5, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
 	"interact": { "file": "16x32 Interact-Sheet.png", "cols": 4, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 10 },
-	"attack":   { "file": "16x32 Attack-Sheet.png",   "cols": 8, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 12 },
+	"attack":   { "file": "16x32 Attack-Sheet.png",   "cols": 7, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 12 },
 }
 const DIRECTION_ROWS := ["s", "se", "e", "ne", "n"]
 const DIRECTION_TO_KEY := {
@@ -94,9 +98,19 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 
 func _ready() -> void:
 	position = grid_to_world(grid_position)
+	z_index = int(position.y) + 1
 	_animated_sprite.sprite_frames = _build_sprite_frames()
 	_sprite_base_y = _animated_sprite.position.y
 	_play_animation("idle", Vector2i(0, 1))
+	_ensure_audio_listener()
+
+func _ensure_audio_listener() -> void:
+	var listener := AudioListener2D.new()
+	add_child(listener)
+	listener.make_current()
+
+func _process(_delta: float) -> void:
+	z_index = int(position.y) + 1
 
 ## Recebe a nota disparada pelo joystick. Trata movimento, ação ou ignora se for reservada.
 func handle_note(note_key: String) -> void:
@@ -277,12 +291,28 @@ func handle_action(note_key: String) -> void:
 func _do_pegar() -> void:
 	# Anim de "abaixar e pegar" via sprite Interact (5 dirs, 4 frames @ 10fps).
 	_play_animation("interact", _last_direction)
+	listening_focus_requested.emit(position)
 	get_tree().create_timer(INTERACT_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_interagir() -> void:
 	# Anim de "balançar bengala" via sprite Attack (5 dirs, 8 frames @ 12fps).
 	_play_animation("attack", _last_direction)
+	tactile_pulse_requested.emit(position, grid_position, _last_direction)
 	get_tree().create_timer(ATTACK_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
+
+func _do_tatear() -> void:
+	_do_interagir()
+
+func _do_escutar() -> void:
+	_do_pegar()
+
+func tatear() -> void:
+	_do_interagir()
+	action_performed.emit("interagir", grid_position, _last_direction)
+
+func escutar() -> void:
+	_do_pegar()
+	action_performed.emit("pegar", grid_position, _last_direction)
 
 func _do_correr() -> void:
 	# Arma correr: anim 'run' loopa no lugar até consumo. Próximo handle_note vira _try_run.

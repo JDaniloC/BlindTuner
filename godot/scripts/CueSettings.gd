@@ -2,8 +2,10 @@ extends Node
 ## Autoload — nível de pista visual (0=tudo … 3=só som). Pura apresentação.
 
 signal cue_level_changed(level: int)
+signal vision_effects_changed(enabled: bool)
 
 var cue_level: int = 0
+var vision_effects_enabled: bool = true
 
 func set_level(level: int) -> void:
 	var c := clampi(level, 0, 3)
@@ -11,6 +13,12 @@ func set_level(level: int) -> void:
 		return
 	cue_level = c
 	cue_level_changed.emit(cue_level)
+
+func set_vision_effects_enabled(enabled: bool) -> void:
+	if vision_effects_enabled == enabled:
+		return
+	vision_effects_enabled = enabled
+	vision_effects_changed.emit(vision_effects_enabled)
 
 func shows_name() -> bool:
 	return cue_level <= 0

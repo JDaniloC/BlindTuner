@@ -48,6 +48,8 @@ const ColorDistance := preload("res://scripts/ColorDistance.gd")
 const ActionIconScript := preload("res://scripts/ActionIcon.gd")
 const PlaygroundScene := preload("res://scenes/Playground.tscn")
 const ColorSchemeScreenScene := preload("res://scenes/ColorSchemeScreen.tscn")
+const LevelSelectScreenScene := preload("res://scenes/LevelSelectScreen.tscn")
+const PauseModalScene := preload("res://scenes/PauseModal.tscn")
 
 var _screen: SubViewport
 var _saved_scheme: String
@@ -510,6 +512,24 @@ func test_color_scheme_screen_popup_contrast():
 	var s := _mount(ColorSchemeScreenScene)
 	await wait_frames(2)
 	var falhas := _sweep_popups(s)
+	assert_eq(falhas.size(), 0, _relato(falhas))
+
+func test_level_select_screen_contrast():
+	var s := _mount(LevelSelectScreenScene)
+	await wait_frames(2)
+	var falhas := _sweep(s)
+	assert_eq(falhas.size(), 0, _relato(falhas))
+
+func test_level_select_screen_popup_contrast():
+	var s := _mount(LevelSelectScreenScene)
+	await wait_frames(2)
+	var falhas := _sweep_popups(s)
+	assert_eq(falhas.size(), 0, _relato(falhas))
+
+func test_pause_modal_contrast():
+	var s := _mount(PauseModalScene)
+	await wait_frames(2)
+	var falhas := _sweep(s)
 	assert_eq(falhas.size(), 0, _relato(falhas))
 
 ## Uma varredura que não alcança nada passa com folga -- e passaria também com o

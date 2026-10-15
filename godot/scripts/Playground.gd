@@ -2,11 +2,41 @@ extends Node2D
 ## Cena raiz. Chão/paredes procedurais + loop de jogo (Conductor + GameHUD).
 
 const COLOR_SCREEN_SCENE := preload("res://scenes/ColorSchemeScreen.tscn")
+const PAUSE_MODAL_SCENE := preload("res://scenes/PauseModal.tscn")
+const VICTORY_MODAL_SCENE := preload("res://scenes/VictoryModal.tscn")
+const STORY_INTRO_MODAL_SCENE := preload("res://scenes/StoryIntroModal.tscn")
+const GOAL_AUDIO_BEACON_SCENE := preload("res://scenes/GoalAudioBeacon.tscn")
+const VISION_OVERLAY_SCENE := preload("res://scenes/VisionImpairmentOverlay.tscn")
+const TactileRippleScript := preload("res://scripts/TactileRipple.gd")
+const AcousticFocusGuideScript := preload("res://scripts/AcousticFocusGuide.gd")
+const CharacterPortraitScript := preload("res://scripts/CharacterPortrait.gd")
+const FLOOR_WOOD_OAK_A := preload("res://assets/sprites/tilemap/floor_wood_oak_a.png")
+const FLOOR_WOOD_OAK_B := preload("res://assets/sprites/tilemap/floor_wood_oak_b.png")
+const WALL_WOOD_QUARTO := preload("res://assets/sprites/tilemap/wall_wood_quarto.png")
+const RADIO_PROP := preload("res://assets/sprites/props/radio_vintage_48x48.png")
+const BED_PROP := preload("res://assets/sprites/furniture/bed_elderly_96x80.png")
+const NIGHTSTAND_PROP := preload("res://assets/sprites/furniture/nightstand_lamp_48x64.png")
+const SLIPPERS_PROP := preload("res://assets/sprites/obstacles/slippers_floor_36x32.png")
+const SINK_PROP := preload("res://assets/sprites/furniture/sink_bathroom_48x48.png")
+const TOILET_PROP := preload("res://assets/sprites/furniture/toilet_retro_32x48.png")
+const BATHTUB_PROP := preload("res://assets/sprites/furniture/bathtub_retro_80x64.png")
+const BATH_MAT_PROP := preload("res://assets/sprites/obstacles/bath_mat_48x32.png")
+const CLOCK_PROP := preload("res://assets/sprites/furniture/clock_grandfather_32x80.png")
+const COFFEE_TABLE_PROP := preload("res://assets/sprites/furniture/coffee_table_64x48.png")
+const ARMCHAIR_PROP := preload("res://assets/sprites/furniture/armchair_cozy_64x64.png")
+const DRESSER_PROP := preload("res://assets/sprites/furniture/dresser_wood_96x80.png")
+const RUG_FOLDED_PROP := preload("res://assets/sprites/obstacles/rug_folded_80x44.png")
 
 var _color_screen: Control = null
+var _pause_modal: Control = null
+var _victory_modal: Control = null
+var _story_intro_modal: Control = null
+var _goal_beacon: Node2D = null
+var _vision_overlay: CanvasLayer = null
 
 @onready var _character: Node2D = $Character
 @onready var _joystick: Control = $UI/DirectionJoystick
+@onready var _character_portrait: Control = $UI/CharacterPortrait
 @onready var _note_panel: PanelContainer = $UI/NotePanel
 @onready var _floor_node: Node2D = $Floor
 @onready var _walls_node: Node2D = $Walls
@@ -56,6 +86,8 @@ func _ready() -> void:
 	_character.blocked.connect(_on_character_blocked)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
+	_character.tactile_pulse_requested.connect(_on_tactile_pulse_requested)
+	_character.listening_focus_requested.connect(_on_listening_focus_requested)
 	_joystick.note_triggered.connect(_on_note_triggered)
 	_special_actions.note_triggered.connect(_on_note_triggered)
 	_piano_input.note_triggered.connect(_on_note_triggered)
@@ -69,6 +101,7 @@ func _ready() -> void:
 	_hud.start_requested.connect(_on_start_requested)
 	_hud.restart_requested.connect(_on_restart_requested)
 	_hud.color_settings_requested.connect(_on_color_settings_requested)
+	_hud.pause_requested.connect(_on_pause_requested)
 	# O NotePanel estava fixado em offset_top=140 no .tscn, e a barra do topo
 	# passou de ~134 para 150px quando "Cores" ganhou uma segunda linha: o painel
 	# opaco do HUD (irmão posterior na CanvasLayer) passou a desenhar 10px por
@@ -81,14 +114,46 @@ func _ready() -> void:
 	# .tscn até a 1ª chamada de _begin_preset().
 	_apply_input_mode()
 
+	_vision_overlay = VISION_OVERLAY_SCENE.instantiate()
+	add_child(_vision_overlay)
+
+	# Se for nível da campanha, inicia automaticamente com HUD limpo e dificuldade do nível!
+	if not LevelManager.is_sandbox:
+		var lvl = LevelManager.get_current_level()
+		if lvl != null:
+			_hud.set_campaign_mode(lvl.title)
+			_vision_overlay.setup_from_level_data(lvl)
+			_begin_preset(lvl.id, lvl.default_cue_level, lvl.default_input_mode, false)
+			_show_story_intro_modal(lvl)
+	else:
+		_hud.set_sandbox_mode()
+		_vision_overlay.set_parameters(0.0, 1.2, 0.0, 0.0)
+
+func _show_story_intro_modal(lvl_data) -> void:
+	if _story_intro_modal != null and is_instance_valid(_story_intro_modal):
+		_story_intro_modal.queue_free()
+	_story_intro_modal = STORY_INTRO_MODAL_SCENE.instantiate()
+	$UI.add_child(_story_intro_modal)
+	_story_intro_modal.setup(lvl_data)
+	_story_intro_modal.started.connect(func():
+		_story_intro_modal = null
+		if _conductor != null:
+			_conductor.start()
+	)
+
 ## Folga entre a barra do topo e o NotePanel. Preserva a altura autorada no
 ## .tscn, só desloca o painel para baixo do HUD.
 const NOTE_PANEL_GAP := 8.0
 
 func _place_note_panel_below_hud() -> void:
+	var top_y: float = _hud.top_bar_height() + NOTE_PANEL_GAP
 	var altura := _note_panel.offset_bottom - _note_panel.offset_top
-	_note_panel.offset_top = _hud.top_bar_height() + NOTE_PANEL_GAP
-	_note_panel.offset_bottom = _note_panel.offset_top + altura
+	_note_panel.offset_top = top_y
+	_note_panel.offset_bottom = top_y + altura
+	if _character_portrait != null:
+		var port_altura := _character_portrait.offset_bottom - _character_portrait.offset_top
+		_character_portrait.offset_top = top_y
+		_character_portrait.offset_bottom = top_y + port_altura
 
 func _on_start_requested(preset_id: String, cue_level: int, input_mode: int) -> void:
 	_begin_preset(preset_id, cue_level, input_mode)
@@ -105,23 +170,34 @@ func _on_restart_requested() -> void:
 	if _conductor._preset != null:
 		_begin_preset(_conductor._preset.id, CueSettings.cue_level, InputModeSettings.mode)
 
-func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputModeSettings.Mode.JOYSTICK) -> void:
-	var preset = SequencePresets.by_id(preset_id)
+func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputModeSettings.Mode.JOYSTICK, start_conductor: bool = true) -> void:
+	var preset = LevelCatalog.by_id(preset_id)
+	if preset == null:
+		preset = SequencePresets.by_id(preset_id)
 	if preset == null:
 		return
+	if _vision_overlay != null:
+		_vision_overlay.setup_from_level_data(preset)
 	var map = MapPresets.by_id(preset.map_id)
 	CueSettings.set_level(cue_level)
 	InputModeSettings.set_mode(input_mode)
 	_apply_input_mode()
 	_hud.hide_stats()
+	if _character_portrait != null:
+		_character_portrait.reset()
+	_conductor.load_preset(preset)
 	if _current_map_id != map.id:
 		_current_map_id = map.id
 		_build_room()
+	elif _goal_beacon != null and is_instance_valid(_goal_beacon):
+		var beacon_s = str(preset.get("beacon_sound_id"))
+		if not beacon_s.is_empty():
+			_goal_beacon.setup(beacon_s)
 	_character.grid_position = map.start_grid
 	_character.blocked_tiles = _wall_tiles
 	_character.position = _character.grid_to_world(map.start_grid)
-	_conductor.load_preset(preset)
-	_conductor.start()
+	if start_conductor:
+		_conductor.start()
 	_hud.set_progress(0, preset.notes.size())
 
 func _apply_input_mode() -> void:
@@ -149,12 +225,16 @@ func _on_preview_note(note_key: String, _index: int) -> void:
 	# PREVIEW: só ouvir, personagem não se move.
 	AudioManager.play_note(note_key)
 	_note_panel.display_note(note_key)
+	if _character_portrait != null:
+		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 0.7)
 
 func _on_call_cue(note_key: String, index: int) -> void:
 	# Toca o alvo + mostra a pista (conforme CueSettings, via NotePanel).
 	AudioManager.play_note(note_key)
 	_note_panel.display_note(note_key)
 	_hud.set_progress(index, _conductor._preset.notes.size())
+	if _character_portrait != null:
+		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 0.8)
 
 func _on_replay_note(note_key: String, index: int) -> void:
 	# REPLAY: o personagem "toca" e (se movement) anda o caminho canônico do preset.
@@ -166,6 +246,9 @@ func _on_replay_note(note_key: String, index: int) -> void:
 	_hud.set_progress(index, _conductor._preset.notes.size())
 
 func _on_phase_changed(phase: int) -> void:
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		var is_ducked: bool = (phase == _conductor.Phase.PREVIEW or phase == _conductor.Phase.CALL)
+		_goal_beacon.set_ducking(is_ducked)
 	# Ao entrar no REPLAY, reposiciona o personagem no início do preset.
 	if phase == _conductor.Phase.REPLAY:
 		var preset = _conductor._preset
@@ -189,6 +272,11 @@ func _on_note_triggered(note_key: String) -> void:
 			pass  # PREVIEW/REPLAY: não conflita com playback; DONE: sem nota ativa para submeter
 
 func _on_note_resolved(hit: bool, index: int) -> void:
+	if _character_portrait != null:
+		if hit:
+			_character_portrait.on_note_hit()
+		else:
+			_character_portrait.on_note_miss()
 	var note_key: String = _conductor._preset.notes[index]
 	if NoteMapping.is_action_note(note_key):
 		# Acerto numa ação: dispara a ação; erro: tropeço com a última direção.
@@ -211,9 +299,90 @@ func _goal_reached() -> bool:
 	return _character.grid_position == map.goal_grid
 
 func _on_sequence_complete(stats: Dictionary) -> void:
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		_goal_beacon.stop()
+	if _character_portrait != null:
+		_character_portrait.on_victory()
 	if not _goal_reached():
 		push_warning("BlindTuner: sequence completed at %s but goal is %s (map=%s)" % [_character.grid_position, MapPresets.by_id(_current_map_id).goal_grid, _current_map_id])
 	_hud.show_stats(stats)
+	
+	var current_lvl = LevelManager.get_current_level()
+	if current_lvl != null:
+		var summary = LevelManager.complete_level(stats)
+		_show_victory_modal(current_lvl, summary)
+
+func _show_victory_modal(lvl_data, summary: Dictionary) -> void:
+	if _victory_modal != null and is_instance_valid(_victory_modal):
+		_victory_modal.queue_free()
+	_victory_modal = VICTORY_MODAL_SCENE.instantiate()
+	$UI.add_child(_victory_modal)
+	_victory_modal.display_result(lvl_data, summary)
+	_victory_modal.next_level_requested.connect(func():
+		var next_id: String = str(summary.get("next_level_id", ""))
+		if not next_id.is_empty():
+			SceneManager.start_level(next_id)
+		else:
+			SceneManager.go_to_level_select()
+	)
+	_victory_modal.restart_requested.connect(func():
+		_victory_modal.queue_free()
+		_victory_modal = null
+		_on_restart_requested()
+	)
+	_victory_modal.level_select_requested.connect(func():
+		SceneManager.go_to_level_select()
+	)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel"):
+		if _pause_modal == null or not is_instance_valid(_pause_modal):
+			get_viewport().set_input_as_handled()
+			_on_pause_requested()
+
+func _on_pause_requested() -> void:
+	if _pause_modal != null and is_instance_valid(_pause_modal):
+		return
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		_goal_beacon.stop()
+	if _conductor != null and _conductor._timer != null:
+		_conductor._timer.paused = true
+	_pause_modal = PAUSE_MODAL_SCENE.instantiate()
+	$UI.add_child(_pause_modal)
+	_pause_modal.resume_requested.connect(_on_resume_from_pause)
+	_pause_modal.restart_requested.connect(_on_restart_from_pause)
+	_pause_modal.level_select_requested.connect(_on_level_select_from_pause)
+
+func _on_resume_from_pause() -> void:
+	if _pause_modal != null:
+		_pause_modal.queue_free()
+		_pause_modal = null
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		_goal_beacon.start()
+	AccessibleAnnouncer.announce("countdown_tick", "Retomando.")
+	if _conductor != null and _conductor._timer != null:
+		var tw := create_tween()
+		tw.tween_interval(0.3)
+		tw.tween_callback(func(): AccessibleAnnouncer.play_earcon("countdown_tick"))
+		tw.tween_interval(0.3)
+		tw.tween_callback(func(): AccessibleAnnouncer.play_earcon("countdown_go"))
+		tw.tween_interval(0.2)
+		tw.tween_callback(func():
+			if _conductor != null and _conductor._timer != null:
+				_conductor._timer.paused = false
+		)
+
+func _on_restart_from_pause() -> void:
+	if _pause_modal != null:
+		_pause_modal.queue_free()
+		_pause_modal = null
+	_on_restart_requested()
+
+func _on_level_select_from_pause() -> void:
+	if _pause_modal != null:
+		_pause_modal.queue_free()
+		_pause_modal = null
+	SceneManager.go_to_level_select()
 
 func _build_room() -> void:
 	_clear_room()
@@ -230,6 +399,12 @@ func _build_room() -> void:
 		_wall_tiles[tile] = true
 		_spawn_wall_visual(tile, theme)
 	_spawn_goal_marker(map.goal_grid, theme)
+	if _current_map_id == "quarto" or _current_map_id == "quarto_lullaby":
+		_spawn_quarto_furniture()
+	elif _current_map_id == "banheiro":
+		_spawn_banheiro_furniture()
+	elif _current_map_id == "sala":
+		_spawn_sala_furniture()
 
 func _clear_room() -> void:
 	for n in [_floor_node, _walls_node, _goal_node]:
@@ -249,17 +424,171 @@ func _border_walls(s: Vector2i) -> Array[Vector2i]:
 
 func _spawn_floor_tile(tile: Vector2i, theme) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
-	var poly := Polygon2D.new()
-	poly.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	var checker := (tile.x + tile.y) % 2 == 0
-	poly.color = theme.floor_a if checker else theme.floor_b
-	poly.position = center
-	_floor_node.add_child(poly)
+	if _current_map_id == "quarto" or _current_map_id == "quarto_lullaby":
+		var sprite := Sprite2D.new()
+		sprite.texture = FLOOR_WOOD_OAK_A if checker else FLOOR_WOOD_OAK_B
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.position = center
+		sprite.z_index = -100
+		_floor_node.add_child(sprite)
+	else:
+		var poly := Polygon2D.new()
+		poly.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
+		poly.color = theme.floor_a if checker else theme.floor_b
+		poly.position = center
+		poly.z_index = -100
+		_floor_node.add_child(poly)
+
+func _spawn_quarto_furniture() -> void:
+	if _current_map_id == "quarto_lullaby":
+		# Cama no destino (2, 7) e (3, 7)
+		var bed := Sprite2D.new()
+		bed.texture = BED_PROP
+		bed.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var bed_center: Vector2 = (_character.grid_to_world(Vector2i(2, 7)) + _character.grid_to_world(Vector2i(3, 7))) * 0.5
+		bed.position = bed_center + Vector2(0, -12)
+		bed.z_index = int(_character.grid_to_world(Vector2i(3, 7)).y)
+		_walls_node.add_child(bed)
+
+		# Criado-mudo com abajur em (2, 6)
+		var ns := Sprite2D.new()
+		ns.texture = NIGHTSTAND_PROP
+		ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		ns.position = _character.grid_to_world(Vector2i(2, 6)) + Vector2(0, -16)
+		ns.z_index = int(_character.grid_to_world(Vector2i(2, 6)).y)
+		_walls_node.add_child(ns)
+
+		# Chinelos aos pés da cama em (3, 6)
+		var slippers := Sprite2D.new()
+		slippers.texture = SLIPPERS_PROP
+		slippers.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		slippers.scale = Vector2(0.55, 0.55)
+		slippers.position = _character.grid_to_world(Vector2i(3, 6)) + Vector2(6, -6)
+		slippers.z_index = int(_character.grid_to_world(Vector2i(3, 6)).y) - 2
+		_floor_node.add_child(slippers)
+		return
+
+	# Cama de solteiro do velhinho na área 2x3 (1,1)..(2,3)
+	var bed := Sprite2D.new()
+	bed.texture = BED_PROP
+	bed.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var bed_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 3))) * 0.5
+	bed.position = bed_center + Vector2(0, -12)
+	# Profundidade isométrica: base inferior da cama está no tile (2, 3)
+	bed.z_index = int(_character.grid_to_world(Vector2i(2, 3)).y)
+	_walls_node.add_child(bed)
+
+	# Criado-mudo com abajur em (3,2)
+	var ns := Sprite2D.new()
+	ns.texture = NIGHTSTAND_PROP
+	ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ns.position = _character.grid_to_world(Vector2i(3, 2)) + Vector2(0, -16)
+	ns.z_index = int(_character.grid_to_world(Vector2i(3, 2)).y)
+	_walls_node.add_child(ns)
+
+	# Chinelos aos pés da cama em (2, 4) com escala proporcional aos pés do velhinho
+	var slippers := Sprite2D.new()
+	slippers.texture = SLIPPERS_PROP
+	slippers.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	slippers.scale = Vector2(0.55, 0.55)
+	slippers.position = _character.grid_to_world(Vector2i(2, 4)) + Vector2(6, -6)
+	slippers.z_index = int(_character.grid_to_world(Vector2i(2, 4)).y) - 2
+	_floor_node.add_child(slippers)
+
+func _spawn_banheiro_furniture() -> void:
+	# Vaso Sanitário em (7, 1)
+	var toilet := Sprite2D.new()
+	toilet.texture = TOILET_PROP
+	toilet.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	toilet.position = _character.grid_to_world(Vector2i(7, 1)) + Vector2(0, -10)
+	toilet.z_index = int(_character.grid_to_world(Vector2i(7, 1)).y)
+	_walls_node.add_child(toilet)
+
+	# Banheira clássica ocupando área (1, 1)..(2, 2)
+	var tub := Sprite2D.new()
+	tub.texture = BATHTUB_PROP
+	tub.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var tub_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 2))) * 0.5
+	tub.position = tub_center + Vector2(0, -10)
+	tub.z_index = int(_character.grid_to_world(Vector2i(2, 2)).y)
+	_walls_node.add_child(tub)
+
+	# Tapete antiderrapante em (6, 4)
+	var mat := Sprite2D.new()
+	mat.texture = BATH_MAT_PROP
+	mat.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	mat.position = _character.grid_to_world(Vector2i(6, 4))
+	mat.z_index = int(_character.grid_to_world(Vector2i(6, 4)).y) - 2
+	_floor_node.add_child(mat)
+
+func _spawn_sala_furniture() -> void:
+	# Poltrona aconchegante em (1, 4)
+	var chair := Sprite2D.new()
+	chair.texture = ARMCHAIR_PROP
+	chair.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	chair.position = _character.grid_to_world(Vector2i(1, 4)) + Vector2(0, -12)
+	chair.z_index = int(_character.grid_to_world(Vector2i(1, 4)).y)
+	_walls_node.add_child(chair)
+
+	# Mesa de centro com livro e chá em (4, 6)
+	var table := Sprite2D.new()
+	table.texture = COFFEE_TABLE_PROP
+	table.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	table.position = _character.grid_to_world(Vector2i(4, 6)) + Vector2(0, -8)
+	table.z_index = int(_character.grid_to_world(Vector2i(4, 6)).y)
+	_walls_node.add_child(table)
+
+	# Estante / cômoda em (10, 3)
+	var dresser := Sprite2D.new()
+	dresser.texture = DRESSER_PROP
+	dresser.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	dresser.position = _character.grid_to_world(Vector2i(10, 3)) + Vector2(0, -16)
+	dresser.z_index = int(_character.grid_to_world(Vector2i(10, 3)).y)
+	_walls_node.add_child(dresser)
+
+	# Tapete com ponta dobrada (obstáculo de tropeço) em (5, 7)
+	var rug := Sprite2D.new()
+	rug.texture = RUG_FOLDED_PROP
+	rug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	rug.position = _character.grid_to_world(Vector2i(5, 7))
+	rug.z_index = int(_character.grid_to_world(Vector2i(5, 7)).y) - 2
+	_floor_node.add_child(rug)
 
 func _spawn_wall_visual(tile: Vector2i, theme) -> void:
+	if _current_map_id == "quarto_lullaby":
+		if tile in [Vector2i(2, 7), Vector2i(3, 7), Vector2i(2, 6)]:
+			return
+		var center: Vector2 = _character.grid_to_world(tile)
+		var wall_sprite := Sprite2D.new()
+		wall_sprite.texture = WALL_WOOD_QUARTO
+		wall_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		wall_sprite.position = center + Vector2(0, -20)
+		wall_sprite.z_index = int(center.y)
+		_walls_node.add_child(wall_sprite)
+		return
+	if _current_map_id == "quarto":
+		# Cama e criado-mudo são desenhados com seus sprites em _spawn_quarto_furniture
+		if tile in [Vector2i(1,1), Vector2i(2,1), Vector2i(1,2), Vector2i(2,2), Vector2i(1,3), Vector2i(2,3), Vector2i(3,1), Vector2i(3,2)]:
+			return
+		var center: Vector2 = _character.grid_to_world(tile)
+		var wall_sprite := Sprite2D.new()
+		wall_sprite.texture = WALL_WOOD_QUARTO
+		wall_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		wall_sprite.position = center + Vector2(0, -20)
+		wall_sprite.z_index = int(center.y)
+		_walls_node.add_child(wall_sprite)
+		return
+	if _current_map_id == "banheiro":
+		if tile in [Vector2i(1,1), Vector2i(2,1), Vector2i(1,2), Vector2i(7,1), Vector2i(7,2), Vector2i(8,1), Vector2i(3,1)]:
+			return
+	if _current_map_id == "sala":
+		if tile in [Vector2i(1,1), Vector2i(1,4), Vector2i(4,6), Vector2i(10,2), Vector2i(10,3), Vector2i(10,4), Vector2i(10,5), Vector2i(3,8), Vector2i(4,8), Vector2i(5,8)]:
+			return
 	var center: Vector2 = _character.grid_to_world(tile)
 	var node := Node2D.new()
 	node.position = center
+	node.z_index = int(center.y)
 	var front := Polygon2D.new()
 	var hw := TILE_WIDTH * 0.5
 	front.polygon = PackedVector2Array([
@@ -289,15 +618,59 @@ func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	_walls_node.add_child(node)
 
 func _spawn_goal_marker(tile: Vector2i, theme) -> void:
+	var center: Vector2 = _character.grid_to_world(tile)
 	var poly := Polygon2D.new()
 	poly.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	poly.color = theme.goal_marker_color
-	poly.position = _character.grid_to_world(tile)
-	poly.z_index = 1
+	poly.position = center
+	poly.z_index = int(center.y) - 2
 	_goal_node.add_child(poly)
 	var tw := poly.create_tween().set_loops()
 	tw.tween_property(poly, "modulate:a", 0.5, 1.0)
 	tw.tween_property(poly, "modulate:a", 1.0, 1.0)
+	if _current_map_id == "quarto":
+		var radio := Sprite2D.new()
+		radio.texture = RADIO_PROP
+		radio.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		radio.position = center + Vector2(0, -12)
+		radio.z_index = int(center.y)
+		_goal_node.add_child(radio)
+	elif _current_map_id == "banheiro":
+		var sink := Sprite2D.new()
+		sink.texture = SINK_PROP
+		sink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sink.position = center + Vector2(0, -14)
+		sink.z_index = int(center.y)
+		_goal_node.add_child(sink)
+	elif _current_map_id == "sala":
+		var clock := Sprite2D.new()
+		clock.texture = CLOCK_PROP
+		clock.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		clock.position = center + Vector2(0, -28)
+		clock.z_index = int(center.y)
+		_goal_node.add_child(clock)
+	_spawn_goal_audio_beacon(center)
+
+func _spawn_goal_audio_beacon(pos: Vector2) -> void:
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		_goal_beacon.queue_free()
+		_goal_beacon = null
+	_goal_beacon = GOAL_AUDIO_BEACON_SCENE.instantiate()
+	_goal_beacon.position = pos
+	var sound_id := "radio"
+	var lvl = _conductor._preset if _conductor != null and _conductor._preset != null else null
+	if lvl == null and not LevelManager.is_sandbox:
+		lvl = LevelManager.get_current_level()
+	if lvl != null and not str(lvl.get("beacon_sound_id")).is_empty():
+		sound_id = str(lvl.get("beacon_sound_id"))
+	elif _current_map_id == "quarto_lullaby":
+		sound_id = "music_box"
+	elif _current_map_id == "banheiro":
+		sound_id = "drip"
+	elif _current_map_id == "sala":
+		sound_id = "clock"
+	_goal_beacon.setup(sound_id)
+	_goal_node.add_child(_goal_beacon)
 
 func _diamond_polygon(w: int, h: int) -> PackedVector2Array:
 	var hw := w * 0.5
@@ -312,6 +685,10 @@ func _diamond_polygon(w: int, h: int) -> PackedVector2Array:
 func _process(delta: float) -> void:
 	var alpha := 1.0 - pow(0.9, delta * 60.0)
 	_camera.position = _camera.position.lerp(_character.position, alpha)
+	if _vision_overlay != null and is_instance_valid(_vision_overlay):
+		var screen_pos: Vector2 = _character.get_global_transform_with_canvas().origin
+		var vp_size: Vector2 = get_viewport_rect().size
+		_vision_overlay.update_character_screen_position(screen_pos, vp_size)
 	if _shake_remaining > 0.0:
 		_shake_remaining = max(0.0, _shake_remaining - delta)
 		var t := _shake_remaining / SHAKE_DURATION
@@ -321,6 +698,11 @@ func _process(delta: float) -> void:
 		_camera.offset = Vector2.ZERO
 
 func _on_character_blocked(_dir: Vector2i, reason: int) -> void:
+	if _character_portrait != null:
+		if reason == _character.TripReason.NOTE_MISS:
+			_character_portrait.on_note_miss()
+		else:
+			_character_portrait.on_wall_bump()
 	if reason == _character.TripReason.NOTE_MISS:
 		# Erro de conhecimento no CALL: só o SFX suave, sem shake/flash de colisão.
 		# Mesmo delay do WALL abaixo: a nota errada que o jogador tocou (play_note,
@@ -339,3 +721,50 @@ func _flash_screen() -> void:
 	_flash_tween = create_tween()
 	_flash_tween.tween_property(_screen_flash, "color:a", FLASH_PEAK_ALPHA, FLASH_DURATION * 0.3)
 	_flash_tween.tween_property(_screen_flash, "color:a", 0.0, FLASH_DURATION * 0.7)
+
+func _on_tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, _facing: Vector2i) -> void:
+	AudioManager.play_cane_tap_sfx()
+	var ripple = TactileRippleScript.new()
+	ripple.position = world_pos
+	add_child(ripple)
+	_highlight_nearby_obstacles(grid_pos, 3)
+
+func _highlight_nearby_obstacles(center_grid: Vector2i, radius: int) -> void:
+	for tile in _wall_tiles.keys():
+		if abs(tile.x - center_grid.x) <= radius and abs(tile.y - center_grid.y) <= radius:
+			_spawn_obstacle_highlight(tile)
+
+func _spawn_obstacle_highlight(tile: Vector2i) -> void:
+	var center: Vector2 = _character.grid_to_world(tile)
+	var outline := Line2D.new()
+	var pts := _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
+	var pts_closed: Array[Vector2] = []
+	for p in pts:
+		pts_closed.append(p)
+	pts_closed.append(pts[0])
+	outline.points = PackedVector2Array(pts_closed)
+	outline.width = 2.5
+	outline.default_color = Color(0.3, 0.9, 1.0, 0.9)
+	outline.position = center
+	outline.z_index = int(center.y) + 50
+	add_child(outline)
+	var tw := outline.create_tween()
+	tw.tween_property(outline, "modulate:a", 0.0, 2.5)
+	tw.tween_callback(outline.queue_free)
+
+func _on_listening_focus_requested(world_pos: Vector2) -> void:
+	if _character_portrait != null:
+		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 2.5)
+	if _goal_beacon != null and is_instance_valid(_goal_beacon):
+		_goal_beacon.pulse_now()
+	var map = MapPresets.by_id(_current_map_id)
+	var goal_world: Vector2 = _character.grid_to_world(map.goal_grid) if map != null else (_goal_beacon.position if _goal_beacon != null else world_pos)
+	var guide = AcousticFocusGuideScript.new()
+	guide.setup(goal_world, world_pos)
+	add_child(guide)
+	if _conductor != null and _conductor._timer != null and not _conductor._timer.is_stopped() and not _conductor._timer.paused:
+		_conductor._timer.paused = true
+		get_tree().create_timer(2.5).timeout.connect(func():
+			if _conductor != null and _conductor._timer != null and is_instance_valid(_conductor._timer):
+				_conductor._timer.paused = false
+		)

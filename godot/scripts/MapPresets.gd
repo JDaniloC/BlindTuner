@@ -18,15 +18,32 @@ func _build_all() -> Array:
             _banheiro_walls(), Vector2i(8, 8), Vector2i(3, 1), "banheiro"),
         _make("sala", "Sala", Vector2i(12, 12),
             _sala_walls(), Vector2i(10, 10), Vector2i(1, 1), "sala"),
+        _make("quarto_lullaby", "Quarto (Noite)", Vector2i(10, 10),
+            _quarto_lullaby_walls(), Vector2i(2, 2), Vector2i(3, 6), "quarto"),
     ]
 
-# Cama 2×3 no canto NW + criado-mudo. Total 7 tiles.
+# Quarto de dormir no escuro (Lullaby): obstáculos em volta do caminho seguro.
+func _quarto_lullaby_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 2), Vector2i(1, 3), Vector2i(1, 4),
+        Vector2i(2, 3), Vector2i(2, 4),
+        Vector2i(5, 4), Vector2i(5, 5),
+        Vector2i(2, 5), Vector2i(2, 6),
+        Vector2i(3, 5),
+        Vector2i(4, 3),
+        Vector2i(2, 7), Vector2i(3, 7),
+        Vector2i(6, 6), Vector2i(6, 7),
+        Vector2i(5, 8),
+        Vector2i(3, 8),
+    ]
+
+# Cama 2×3 no canto NW + criado-mudo.
 func _quarto_walls() -> Array[Vector2i]:
     return [
         Vector2i(1,1), Vector2i(2,1),
         Vector2i(1,2), Vector2i(2,2),
         Vector2i(1,3), Vector2i(2,3),
-        Vector2i(3,2),
+        Vector2i(3,1), Vector2i(3,2),
     ]
 
 # Pia L (3) + vaso (2) + lixeira (1). Total 6 tiles.

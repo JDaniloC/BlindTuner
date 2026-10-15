@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/Playground.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/Character.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/DirectionJoystick.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/NotePanel.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/CharacterPortrait.tscn" id="96"]
 [ext_resource type="Script" path="res://scripts/Conductor.gd" id="90"]
 [ext_resource type="PackedScene" path="res://scenes/GameHUD.tscn" id="91"]
 [ext_resource type="PackedScene" path="res://scenes/SpecialActionPanel.tscn" id="92"]
@@ -35,9 +36,15 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(1, 0.4, 0.4, 0)
 
+[node name="CharacterPortrait" parent="UI" instance=ExtResource("96")]
+offset_left = 16.0
+offset_top = 140.0
+offset_right = 152.0
+offset_bottom = 276.0
+
 [node name="NotePanel" parent="UI" instance=ExtResource("4")]
 anchor_right = 1.0
-offset_left = 16.0
+offset_left = 160.0
 offset_top = 140.0
 offset_right = -16.0
 offset_bottom = 216.0
