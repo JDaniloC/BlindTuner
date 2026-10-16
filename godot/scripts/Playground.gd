@@ -846,6 +846,24 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		"teatro_palco":
 			prop_path = "res://assets/sprites/props/wind_chimes_stand_48x64.png"
 			offset = Vector2(0, -20)
+		"arcade_s3_carteiro":
+			prop_path = "res://assets/sprites/props/iron_gate_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s3_cha":
+			prop_path = "res://assets/sprites/props/porcelain_cupboard_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s4_vento":
+			prop_path = "res://assets/sprites/props/window_breeze_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s4_duo":
+			prop_path = "res://assets/sprites/props/cello_stand_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s5_flores":
+			prop_path = "res://assets/sprites/props/fountain_stone_64x64.png"
+			offset = Vector2(0, -24)
+		"arcade_s6_igreja":
+			prop_path = "res://assets/sprites/props/church_portal_64x80.png"
+			offset = Vector2(0, -30)
 
 	if not prop_path.is_empty():
 		var tex = _load_prop_texture(prop_path)
@@ -873,6 +891,18 @@ func _spawn_thematic_scenery_furniture() -> void:
 			_spawn_armchair(Vector2i(3, 4))
 		"arcade_s2_chaves":
 			_spawn_dresser(Vector2i(3, 5))
+		"arcade_s3_carteiro":
+			_spawn_armchair(Vector2i(3, 5))
+		"arcade_s3_cha":
+			_spawn_dresser(Vector2i(2, 7))
+		"arcade_s4_vento":
+			_spawn_coffee_table(Vector2i(4, 5))
+		"arcade_s4_duo":
+			_spawn_armchair(Vector2i(3, 4))
+		"arcade_s5_flores":
+			_spawn_coffee_table(Vector2i(4, 3))
+		"arcade_s6_igreja":
+			_spawn_armchair(Vector2i(3, 5))
 		"estudio_conservatorio":
 			_spawn_armchair(Vector2i(5, 7))
 

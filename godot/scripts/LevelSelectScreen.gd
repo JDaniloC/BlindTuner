@@ -54,6 +54,14 @@ func _ready() -> void:
 	_chapter_opt.set_item_metadata(3, 101)
 	_chapter_opt.add_item("Caderno Suzuki: Vol. 2 — A Casa em Movimento")
 	_chapter_opt.set_item_metadata(4, 102)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 3 — Destreza e Encontros")
+	_chapter_opt.set_item_metadata(5, 103)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 4 — O Concerto e a Memória")
+	_chapter_opt.set_item_metadata(6, 104)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 5 — Danças e Romarias")
+	_chapter_opt.set_item_metadata(7, 105)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 6 — Ecos e Catedrais")
+	_chapter_opt.set_item_metadata(8, 106)
 	_chapter_opt.item_selected.connect(_on_chapter_selected)
 	_chapter_opt.focus_entered.connect(func():
 		AccessibleAnnouncer.announce("focus", "Seletor de Capítulos: %s. Use as setas ou clique para alterar." % _chapter_opt.get_item_text(_chapter_opt.selected))
@@ -217,10 +225,8 @@ func _create_level_card(lvl) -> Button:
 	var stars := SaveManager.get_level_stars(lvl.id)
 
 	var num_str: String
-	if lvl.chapter == 101:
-		num_str = "S1.%d" % lvl.level_number
-	elif lvl.chapter == 102:
-		num_str = "S2.%d" % lvl.level_number
+	if lvl.chapter >= 100:
+		num_str = "S%d.%d" % [lvl.chapter - 100, lvl.level_number]
 	else:
 		num_str = "%d.%d" % [lvl.chapter, lvl.level_number]
 

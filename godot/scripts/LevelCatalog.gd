@@ -40,6 +40,30 @@ const CHAPTER_INFO := {
 		"subtitle": "O ritmo da valsa e os passos ligeiros acompanhando nossos companheiros.",
 		"description": "Estudos melódicos do Livro 2 com dinâmicas mais vivas, o gato brincalhão e o roçar cadenciado da vassoura.",
 		"status": "available"
+	},
+	103: {
+		"title": "Caderno Suzuki: Vol. 3 — Destreza e Encontros",
+		"subtitle": "A bicicleta do carteiro e o calor reconfortante do chá na cozinha.",
+		"description": "Estudos melódicos do Livro 3 do Método Suzuki. Ritmo sincopado gracioso e a calma do violoncelo em travessias cotidianas.",
+		"status": "available"
+	},
+	104: {
+		"title": "Caderno Suzuki: Vol. 4 — O Concerto e a Memória",
+		"subtitle": "Partituras ao vento e a comunhão de dois violinos afinados.",
+		"description": "Estudos do Livro 4 com semi-colcheias ligeiras e duetos barrocos. Desafios de agilidade auditiva e orientação espacial viva.",
+		"status": "available"
+	},
+	105: {
+		"title": "Caderno Suzuki: Vol. 5 — Danças e Romarias",
+		"subtitle": "O aroma das flores frescas da feira e o cantar dos pássaros.",
+		"description": "Estudos do Livro 5 em danças campestres. Pistas de borrifadores de água, transeuntes e desvios de caixotes.",
+		"status": "available"
+	},
+	106: {
+		"title": "Caderno Suzuki: Vol. 6 — Ecos e Catedrais",
+		"subtitle": "A acústica sagrada da abóbada e os passos firmes sobre as lajes de pedra.",
+		"description": "Estudos do Livro 6 com variações solenes de La Folia de Corelli. Ecolocalização em ambiente de alta reverberação.",
+		"status": "available"
 	}
 }
 
@@ -467,6 +491,142 @@ func _build_all() -> Array:
 			"Ludwig van Beethoven (1796)",
 			[{"type": "dog", "grid": Vector2i(7, 3), "name": "Thor"}]
 		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 3 (DESTREZA E ENCONTROS) ---
+		# S3.1 Humoresque (Dvořák): A Bicicleta do Carteiro
+		_make(
+			"arcade_suzuki_3_1",
+			103, 1,
+			"A Bicicleta do Carteiro",
+			"A campainha dupla da bicicleta anuncia uma carta com selo distante. O carteiro tem pressa, então conto os passos na calçada de paralelepípedos até a caixa de correio.",
+			"A carta de papel encorpado está segura na minha mão. O cheiro de maresia e tinta fresca me lembra velhos amigos.",
+			"arcade_s3_carteiro",
+			["D4", "D4", "Ds4", "Cs4", "D4", "D4", "Cs4"],
+			"piano",
+			2,
+			0,
+			25.0,
+			"bike_bell",
+			"Siga o trim-trim alegre da campainha da bicicleta encostada no portão.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Humoresque (Op. 101 nº 7)",
+			"Antonín Dvořák (1894)",
+			[{"type": "pigeon", "grid": Vector2i(4, 5), "name": "Pipo"}]
+		),
+
+		# S3.2 Bourrée (Bach): O Chá na Cozinha Tarde da Noite
+		_make(
+			"arcade_suzuki_3_2",
+			103, 2,
+			"O Chá na Cozinha Tarde da Noite",
+			"Duas da manhã e o sono não vem. Caminho descalço pela cozinha fria até a bancada do bule, sentindo a mudança de temperatura nos azulejos.",
+			"A caneca esmaltada aquece minhas mãos. O aroma de camomila e mel traz a calma de que a noite precisava.",
+			"arcade_s3_cha",
+			["D4", "Cs4", "D4", "Ds4", "D4", "D4"],
+			"cello",
+			2,
+			0,
+			25.0,
+			"tea_cup",
+			"Siga o vapor quente e o tilintar da colher de chá na caneca esmaltada.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Bourrée (Suíte para Cello nº 3)",
+			"J. S. Bach (1720)",
+			[{"type": "cat", "grid": Vector2i(5, 5), "name": "Mimi"}]
+		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 4 (O CONCERTO E A MEMÓRIA) ---
+		# S4.1 Concerto em Lá Menor (Vivaldi): O Vento Espalhou as Partituras
+		_make(
+			"arcade_suzuki_4_1",
+			104, 1,
+			"O Vento Espalhou as Partituras",
+			"A rajada de vento abriu a porta da varanda e espalhou todas as folhas da minha sonata no chão! Preciso recolher cada página seguindo o sussurro do papel.",
+			"Todas as folhas recolhidas e arrumadas em ordem sobre o piano. Nenhuma nota se perdeu na ventania.",
+			"arcade_s4_vento",
+			["D4", "Ds4", "D4", "Cs4", "D4", "D4", "Cs4"],
+			"cello",
+			2,
+			0,
+			30.0,
+			"paper_rustle",
+			"Siga o farfalhar suave das folhas de partitura deslizando pelo assoalho.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Concerto em Lá Menor: Allegro",
+			"Antonio Vivaldi (1711)",
+			[{"type": "canary", "grid": Vector2i(3, 4), "name": "Pitoquinho"}]
+		),
+
+		# S4.2 Concerto para Dois Violinos (Bach): O Concerto para Dois Amigos
+		_make(
+			"arcade_suzuki_4_2",
+			104, 2,
+			"O Concerto para Dois Amigos",
+			"Meu velho parceiro de orquestra afinou o violino no outro canto da sala. Quando ele ataca a primeira frase, meu arco responde quase por instinto na mesma pulsação.",
+			"O acorde final ressoa em perfeita harmonia. Dois instrumentos, um único coração afinado pelo tempo.",
+			"arcade_s4_duo",
+			["D4", "D4", "D4", "Ds4", "D4", "D4", "Ds4"],
+			"cello",
+			2,
+			0,
+			30.0,
+			"cello_drone",
+			"Siga a harmonia contínua do violino afinando no centro do salão.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Concerto para Dois Violinos em Ré Menor",
+			"J. S. Bach (1730)",
+			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
+		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 5 (DANÇAS E ROMARIAS) ---
+		# S5.1 Dança Campestre (Weber): A Barraca de Flores da Feira
+		_make(
+			"arcade_suzuki_5_1",
+			105, 1,
+			"A Barraca de Flores da Feira",
+			"O sábado de feira é uma festa de aromas. Sigo o perfume de eucalipto e terra molhada até a barraca de flores para escolher um ramo de margaridas.",
+			"O ramo de flores frescas repousa em meus braços. As folhas úmidas tocam meu rosto como uma brisa suave.",
+			"arcade_s5_flores",
+			["D4", "Cs4", "D4", "D4", "Ds4", "D4", "Cs4"],
+			"piano",
+			2,
+			0,
+			30.0,
+			"fountain_birds",
+			"Siga o borrifador de água e o cantar dos passarinhos perto das flores.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Dança Campestre (Country Dance)",
+			"Carl Maria von Weber",
+			[{"type": "pigeon", "grid": Vector2i(4, 4), "name": "Pipo"}, {"type": "dog", "grid": Vector2i(6, 6), "name": "Thor"}]
+		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 6 (ECOS E CATEDRAIS) ---
+		# S6.1 La Folia (Corelli): O Eco na Igreja Matriz
+		_make(
+			"arcade_suzuki_6_1",
+			106, 1,
+			"O Eco na Igreja Matriz",
+			"A nave da igreja tem uma acústica sagrada. Cada estalo da bengala ressoa nas abóbadas de pedra, desenhando o tamanho do salão nos meus ouvidos.",
+			"Cheguei ao altar de pedra sob o eco solene da abóbada. A arquitetura inteira vive dentro da minha escuta.",
+			"arcade_s6_igreja",
+			["D4", "D4", "Cs4", "D4", "Ds4", "D4"],
+			"cello",
+			3,
+			0,
+			35.0,
+			"church_bell",
+			"Siga a ressonância profunda do sino e o eco na pedra fria.",
+			0.0, 0.95, 0.35, 0.50,
+			true, true, true,
+			"La Folia",
+			"Arcangelo Corelli (1700)",
+			[{"type": "pigeon", "grid": Vector2i(5, 5), "name": "Pipo"}]
+		),
 	]
 
 func _make(
@@ -546,7 +706,12 @@ func get_next_level(current_id: String) -> Resource:
 	for i in range(ALL.size()):
 		if ALL[i].id == current_id:
 			if i + 1 < ALL.size():
-				return ALL[i + 1]
+				var curr_lvl = ALL[i]
+				var next_lvl = ALL[i + 1]
+				# O fim do Capítulo 3 (Campanha da História) encerra a narrativa principal
+				if curr_lvl.chapter <= 3 and next_lvl.chapter > 3:
+					return null
+				return next_lvl
 			return null
 	return null
 

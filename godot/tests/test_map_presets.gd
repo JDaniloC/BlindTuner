@@ -1,7 +1,7 @@
 extends GutTest
 
 func test_all_maps_exist():
-    assert_eq(MapPresets.ALL.size(), 19)
+    assert_eq(MapPresets.ALL.size(), 25)
 
 func test_all_maps_have_unique_ids():
     var seen := {}
@@ -17,6 +17,10 @@ func test_known_map_ids():
         "quarto", "banheiro", "sala", "quarto_lullaby", "jardim_portao", "padaria_calcada", "praca_chafariz", "largo_matriz",
         "arcade_s1_vento", "arcade_s1_oculos", "arcade_s1_planta", "arcade_s1_louca",
         "arcade_s2_gato", "arcade_s2_valsa", "arcade_s2_chaves",
+        "arcade_s3_carteiro", "arcade_s3_cha",
+        "arcade_s4_vento", "arcade_s4_duo",
+        "arcade_s5_flores",
+        "arcade_s6_igreja",
         "praia_mirante", "estacao_plataforma", "estudio_conservatorio", "teatro_palco"
     ])
 

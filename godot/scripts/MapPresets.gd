@@ -44,6 +44,22 @@ func _build_all() -> Array:
             _arcade_s2_valsa_walls(), Vector2i(1, 8), Vector2i(8, 3), "quarto"),
         _make("arcade_s2_chaves", "Aparador da Entrada", Vector2i(10, 10),
             _arcade_s2_chaves_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 3
+        _make("arcade_s3_carteiro", "Calçada da Caixa de Correio", Vector2i(10, 10),
+            _arcade_s3_carteiro_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        _make("arcade_s3_cha", "Cozinha da Caneca Noturna", Vector2i(10, 10),
+            _arcade_s3_cha_walls(), Vector2i(2, 8), Vector2i(7, 3), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 4
+        _make("arcade_s4_vento", "Varanda das Partituras", Vector2i(10, 10),
+            _arcade_s4_vento_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        _make("arcade_s4_duo", "Salão dos Dois Violinos", Vector2i(10, 10),
+            _arcade_s4_duo_walls(), Vector2i(1, 8), Vector2i(8, 3), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 5
+        _make("arcade_s5_flores", "Praça da Barraca de Flores", Vector2i(10, 10),
+            _arcade_s5_flores_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 6
+        _make("arcade_s6_igreja", "Nave da Antiga Sé", Vector2i(10, 10),
+            _arcade_s6_igreja_walls(), Vector2i(2, 8), Vector2i(7, 3), "quarto"),
         # Modo História: Capítulo 3 — As Últimas Paisagens
         _make("praia_mirante", "Praia do Mirante", Vector2i(12, 12),
             _praia_mirante_walls(), Vector2i(2, 9), Vector2i(9, 3), "quarto"),
@@ -208,6 +224,54 @@ func _arcade_s2_chaves_walls() -> Array[Vector2i]:
         Vector2i(5, 5), Vector2i(5, 6),
         Vector2i(6, 4), Vector2i(6, 2),
         Vector2i(7, 4),
+    ]
+
+# S3.1 Calçada da Caixa de Correio: cerca viva e pedras
+func _arcade_s3_carteiro_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(3, 5),
+        Vector2i(4, 7), Vector2i(5, 4),
+        Vector2i(6, 6), Vector2i(7, 5),
+    ]
+
+# S3.2 Cozinha da Caneca Noturna: mesa de jantar e cadeiras
+func _arcade_s3_cha_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 7), Vector2i(3, 8),
+        Vector2i(4, 6), Vector2i(5, 3),
+        Vector2i(6, 5),
+    ]
+
+# S4.1 Varanda das Partituras: jardineiras e porta da varanda
+func _arcade_s4_vento_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(3, 5),
+        Vector2i(4, 5), Vector2i(5, 7),
+        Vector2i(6, 6), Vector2i(6, 3), Vector2i(7, 4),
+    ]
+
+# S4.2 Salão dos Dois Violinos: estantes de partituras e poltronas
+func _arcade_s4_duo_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 5), Vector2i(3, 4),
+        Vector2i(4, 7), Vector2i(5, 3),
+        Vector2i(6, 6), Vector2i(7, 5),
+    ]
+
+# S5.1 Praça da Barraca de Flores: caixotes e barracas de madeira
+func _arcade_s5_flores_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(4, 7),
+        Vector2i(4, 3), Vector2i(5, 6),
+        Vector2i(6, 2), Vector2i(7, 4),
+    ]
+
+# S6.1 Nave da Antiga Sé: colunas de pedra e pia batismal
+func _arcade_s6_igreja_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(3, 5),
+        Vector2i(5, 6), Vector2i(6, 2),
+        Vector2i(7, 5),
     ]
 
 # 3.1 Praia do Mirante: rochedos do quebra-mar e cercado

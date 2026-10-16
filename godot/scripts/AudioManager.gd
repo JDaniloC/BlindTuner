@@ -508,6 +508,10 @@ func get_beacon_stream(beacon_type: String) -> AudioStreamWAV:
             stream = _generate_cello_drone_beacon_stream()
         "wind_chimes":
             stream = _generate_wind_chimes_beacon_stream()
+        "bike_bell":
+            stream = _generate_bike_bell_beacon_stream()
+        "paper_rustle":
+            stream = _generate_paper_rustle_beacon_stream()
         _:
             stream = _generate_radio_beacon_stream()
     _beacon_stream_cache[beacon_type] = stream
@@ -1082,6 +1086,49 @@ func _generate_wind_chimes_beacon_stream() -> AudioStreamWAV:
                 phases[j] = fposmod(phases[j] + (freqs[j] / MIX_RATE), 1.0)
                 total += sin(phases[j] * TAU) * env * 0.22
         samples[i] = total * 0.5
+    return _create_pcm16_wav(samples)
+
+func _generate_bike_bell_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.6
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var f1 := 1760.0 # A6
+    var f2 := 2093.0 # C7
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var p4 := 0.0
+    var delay2 := 0.14
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var total := 0.0
+        # Primeiro ding
+        var env1 := exp(-t * 14.0)
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + ((f1 * 1.5) / MIX_RATE), 1.0)
+        total += (sin(p1 * TAU) * 0.7 + sin(p2 * TAU) * 0.3) * env1
+        # Segundo ding
+        if t >= delay2:
+            var dt: float = t - delay2
+            var env2 := exp(-dt * 12.0)
+            p3 = fposmod(p3 + (f2 / MIX_RATE), 1.0)
+            p4 = fposmod(p4 + ((f2 * 1.5) / MIX_RATE), 1.0)
+            total += (sin(p3 * TAU) * 0.7 + sin(p4 * TAU) * 0.3) * env2
+        samples[i] = total * 0.45
+    return _create_pcm16_wav(samples)
+
+func _generate_paper_rustle_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.7
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI) * (sin(t * TAU * 4.5) * 0.35 + 0.65)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.25)
+        samples[i] = noise * env * 0.35
     return _create_pcm16_wav(samples)
 
 
