@@ -476,6 +476,8 @@ func _build_room() -> void:
 		_spawn_banheiro_furniture()
 	elif _current_map_id == "sala":
 		_spawn_sala_furniture()
+	else:
+		_spawn_thematic_scenery_furniture()
 	if _conductor._preset != null:
 		_apply_level_visual_cues(_conductor._preset)
 	_spawn_mobs()
@@ -697,6 +699,20 @@ func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	if _current_map_id == "sala":
 		if tile in [Vector2i(1,1), Vector2i(1,4), Vector2i(4,6), Vector2i(10,2), Vector2i(10,3), Vector2i(10,4), Vector2i(10,5), Vector2i(3,8), Vector2i(4,8), Vector2i(5,8)]:
 			return
+	if _current_map_id == "arcade_s1_vento" and tile in [Vector2i(3, 4), Vector2i(5, 3)]:
+		return
+	if _current_map_id == "arcade_s1_oculos" and tile in [Vector2i(4, 4)]:
+		return
+	if _current_map_id == "arcade_s1_louca" and tile in [Vector2i(4, 3)]:
+		return
+	if _current_map_id == "arcade_s2_gato" and tile in [Vector2i(4, 4), Vector2i(2, 6)]:
+		return
+	if _current_map_id == "arcade_s2_valsa" and tile in [Vector2i(3, 4)]:
+		return
+	if _current_map_id == "arcade_s2_chaves" and tile in [Vector2i(3, 5)]:
+		return
+	if _current_map_id == "estudio_conservatorio" and tile in [Vector2i(5, 7)]:
+		return
 	var center: Vector2 = _character.grid_to_world(tile)
 	var node := Node2D.new()
 	node.position = center
@@ -741,6 +757,22 @@ func _spawn_goal_marker(tile: Vector2i, theme) -> void:
 	var tw := poly.create_tween().set_loops()
 	tw.tween_property(poly, "modulate:a", 0.5, 1.0)
 	tw.tween_property(poly, "modulate:a", 1.0, 1.0)
+	_spawn_goal_prop(center)
+	_spawn_goal_audio_beacon(center)
+
+func _load_prop_texture(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res != null:
+			return res
+	var global_path := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(path):
+		var img := Image.load_from_file(global_path)
+		if img != null:
+			return ImageTexture.create_from_image(img)
+	return null
+
+func _spawn_goal_prop(center: Vector2) -> void:
 	if _current_map_id == "quarto":
 		var radio := Sprite2D.new()
 		radio.texture = RADIO_PROP
@@ -748,6 +780,7 @@ func _spawn_goal_marker(tile: Vector2i, theme) -> void:
 		radio.position = center + Vector2(0, -12)
 		radio.z_index = int(center.y)
 		_goal_node.add_child(radio)
+		return
 	elif _current_map_id == "banheiro":
 		var sink := Sprite2D.new()
 		sink.texture = SINK_PROP
@@ -755,6 +788,7 @@ func _spawn_goal_marker(tile: Vector2i, theme) -> void:
 		sink.position = center + Vector2(0, -14)
 		sink.z_index = int(center.y)
 		_goal_node.add_child(sink)
+		return
 	elif _current_map_id == "sala":
 		var clock := Sprite2D.new()
 		clock.texture = CLOCK_PROP
@@ -762,7 +796,117 @@ func _spawn_goal_marker(tile: Vector2i, theme) -> void:
 		clock.position = center + Vector2(0, -28)
 		clock.z_index = int(center.y)
 		_goal_node.add_child(clock)
-	_spawn_goal_audio_beacon(center)
+		return
+
+	var prop_path: String = ""
+	var offset := Vector2.ZERO
+	match _current_map_id:
+		"jardim_portao":
+			prop_path = "res://assets/sprites/props/iron_gate_48x64.png"
+			offset = Vector2(0, -20)
+		"padaria_calcada":
+			prop_path = "res://assets/sprites/props/bakery_counter_64x48.png"
+			offset = Vector2(0, -16)
+		"praca_chafariz":
+			prop_path = "res://assets/sprites/props/fountain_stone_64x64.png"
+			offset = Vector2(0, -24)
+		"largo_matriz":
+			prop_path = "res://assets/sprites/props/church_portal_64x80.png"
+			offset = Vector2(0, -30)
+		"arcade_s1_vento":
+			prop_path = "res://assets/sprites/props/window_breeze_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s1_oculos":
+			prop_path = "res://assets/sprites/props/reading_desk_56x48.png"
+			offset = Vector2(0, -16)
+		"arcade_s1_planta":
+			prop_path = "res://assets/sprites/props/hanging_fern_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s1_louca":
+			prop_path = "res://assets/sprites/props/porcelain_cupboard_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s2_gato":
+			prop_path = "res://assets/sprites/props/yarn_basket_40x36.png"
+			offset = Vector2(0, -10)
+		"arcade_s2_valsa":
+			prop_path = "res://assets/sprites/props/broom_bucket_36x48.png"
+			offset = Vector2(0, -16)
+		"arcade_s2_chaves":
+			prop_path = "res://assets/sprites/props/hallway_stand_48x64.png"
+			offset = Vector2(0, -20)
+		"praia_mirante":
+			prop_path = "res://assets/sprites/props/seaside_bench_56x40.png"
+			offset = Vector2(0, -12)
+		"estacao_plataforma":
+			prop_path = "res://assets/sprites/props/station_lantern_40x64.png"
+			offset = Vector2(0, -22)
+		"estudio_conservatorio":
+			prop_path = "res://assets/sprites/props/cello_stand_48x64.png"
+			offset = Vector2(0, -20)
+		"teatro_palco":
+			prop_path = "res://assets/sprites/props/wind_chimes_stand_48x64.png"
+			offset = Vector2(0, -20)
+
+	if not prop_path.is_empty():
+		var tex = _load_prop_texture(prop_path)
+		if tex != null:
+			var sprite := Sprite2D.new()
+			sprite.texture = tex
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			sprite.position = center + offset
+			sprite.z_index = int(center.y)
+			_goal_node.add_child(sprite)
+
+func _spawn_thematic_scenery_furniture() -> void:
+	match _current_map_id:
+		"arcade_s1_vento":
+			_spawn_armchair(Vector2i(3, 4))
+			_spawn_coffee_table(Vector2i(5, 3))
+		"arcade_s1_oculos":
+			_spawn_armchair(Vector2i(4, 4))
+		"arcade_s1_louca":
+			_spawn_dresser(Vector2i(4, 3))
+		"arcade_s2_gato":
+			_spawn_coffee_table(Vector2i(4, 4))
+			_spawn_rug(Vector2i(2, 6))
+		"arcade_s2_valsa":
+			_spawn_armchair(Vector2i(3, 4))
+		"arcade_s2_chaves":
+			_spawn_dresser(Vector2i(3, 5))
+		"estudio_conservatorio":
+			_spawn_armchair(Vector2i(5, 7))
+
+func _spawn_armchair(grid: Vector2i) -> void:
+	var chair := Sprite2D.new()
+	chair.texture = ARMCHAIR_PROP
+	chair.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	chair.position = _character.grid_to_world(grid) + Vector2(0, -12)
+	chair.z_index = int(_character.grid_to_world(grid).y)
+	_walls_node.add_child(chair)
+
+func _spawn_coffee_table(grid: Vector2i) -> void:
+	var table := Sprite2D.new()
+	table.texture = COFFEE_TABLE_PROP
+	table.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	table.position = _character.grid_to_world(grid) + Vector2(0, -8)
+	table.z_index = int(_character.grid_to_world(grid).y)
+	_walls_node.add_child(table)
+
+func _spawn_dresser(grid: Vector2i) -> void:
+	var dresser := Sprite2D.new()
+	dresser.texture = DRESSER_PROP
+	dresser.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	dresser.position = _character.grid_to_world(grid) + Vector2(0, -16)
+	dresser.z_index = int(_character.grid_to_world(grid).y)
+	_walls_node.add_child(dresser)
+
+func _spawn_rug(grid: Vector2i) -> void:
+	var rug := Sprite2D.new()
+	rug.texture = RUG_FOLDED_PROP
+	rug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	rug.position = _character.grid_to_world(grid)
+	rug.z_index = int(_character.grid_to_world(grid).y) - 2
+	_floor_node.add_child(rug)
 
 func _spawn_goal_audio_beacon(pos: Vector2) -> void:
 	if _goal_beacon != null and is_instance_valid(_goal_beacon):
