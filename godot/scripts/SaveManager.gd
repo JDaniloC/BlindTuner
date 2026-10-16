@@ -78,6 +78,8 @@ func is_level_unlocked(level_id: String) -> bool:
 	if _data.is_empty():
 		load_data()
 	var unlocked: Array = _data.get("unlocked_levels", [])
+	if level_id in ["ch1_quarto_radio", "arcade_suzuki_1_1", "arcade_suzuki_2_1"]:
+		return true
 	return level_id in unlocked
 
 func unlock_level(level_id: String) -> bool:

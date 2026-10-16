@@ -28,6 +28,22 @@ func _build_all() -> Array:
             _praca_chafariz_walls(), Vector2i(2, 9), Vector2i(9, 3), "banheiro"),
         _make("largo_matriz", "Largo da Matriz", Vector2i(12, 12),
             _largo_matriz_walls(), Vector2i(10, 10), Vector2i(2, 2), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 1
+        _make("arcade_s1_vento", "Sala da Veneziana", Vector2i(10, 10),
+            _arcade_s1_vento_walls(), Vector2i(1, 7), Vector2i(8, 2), "sala"),
+        _make("arcade_s1_oculos", "Escrivaninha de Leitura", Vector2i(10, 10),
+            _arcade_s1_oculos_walls(), Vector2i(2, 8), Vector2i(7, 3), "sala"),
+        _make("arcade_s1_planta", "Canto da Samambaia", Vector2i(10, 10),
+            _arcade_s1_planta_walls(), Vector2i(1, 8), Vector2i(6, 2), "sala"),
+        _make("arcade_s1_louca", "Bancada de Porcelana", Vector2i(10, 10),
+            _arcade_s1_louca_walls(), Vector2i(2, 7), Vector2i(7, 2), "sala"),
+        # Modo Arcade: Caderno Suzuki Volume 2
+        _make("arcade_s2_gato", "Sala de Estar do Mimi", Vector2i(10, 10),
+            _arcade_s2_gato_walls(), Vector2i(2, 8), Vector2i(7, 3), "sala"),
+        _make("arcade_s2_valsa", "Corredor Ensolarado", Vector2i(10, 10),
+            _arcade_s2_valsa_walls(), Vector2i(1, 8), Vector2i(8, 3), "quarto"),
+        _make("arcade_s2_chaves", "Aparador da Entrada", Vector2i(10, 10),
+            _arcade_s2_chaves_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
     ]
 
 # Quarto de dormir no escuro (Lullaby): obstáculos em volta do caminho seguro.
@@ -116,6 +132,73 @@ func _largo_matriz_walls() -> Array[Vector2i]:
         Vector2i(3, 5),
         Vector2i(2, 4),
         Vector2i(1, 3),
+    ]
+
+# S1.1 Sala da Veneziana: sofás e estante contornando a travessia
+func _arcade_s1_vento_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 4), Vector2i(2, 5), Vector2i(3, 4),
+        Vector2i(5, 6), Vector2i(6, 6),
+        Vector2i(4, 3), Vector2i(5, 3),
+        Vector2i(7, 5), Vector2i(8, 4),
+    ]
+
+# S1.2 Escrivaninha de Leitura: estante alta, poltrona e cesto
+func _arcade_s1_oculos_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(5, 6), Vector2i(6, 6), Vector2i(7, 5),
+        Vector2i(2, 6), Vector2i(2, 7),
+        Vector2i(4, 4), Vector2i(5, 3),
+        Vector2i(4, 7),
+    ]
+
+# S1.3 Canto da Samambaia: jardineiras, pedestais e pufe central
+func _arcade_s1_planta_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(3, 5), Vector2i(4, 5),
+        Vector2i(2, 6), Vector2i(2, 5),
+        Vector2i(6, 4), Vector2i(7, 4),
+        Vector2i(4, 7), Vector2i(5, 7),
+    ]
+
+# S1.4 Bancada de Porcelana: cristaleira e balcão de louça
+func _arcade_s1_louca_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 5), Vector2i(2, 6),
+        Vector2i(3, 4),
+        Vector2i(4, 3), Vector2i(4, 4),
+        Vector2i(6, 4), Vector2i(6, 5),
+        Vector2i(7, 4),
+    ]
+
+# S2.1 Sala de Estar do Mimi: sofá e mesas onde o gato se esconde
+func _arcade_s2_gato_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(2, 7),
+        Vector2i(4, 7), Vector2i(4, 4),
+        Vector2i(5, 3), Vector2i(5, 5),
+        Vector2i(7, 4), Vector2i(7, 5),
+    ]
+
+# S2.2 Corredor Ensolarado: móveis laterais contornados pelo trajeto de varredura
+func _arcade_s2_valsa_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 5),
+        Vector2i(3, 4), Vector2i(3, 5),
+        Vector2i(4, 7),
+        Vector2i(5, 6),
+        Vector2i(6, 3),
+        Vector2i(7, 2), Vector2i(7, 5),
+    ]
+
+# S2.3 Aparador da Entrada: aparador, cabideiro e sapateira
+func _arcade_s2_chaves_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6),
+        Vector2i(3, 5), Vector2i(3, 6),
+        Vector2i(5, 5), Vector2i(5, 6),
+        Vector2i(6, 4), Vector2i(6, 2),
+        Vector2i(7, 4),
     ]
 
 func _make(p_id: String, p_label: String, p_size: Vector2i,

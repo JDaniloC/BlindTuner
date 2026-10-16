@@ -45,8 +45,15 @@ func _ready() -> void:
 	# --- Seletor de Capítulos ---
 	_chapter_opt = OptionButton.new()
 	_chapter_opt.add_item("Capítulo 1: A Casa Conhecida")
+	_chapter_opt.set_item_metadata(0, 1)
 	_chapter_opt.add_item("Capítulo 2: O Bairro e o Cotidiano")
+	_chapter_opt.set_item_metadata(1, 2)
 	_chapter_opt.add_item("Capítulo 3: As Últimas Paisagens (Em breve)")
+	_chapter_opt.set_item_metadata(2, 3)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 1 — Primeiros Passos")
+	_chapter_opt.set_item_metadata(3, 101)
+	_chapter_opt.add_item("Caderno Suzuki: Vol. 2 — A Casa em Movimento")
+	_chapter_opt.set_item_metadata(4, 102)
 	_chapter_opt.item_selected.connect(_on_chapter_selected)
 	_chapter_opt.focus_entered.connect(func():
 		AccessibleAnnouncer.announce("focus", "Seletor de Capítulos: %s. Use as setas ou clique para alterar." % _chapter_opt.get_item_text(_chapter_opt.selected))
@@ -90,8 +97,10 @@ func _focus_initial_element() -> void:
 
 func _on_chapter_selected(idx: int) -> void:
 	var chapter_text := _chapter_opt.get_item_text(idx)
+	var meta = _chapter_opt.get_item_metadata(idx)
+	var chapter_num: int = int(meta) if meta != null else (idx + 1)
 	AccessibleAnnouncer.announce("confirm", "Capítulo selecionado: %s" % chapter_text)
-	_populate_levels_for_chapter(idx + 1)
+	_populate_levels_for_chapter(chapter_num)
 	call_deferred("_focus_initial_element")
 
 func _populate_levels_for_chapter(chapter_num: int) -> void:
@@ -148,6 +157,13 @@ func _format_scenario_name(map_id: String) -> String:
 		"praca_chafariz": return "Praça do Chafariz"
 		"largo_matriz": return "Largo da Matriz"
 		"jardim": return "Jardim"
+		"arcade_s1_vento": return "Sala da Veneziana"
+		"arcade_s1_oculos": return "Escrivaninha de Leitura"
+		"arcade_s1_planta": return "Canto da Samambaia"
+		"arcade_s1_louca": return "Bancada de Porcelana"
+		"arcade_s2_gato": return "Sala de Estar do Mimi"
+		"arcade_s2_valsa": return "Corredor Ensolarado"
+		"arcade_s2_chaves": return "Aparador da Entrada"
 		_: return map_id.replace("_", " ").capitalize()
 
 func _format_beacon_name(beacon_id: String) -> String:
@@ -160,6 +176,13 @@ func _format_beacon_name(beacon_id: String) -> String:
 		"shop_bell": return "🔔 Farol: Sino da Padaria"
 		"fountain_birds": return "🐦 Farol: Chafariz e Pássaros"
 		"church_bell": return "⛪ Farol: Sino da Matriz"
+		"window_wind": return "🪟 Farol: Veneziana ao Vento"
+		"wrist_watch": return "⌚ Farol: Relógio de Pulso"
+		"watering_can": return "🪴 Farol: Regador de Bico Fino"
+		"tea_cup": return "☕ Farol: Colher na Porcelana"
+		"cat_bell": return "🔔 Farol: Sininho da Coleira"
+		"broom_sweep": return "🧹 Farol: Roçar de Vassoura"
+		"keys_jingle": return "🔑 Farol: Chaves de Latão"
 		_: return "👂 Farol Sonoro"
 
 func _stars_taxonomy_text(stars: int) -> String:
@@ -185,12 +208,20 @@ func _create_level_card(lvl) -> Button:
 	var is_unlocked := SaveManager.is_level_unlocked(lvl.id)
 	var stars := SaveManager.get_level_stars(lvl.id)
 
+	var num_str: String
+	if lvl.chapter == 101:
+		num_str = "S1.%d" % lvl.level_number
+	elif lvl.chapter == 102:
+		num_str = "S2.%d" % lvl.level_number
+	else:
+		num_str = "%d.%d" % [lvl.chapter, lvl.level_number]
+
 	# Linha 1: Título e Estrelas
 	var top_row := HBoxContainer.new()
 	card_vbox.add_child(top_row)
 
 	var title_lbl := Label.new()
-	title_lbl.text = "%d.%d %s" % [lvl.chapter, lvl.level_number, lvl.title]
+	title_lbl.text = "%s %s" % [num_str, lvl.title]
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(title_lbl)
 
@@ -226,18 +257,18 @@ func _create_level_card(lvl) -> Button:
 	var speech_text: String
 	
 	if is_unlocked:
-		play_level_btn.text = "Reviver Memória %d.%d: %s" % [lvl.chapter, lvl.level_number, lvl.title]
-		speech_text = "Memória %d.%d: %s.%s %s. %s, Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
-			lvl.chapter, lvl.level_number, lvl.title, song_speech, stars_desc, beacon_desc, scenario_name, inst_name, lvl.total_steps()
+		play_level_btn.text = "Reviver Memória %s: %s" % [num_str, lvl.title]
+		speech_text = "Memória %s: %s.%s %s. %s, Cenário %s, Instrumento %s, %d notas. Pressione Enter ou A para reviver." % [
+			num_str, lvl.title, song_speech, stars_desc, beacon_desc, scenario_name, inst_name, lvl.total_steps()
 		]
 		play_level_btn.pressed.connect(func():
 			AccessibleAnnouncer.announce("confirm", "Iniciando memória %s" % lvl.title)
 			SceneManager.start_level(lvl.id)
 		)
 	else:
-		play_level_btn.text = "🔒 Memória %d.%d: Bloqueada (%s)" % [lvl.chapter, lvl.level_number, lvl.title]
-		speech_text = "Memória %d.%d: %s, bloqueada. Conclua as memórias anteriores para desbloquear." % [
-			lvl.chapter, lvl.level_number, lvl.title
+		play_level_btn.text = "🔒 Memória %s: Bloqueada (%s)" % [num_str, lvl.title]
+		speech_text = "Memória %s: %s, bloqueada. Conclua as memórias anteriores para desbloquear." % [
+			num_str, lvl.title
 		]
 		play_level_btn.pressed.connect(func():
 			AccessibleAnnouncer.announce("error", "Esta memória está bloqueada. Conclua as memórias anteriores primeiro.")

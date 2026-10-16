@@ -14,6 +14,7 @@ const BaseMobScript := preload("res://scripts/mobs/BaseMob.gd")
 const CatMobScript := preload("res://scripts/mobs/CatMob.gd")
 const DogMobScript := preload("res://scripts/mobs/DogMob.gd")
 const PigeonMobScript := preload("res://scripts/mobs/PigeonMob.gd")
+const CanaryMobScript := preload("res://scripts/mobs/CanaryMob.gd")
 const FLOOR_WOOD_OAK_A := preload("res://assets/sprites/tilemap/floor_wood_oak_a.png")
 const FLOOR_WOOD_OAK_B := preload("res://assets/sprites/tilemap/floor_wood_oak_b.png")
 const WALL_WOOD_QUARTO := preload("res://assets/sprites/tilemap/wall_wood_quarto.png")
@@ -515,6 +516,8 @@ func _spawn_mobs() -> void:
 				mob_node = DogMobScript.new()
 			"pigeon":
 				mob_node = PigeonMobScript.new()
+			"canary":
+				mob_node = CanaryMobScript.new()
 			_:
 				mob_node = CatMobScript.new()
 		mob_node.setup(grid, m_name)

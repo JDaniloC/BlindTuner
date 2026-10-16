@@ -486,6 +486,20 @@ func get_beacon_stream(beacon_type: String) -> AudioStreamWAV:
             stream = _generate_fountain_birds_beacon_stream()
         "church_bell":
             stream = _generate_church_bell_beacon_stream()
+        "window_wind":
+            stream = _generate_window_wind_beacon_stream()
+        "wrist_watch":
+            stream = _generate_wrist_watch_beacon_stream()
+        "watering_can":
+            stream = _generate_watering_can_beacon_stream()
+        "tea_cup":
+            stream = _generate_tea_cup_beacon_stream()
+        "cat_bell":
+            stream = _generate_cat_bell_beacon_stream()
+        "broom_sweep":
+            stream = _generate_broom_sweep_beacon_stream()
+        "keys_jingle":
+            stream = _generate_keys_jingle_beacon_stream()
         _:
             stream = _generate_radio_beacon_stream()
     _beacon_stream_cache[beacon_type] = stream
@@ -612,6 +626,10 @@ func get_mob_stream(mob_sound: String) -> AudioStreamWAV:
             stream = _generate_pigeon_coo_stream()
         "pigeon_flutter":
             stream = _generate_pigeon_flutter_stream()
+        "canary_sing":
+            stream = _generate_canary_sing_stream()
+        "canary_flap":
+            stream = _generate_canary_flap_stream()
         _:
             stream = _generate_cat_meow_stream()
     _mob_stream_cache[mob_sound] = stream
@@ -812,5 +830,172 @@ func _generate_pigeon_flutter_stream() -> AudioStreamWAV:
         noise = lerpf(noise, randf_range(-1.0, 1.0), 0.12)
         samples[i] = noise * flap_lfo * overall_env * 0.4
     return _create_pcm16_wav(samples)
+
+func _generate_window_wind_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.65
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var noise := 0.0
+    var clack_phase := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.04)
+        var wind_env := sin((t / duration) * PI)
+        var clack := 0.0
+        var t1 := t - 0.16
+        var t2 := t - 0.38
+        if t1 >= 0.0 and t1 < 0.05:
+            clack += sin(clack_phase * TAU) * exp(-t1 * 60.0)
+            clack_phase = fposmod(clack_phase + (240.0 / MIX_RATE), 1.0)
+        if t2 >= 0.0 and t2 < 0.05:
+            clack += sin(clack_phase * TAU) * exp(-t2 * 60.0)
+            clack_phase = fposmod(clack_phase + (260.0 / MIX_RATE), 1.0)
+        samples[i] = (noise * wind_env * 0.4 + clack * 0.5) * 0.6
+    return _create_pcm16_wav(samples)
+
+func _generate_wrist_watch_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.35
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var inc := 3200.0 / MIX_RATE
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var t1 := t - 0.02
+        var t2 := t - 0.18
+        var tick := 0.0
+        if t1 >= 0.0 and t1 < 0.04:
+            tick += sin(phase * TAU) * exp(-t1 * 100.0)
+        if t2 >= 0.0 and t2 < 0.04:
+            tick += sin(phase * TAU) * exp(-t2 * 110.0)
+        samples[i] = tick * 0.5
+        phase = fposmod(phase + inc, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_watering_can_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.45
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var t1 := t - 0.05
+        var t2 := t - 0.22
+        var drip := 0.0
+        if t1 >= 0.0 and t1 < 0.08:
+            var freq1 := lerpf(750.0, 520.0, t1 / 0.08)
+            phase = fposmod(phase + (freq1 / MIX_RATE), 1.0)
+            drip += (sin(phase * TAU) + 0.3 * sin(phase * TAU * 2.0)) * exp(-t1 * 30.0)
+        if t2 >= 0.0 and t2 < 0.08:
+            var freq2 := lerpf(820.0, 580.0, t2 / 0.08)
+            phase = fposmod(phase + (freq2 / MIX_RATE), 1.0)
+            drip += (sin(phase * TAU) + 0.3 * sin(phase * TAU * 2.0)) * exp(-t2 * 30.0)
+        samples[i] = drip * 0.5
+    return _create_pcm16_wav(samples)
+
+func _generate_tea_cup_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.6
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var inc1 := 2489.0 / MIX_RATE # D#7
+    var inc2 := 4978.0 / MIX_RATE
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := exp(-t * 7.5)
+        var tone := sin(phase1 * TAU) * 0.7 + sin(phase2 * TAU) * 0.3
+        samples[i] = tone * env * 0.45
+        phase1 = fposmod(phase1 + inc1, 1.0)
+        phase2 = fposmod(phase2 + inc2, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_cat_bell_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.5
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var inc := 2960.0 / MIX_RATE
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var jingle := (sin(t * TAU * 18.0) * 0.4 + 0.6)
+        var env := exp(-t * 6.0)
+        samples[i] = sin(phase * TAU) * jingle * env * 0.45
+        phase = fposmod(phase + inc, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_broom_sweep_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.5
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var stroke := sin((t / duration) * PI)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.09)
+        samples[i] = noise * stroke * 0.4
+    return _create_pcm16_wav(samples)
+
+func _generate_keys_jingle_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.45
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var inc1 := 1350.0 / MIX_RATE
+    var inc2 := 1820.0 / MIX_RATE
+    var inc3 := 2400.0 / MIX_RATE
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := exp(-t * 9.0)
+        var tone := sin(p1 * TAU) * 0.4 + sin(p2 * TAU) * 0.35 + sin(p3 * TAU) * 0.25
+        samples[i] = tone * env * 0.45
+        p1 = fposmod(p1 + inc1, 1.0)
+        p2 = fposmod(p2 + inc2, 1.0)
+        p3 = fposmod(p3 + inc3, 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_canary_sing_stream() -> AudioStreamWAV:
+    var duration := 0.65
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var trill := sin(t * TAU * 16.0) * 180.0
+        var cur_freq := 2800.0 + (sin(t * TAU * 3.0) * 400.0) + trill
+        var env := sin((t / duration) * PI)
+        samples[i] = sin(phase * TAU) * env * 0.35
+        phase = fposmod(phase + (cur_freq / MIX_RATE), 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_canary_flap_stream() -> AudioStreamWAV:
+    var duration := 0.35
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase := 0.0
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var flap := maxf(0.0, sin(t * TAU * 18.0))
+        var env := exp(-t * 6.0)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.15)
+        var chirp := sin(phase * TAU) * 0.2
+        samples[i] = (noise * flap * 0.3 + chirp) * env
+        var cur_freq := 3200.0 + (sin(t * TAU * 8.0) * 600.0)
+        phase = fposmod(phase + (cur_freq / MIX_RATE), 1.0)
+    return _create_pcm16_wav(samples)
+
+
 
 

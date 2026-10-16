@@ -28,6 +28,18 @@ const CHAPTER_INFO := {
 			{ "num": "3.3", "title": "A Melodia Guardada", "beacon": "Violoncelo solo", "icon": "🎻", "story": "As cordas de aço não envelhecem. O som de um ré continua límpido." },
 			{ "num": "3.4", "title": "O Recital no Vazio", "beacon": "Sinos de vento", "icon": "✨", "story": "Não preciso mais enxergar a sala. Aprendi a ver com os ouvidos." }
 		]
+	},
+	101: {
+		"title": "Caderno Suzuki: Vol. 1 — Primeiros Passos",
+		"subtitle": "Pequenas canções para encontrar objetos queridos e arrumar a casa.",
+		"description": "Estudos melódicos do Livro 1 do Método Suzuki contextualizados na rotina do lar. Pistas auditivas de vento, relógios e regadores.",
+		"status": "available"
+	},
+	102: {
+		"title": "Caderno Suzuki: Vol. 2 — A Casa em Movimento",
+		"subtitle": "O ritmo da valsa e os passos ligeiros acompanhando nossos companheiros.",
+		"description": "Estudos melódicos do Livro 2 com dinâmicas mais vivas, o gato brincalhão e o roçar cadenciado da vassoura.",
+		"status": "available"
 	}
 }
 
@@ -215,6 +227,159 @@ func _build_all() -> Array:
 			false, false, false, # Chão invisível, percepção puramente auditiva
 			"See, the Conquering Hero Comes (Judas Macabeu)",
 			"G.F. Händel (1746)"
+		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 1 (PRIMEIROS PASSOS) ---
+		# S1.1 Canção do Vento: A Janela Batendo no Vento
+		_make(
+			"arcade_suzuki_1_1",
+			101, 1,
+			"A Janela Batendo no Vento",
+			"O vento da tarde começou a soprar forte e a janela da sala está batendo sem parar. Preciso atravessar o tapete até a parede leste e girar a tranca antes que a chuva comece.",
+			"A tranca girou com um estalo firme. A chuva lá fora agora é só um sussurro gostoso contra o vidro.",
+			"arcade_s1_vento",
+			["D4", "D4", "Ds4", "D4", "Ds4", "D4", "D4"],
+			"piano",
+			0,
+			0,
+			25.0,
+			"window_wind",
+			"Siga o som da veneziana batendo com o vento.",
+			0.0, 0.8, 0.0, 0.0,
+			true, true, true,
+			"Canção do Vento (Song of the Wind)",
+			"Folclore Tradicional"
+		),
+
+		# S1.2 Gavotte (Gossec): Cadê os Meus Óculos?
+		_make(
+			"arcade_suzuki_1_2",
+			101, 2,
+			"Cadê os Meus Óculos?",
+			"Tenho certeza de que deixei meus óculos de leitura em cima da escrivaninha. Sem eles, as partituras viram névoa. Sigo o estalo ritmado da gaveta até alcançar o veludo do estojo.",
+			"Encontrei! O aro de metal frio se encaixa no rosto. As linhas da pauta voltam a ter contornos nítidos.",
+			"arcade_s1_oculos",
+			["D4", "D4", "G4", "D4", "D4", "D4", "Ds4"],
+			"piano",
+			1,
+			0,
+			25.0,
+			"wrist_watch",
+			"Siga o tique-taque suave do relógio de pulso junto ao estojo.",
+			0.0, 0.85, 0.1, 0.1,
+			true, true, true,
+			"Gavotte",
+			"François-Joseph Gossec (1734–1829)",
+			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
+		),
+
+		# S1.3 O Fazendeiro Alegre (Schumann): A Samambaia da Sala
+		_make(
+			"arcade_suzuki_1_3",
+			101, 3,
+			"A Samambaia da Sala",
+			"A samambaia chorona no canto da sala sente quando o ar fica seco. Com o regador de latão em mãos, sigo o aroma de terra úmida até o vaso suspenso.",
+			"As gotas caem frescas sobre a folhagem verde. O ar da sala fica mais leve e perfumado.",
+			"arcade_s1_planta",
+			["D4", "D4", "Ds4", "D4", "Cs4", "D4", "Cs4"],
+			"piano",
+			1,
+			0,
+			25.0,
+			"watering_can",
+			"Siga o gotejar do regador de bico fino perto da planta.",
+			0.0, 0.9, 0.15, 0.2,
+			true, true, true,
+			"O Fazendeiro Alegre (The Happy Farmer)",
+			"Robert Schumann (1848)",
+			[{"type": "canary", "grid": Vector2i(5, 3), "name": "Piu-Piu"}]
+		),
+
+		# S1.4 Minueto nº 1 (Bach / Petzold): O Pão da Tarde e a Louça de Domingo
+		_make(
+			"arcade_suzuki_1_4",
+			101, 4,
+			"O Pão da Tarde e a Louça de Domingo",
+			"O aroma de bolo de fubá acabou de sair do forno. Agora é hora de encontrar o açucareiro na bancada alta para adoçar o café das visitas.",
+			"A xícara tilinta em harmonia com a colher de prata. Café quente servido com carinho.",
+			"arcade_s1_louca",
+			["D4", "D4", "D4", "Cs4", "Ds4", "D4"],
+			"piano",
+			2,
+			0,
+			25.0,
+			"tea_cup",
+			"Siga o tilintar suave da colher de prata na xícara de porcelana.",
+			0.0, 0.95, 0.2, 0.3,
+			true, true, true,
+			"Minueto nº 1 (BWV Anh. 114)",
+			"J.S. Bach / Christian Petzold (1725)"
+		),
+
+		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 2 (A CASA EM MOVIMENTO) ---
+		# S2.1 Coro dos Caçadores (Weber): A Fuga do Gato Mimi
+		_make(
+			"arcade_suzuki_2_1",
+			102, 1,
+			"A Fuga do Gato Mimi",
+			"Mimi pegou meu novelo de linha favorito e saiu correndo pela sala de estar. O sininho na coleira dele me diz exatamente por onde ele passou: embaixo do sofá e atrás da estante!",
+			"Peguei o novelo de volta e ainda ganhei um carinho ronronado nos tornozelos.",
+			"arcade_s2_gato",
+			["D4", "D4", "G4", "D4", "D4", "D4", "Ds4"],
+			"piano",
+			1,
+			0,
+			25.0,
+			"cat_bell",
+			"Siga o tilintar do sininho na coleira travessa do Mimi.",
+			0.0, 0.85, 0.1, 0.1,
+			true, true, true,
+			"Coro dos Caçadores (Der Freischütz)",
+			"Carl Maria von Weber (1821)",
+			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
+		),
+
+		# S2.2 Valsa Op. 39 nº 15 (Brahms): A Valsa da Vassoura
+		_make(
+			"arcade_suzuki_2_2",
+			102, 2,
+			"A Valsa da Vassoura",
+			"Varrer o chão no escuro é como dançar: um passo para frente, dois balanços de vassoura. O som da palha recolhendo as folhas secas me diz onde o piso já está limpo.",
+			"O chão ficou brilhante e limpo, sem uma única folha para trás. Um passo de valsa perfeito.",
+			"arcade_s2_valsa",
+			["D4", "D4", "Ds4", "D4", "D4", "Ds4", "D4"],
+			"piano",
+			2,
+			0,
+			25.0,
+			"broom_sweep",
+			"Siga o roçar cadenciado das cerdas da vassoura de palha.",
+			0.0, 0.9, 0.2, 0.25,
+			true, true, true,
+			"Valsa Op. 39 nº 15",
+			"Johannes Brahms (1865)"
+		),
+
+		# S2.3 Minueto em Sol Maior (Beethoven): O Molho de Chaves Antigo
+		_make(
+			"arcade_suzuki_2_3",
+			102, 3,
+			"O Molho de Chaves Antigo",
+			"Três chaves de dentes grandes e uma redondinha do guarda-comida. Preciso chegar até o aparador da entrada para pegar o chaveiro antes que o entregador chegue.",
+			"O chaveiro de latão tilintou na minha mão. A porta está pronta para ser aberta.",
+			"arcade_s2_chaves",
+			["D4", "D4", "Cs4", "D4", "D4", "D4"],
+			"piano",
+			2,
+			0,
+			25.0,
+			"keys_jingle",
+			"Siga o tinir metálico das chaves pesadas penduradas no aparador.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Minueto em Sol Maior",
+			"Ludwig van Beethoven (1796)",
+			[{"type": "dog", "grid": Vector2i(7, 3), "name": "Thor"}]
 		),
 	]
 
