@@ -1,4 +1,1 @@
-<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" fill="#1a1a1a"/>
-  <text x="64" y="80" text-anchor="middle" font-size="48" fill="#E91E63" font-family="monospace">BT</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#1a1a1a"/><text x="64" y="80" fill="#E91E63" font-family="monospace" font-size="48" text-anchor="middle">BT</text></svg>
