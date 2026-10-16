@@ -21,7 +21,7 @@ const CHAPTER_INFO := {
 		"title": "Capítulo 3: As Últimas Paisagens",
 		"subtitle": "Quando os olhos descansam, a música se torna a única luz.",
 		"description": "A escuta plena. O mundo se transforma em pura paisagem sonora com ecolocalização e violoncelo.",
-		"status": "coming_soon",
+		"status": "available",
 		"teasers": [
 			{ "num": "3.1", "title": "O Sussurro da Maré", "beacon": "Ondas na areia", "icon": "🌊", "story": "O mar vem e vai, apagando minhas pegadas e afinando meus passos." },
 			{ "num": "3.2", "title": "A Neblina da Estação", "beacon": "Vapor de locomotiva", "icon": "🚂", "story": "Na névoa branca que tomou meus olhos, o apito do trem desenha a saída." },
@@ -227,6 +227,92 @@ func _build_all() -> Array:
 			false, false, false, # Chão invisível, percepção puramente auditiva
 			"See, the Conquering Hero Comes (Judas Macabeu)",
 			"G.F. Händel (1746)"
+		),
+
+		# --- CAPÍTULO 3: AS ÚLTIMAS PAISAGENS (A ESCUTA PLENA) ---
+		# 3.1 Praia do Mirante: O Sussurro da Maré
+		_make(
+			"ch3_praia_mare",
+			3, 1,
+			"O Sussurro da Maré",
+			"O murmúrio das ondas vem e vai, apagando minhas pegadas na areia molhada. Sigo o sussurro da espuma até encontrar o banco do mirante.",
+			"Sento-me na madeira salgada do banco. O mar continua cantando a mesma canção que ouvi pela primeira vez há sessenta anos.",
+			"praia_mirante",
+			["D4", "D4", "Ds4", "D4", "D4", "D4", "D4"],
+			"cello", # Violoncelo solo
+			3, # Pista 3: só som
+			0, # Joystick
+			35.0,
+			"ocean_waves",
+			"Siga o murmúrio cadenciado das ondas quebrando na praia.",
+			0.0, 0.5, 0.85, 0.9,
+			false, false, true, # Chão invisível, pistas invisíveis, contornos no pulso da bengala
+			"Prélude da Suíte para Cello nº 1 (BWV 1007)",
+			"J.S. Bach (1720)"
+		),
+
+		# 3.2 Plataforma da Estação: A Neblina da Estação
+		_make(
+			"ch3_estacao_neblina",
+			3, 2,
+			"A Neblina da Estação",
+			"A névoa branca tomou a plataforma de embarque. Não vejo os trilhos nem as vigas de ferro, mas o apito grave da locomotiva desenha a saída na minha memória.",
+			"O calor da caldeira e o cheiro de carvão me alcançam. Encontrei o estribo do vagão sem vacilar um só passo.",
+			"estacao_plataforma",
+			["C4", "C4", "C4", "C4", "C4", "C4", "C4"],
+			"cello",
+			3,
+			0,
+			35.0,
+			"train_whistle",
+			"Siga o apito grave e o vapor da locomotiva ao final do cais.",
+			0.0, 0.45, 0.9, 0.95,
+			false, false, true,
+			"O Cisne (Le Cygne)",
+			"Camille Saint-Saëns (1886)"
+		),
+
+		# 3.3 Estúdio do Conservatório: A Melodia Guardada
+		_make(
+			"ch3_estudio_violoncelo",
+			3, 3,
+			"A Melodia Guardada",
+			"As cordas de aço não envelhecem. Mesmo no silêncio da sala escura, a vibração do espigão de metal no assoalho guia meus dedos até a estante de partituras.",
+			"Minhas mãos tocam a voluta de madeira esculpida. O violoncelo ainda vibra com o calor de todas as sonatas que já tocamos juntos.",
+			"estudio_conservatorio",
+			["D4", "D4", "Cs4", "D4", "D4", "D4", "D4", "D4"],
+			"cello",
+			3,
+			0,
+			40.0,
+			"cello_drone",
+			"Siga a ressonância profunda da corda solta do violoncelo.",
+			0.0, 0.4, 0.95, 1.0,
+			false, false, true,
+			"Élégie, Op. 24",
+			"Gabriel Fauré (1880)",
+			[{"type": "cat", "grid": Vector2i(7, 3), "name": "Mimi"}]
+		),
+
+		# 3.4 Palco do Grande Teatro: O Recital no Vazio (Epílogo)
+		_make(
+			"ch3_teatro_recital",
+			3, 4,
+			"O Recital no Vazio",
+			"Não há mais luzes, nem plateia aos olhos, nem linhas no chão. Mas o ar do teatro respira comigo. Caminho até o centro do palco guiado pelos sinos da ribalta.",
+			"Pousei o arco sobre as quatro cordas. O teatro inteiro se encheu de luz sonora. Aprendi a ver com os ouvidos, e o mundo nunca foi tão belo.",
+			"teatro_palco",
+			["Fs4", "Fs4", "G4", "Fs4", "Fs4", "Fs4", "Fs4", "Fs4"],
+			"cello",
+			3,
+			1, # Piano Virtual
+			45.0,
+			"wind_chimes",
+			"Siga os sinos de cristal cintilando no centro do palco vazio.",
+			0.0, 0.3, 0.95, 1.0,
+			false, false, false, # Escuridão completa: apenas som e o eco da bengala
+			"Largo da Sinfonia do Novo Mundo (Going Home)",
+			"Antonín Dvořák (1893)"
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 1 (PRIMEIROS PASSOS) ---

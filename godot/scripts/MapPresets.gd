@@ -44,6 +44,15 @@ func _build_all() -> Array:
             _arcade_s2_valsa_walls(), Vector2i(1, 8), Vector2i(8, 3), "quarto"),
         _make("arcade_s2_chaves", "Aparador da Entrada", Vector2i(10, 10),
             _arcade_s2_chaves_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        # Modo História: Capítulo 3 — As Últimas Paisagens
+        _make("praia_mirante", "Praia do Mirante", Vector2i(12, 12),
+            _praia_mirante_walls(), Vector2i(2, 9), Vector2i(9, 3), "quarto"),
+        _make("estacao_plataforma", "Plataforma da Estação", Vector2i(12, 12),
+            _estacao_plataforma_walls(), Vector2i(10, 10), Vector2i(3, 3), "sala"),
+        _make("estudio_conservatorio", "Estúdio do Conservatório", Vector2i(12, 12),
+            _estudio_conservatorio_walls(), Vector2i(2, 10), Vector2i(9, 2), "sala"),
+        _make("teatro_palco", "Palco do Grande Teatro", Vector2i(12, 12),
+            _teatro_palco_walls(), Vector2i(10, 2), Vector2i(2, 9), "sala"),
     ]
 
 # Quarto de dormir no escuro (Lullaby): obstáculos em volta do caminho seguro.
@@ -199,6 +208,40 @@ func _arcade_s2_chaves_walls() -> Array[Vector2i]:
         Vector2i(5, 5), Vector2i(5, 6),
         Vector2i(6, 4), Vector2i(6, 2),
         Vector2i(7, 4),
+    ]
+
+# 3.1 Praia do Mirante: rochedos do quebra-mar e cercado
+func _praia_mirante_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 7), Vector2i(3, 7), Vector2i(4, 8),
+        Vector2i(5, 6), Vector2i(6, 7), Vector2i(7, 6),
+        Vector2i(8, 5), Vector2i(9, 4), Vector2i(9, 5),
+    ]
+
+# 3.2 Plataforma da Estação: pilares de ferro fundido e bancos da plataforma
+func _estacao_plataforma_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(10, 8), Vector2i(8, 10),
+        Vector2i(8, 7), Vector2i(7, 8),
+        Vector2i(6, 5), Vector2i(5, 6),
+        Vector2i(4, 3), Vector2i(3, 4),
+    ]
+
+# 3.3 Estúdio do Conservatório: piano de cauda, estantes e armários
+func _estudio_conservatorio_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 8), Vector2i(3, 8), Vector2i(3, 10),
+        Vector2i(5, 7), Vector2i(5, 8),
+        Vector2i(6, 4), Vector2i(7, 5),
+        Vector2i(8, 2), Vector2i(9, 3),
+    ]
+
+# 3.4 Palco do Grande Teatro: ribalta do proscênio e pedestais dos sinos
+func _teatro_palco_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(9, 2), Vector2i(8, 3), Vector2i(8, 5),
+        Vector2i(7, 3), Vector2i(6, 6), Vector2i(5, 5),
+        Vector2i(4, 6), Vector2i(3, 7), Vector2i(2, 8),
     ]
 
 func _make(p_id: String, p_label: String, p_size: Vector2i,

@@ -500,6 +500,14 @@ func get_beacon_stream(beacon_type: String) -> AudioStreamWAV:
             stream = _generate_broom_sweep_beacon_stream()
         "keys_jingle":
             stream = _generate_keys_jingle_beacon_stream()
+        "ocean_waves":
+            stream = _generate_ocean_waves_beacon_stream()
+        "train_whistle":
+            stream = _generate_train_whistle_beacon_stream()
+        "cello_drone":
+            stream = _generate_cello_drone_beacon_stream()
+        "wind_chimes":
+            stream = _generate_wind_chimes_beacon_stream()
         _:
             stream = _generate_radio_beacon_stream()
     _beacon_stream_cache[beacon_type] = stream
@@ -995,6 +1003,87 @@ func _generate_canary_flap_stream() -> AudioStreamWAV:
         var cur_freq := 3200.0 + (sin(t * TAU * 8.0) * 600.0)
         phase = fposmod(phase + (cur_freq / MIX_RATE), 1.0)
     return _create_pcm16_wav(samples)
+
+func _generate_ocean_waves_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.2
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var noise := 0.0
+    var low_phase := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var wave_env := sin((t / duration) * PI)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.08)
+        var low_rumble := sin(low_phase * TAU) * 0.35
+        low_phase = fposmod(low_phase + (55.0 / MIX_RATE), 1.0)
+        samples[i] = (noise * 0.65 + low_rumble) * wave_env * 0.4
+    return _create_pcm16_wav(samples)
+
+func _generate_train_whistle_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.9
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var breath := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        var vib := sin(t * TAU * 5.0) * 4.0
+        var f1 := 349.2 + vib
+        var f2 := 440.0 + vib
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        breath = lerpf(breath, randf_range(-1.0, 1.0), 0.2)
+        var tone := (sin(p1 * TAU) * 0.5 + sin(p2 * TAU) * 0.4)
+        samples[i] = (tone * 0.8 + breath * 0.2) * env * 0.38
+    return _create_pcm16_wav(samples)
+
+func _generate_cello_drone_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.0
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        var f1 := 65.41 # C2
+        var f2 := 130.81 # C3
+        var f3 := 196.00 # G3
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        p3 = fposmod(p3 + (f3 / MIX_RATE), 1.0)
+        var s1 := (p1 * 2.0 - 1.0) * 0.5
+        var s2 := sin(p2 * TAU) * 0.3
+        var s3 := sin(p3 * TAU) * 0.2
+        samples[i] = (s1 + s2 + s3) * env * 0.45
+    return _create_pcm16_wav(samples)
+
+func _generate_wind_chimes_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.1
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var freqs: Array[float] = [1760.0, 2349.3, 3135.9, 4186.0]
+    var phases: Array[float] = [0.0, 0.0, 0.0, 0.0]
+    var delays: Array[float] = [0.0, 0.08, 0.18, 0.32]
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var total := 0.0
+        for j in range(4):
+            if t >= delays[j]:
+                var dt: float = t - delays[j]
+                var env := exp(-dt * 4.5)
+                phases[j] = fposmod(phases[j] + (freqs[j] / MIX_RATE), 1.0)
+                total += sin(phases[j] * TAU) * env * 0.22
+        samples[i] = total * 0.5
+    return _create_pcm16_wav(samples)
+
 
 
 

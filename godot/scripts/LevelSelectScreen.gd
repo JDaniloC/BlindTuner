@@ -48,7 +48,7 @@ func _ready() -> void:
 	_chapter_opt.set_item_metadata(0, 1)
 	_chapter_opt.add_item("Capítulo 2: O Bairro e o Cotidiano")
 	_chapter_opt.set_item_metadata(1, 2)
-	_chapter_opt.add_item("Capítulo 3: As Últimas Paisagens (Em breve)")
+	_chapter_opt.add_item("Capítulo 3: As Últimas Paisagens")
 	_chapter_opt.set_item_metadata(2, 3)
 	_chapter_opt.add_item("Caderno Suzuki: Vol. 1 — Primeiros Passos")
 	_chapter_opt.set_item_metadata(3, 101)
@@ -164,6 +164,10 @@ func _format_scenario_name(map_id: String) -> String:
 		"arcade_s2_gato": return "Sala de Estar do Mimi"
 		"arcade_s2_valsa": return "Corredor Ensolarado"
 		"arcade_s2_chaves": return "Aparador da Entrada"
+		"praia_mirante": return "Praia do Mirante"
+		"estacao_plataforma": return "Plataforma da Estação"
+		"estudio_conservatorio": return "Estúdio do Conservatório"
+		"teatro_palco": return "Palco do Grande Teatro"
 		_: return map_id.replace("_", " ").capitalize()
 
 func _format_beacon_name(beacon_id: String) -> String:
@@ -183,6 +187,10 @@ func _format_beacon_name(beacon_id: String) -> String:
 		"cat_bell": return "🔔 Farol: Sininho da Coleira"
 		"broom_sweep": return "🧹 Farol: Roçar de Vassoura"
 		"keys_jingle": return "🔑 Farol: Chaves de Latão"
+		"ocean_waves": return "🌊 Farol: Ondas na Areia"
+		"train_whistle": return "🚂 Farol: Apito e Vapor do Trem"
+		"cello_drone": return "🎻 Farol: Corda Solta do Cello"
+		"wind_chimes": return "✨ Farol: Sinos de Vento do Palco"
 		_: return "👂 Farol Sonoro"
 
 func _stars_taxonomy_text(stars: int) -> String:
