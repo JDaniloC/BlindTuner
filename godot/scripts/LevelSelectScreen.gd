@@ -45,7 +45,7 @@ func _ready() -> void:
 	# --- Seletor de Capítulos ---
 	_chapter_opt = OptionButton.new()
 	_chapter_opt.add_item("Capítulo 1: A Casa Conhecida")
-	_chapter_opt.add_item("Capítulo 2: O Bairro e o Cotidiano (Em breve)")
+	_chapter_opt.add_item("Capítulo 2: O Bairro e o Cotidiano")
 	_chapter_opt.add_item("Capítulo 3: As Últimas Paisagens (Em breve)")
 	_chapter_opt.item_selected.connect(_on_chapter_selected)
 	_chapter_opt.focus_entered.connect(func():
@@ -143,6 +143,10 @@ func _format_scenario_name(map_id: String) -> String:
 		"quarto_lullaby": return "Quarto à Noite"
 		"sala": return "Sala de Estar"
 		"banheiro": return "Banheiro"
+		"jardim_portao": return "Jardim da Frente"
+		"padaria_calcada": return "Calçada da Padaria"
+		"praca_chafariz": return "Praça do Chafariz"
+		"largo_matriz": return "Largo da Matriz"
 		"jardim": return "Jardim"
 		_: return map_id.replace("_", " ").capitalize()
 
@@ -152,6 +156,10 @@ func _format_beacon_name(beacon_id: String) -> String:
 		"music_box": return "🧸 Farol: Caixa de Música"
 		"drip": return "💧 Farol: Fio d'Água na Pia"
 		"clock": return "🕰️ Farol: Carrilhão da Sala"
+		"gate_latch": return "🗝️ Farol: Trinco do Portão"
+		"shop_bell": return "🔔 Farol: Sino da Padaria"
+		"fountain_birds": return "🐦 Farol: Chafariz e Pássaros"
+		"church_bell": return "⛪ Farol: Sino da Matriz"
 		_: return "👂 Farol Sonoro"
 
 func _stars_taxonomy_text(stars: int) -> String:

@@ -64,6 +64,13 @@ func test_catalog_query_helpers():
 	var ch1_levels = LevelCatalog.by_chapter(1)
 	assert_eq(ch1_levels.size(), 4)
 	
+	var ch2_levels = LevelCatalog.by_chapter(2)
+	assert_eq(ch2_levels.size(), 4)
+	
 	var next = LevelCatalog.get_next_level("ch1_quarto_radio")
 	assert_not_null(next)
 	assert_eq(next.id, "ch1_lullaby_dormir")
+	
+	var ch1_to_ch2 = LevelCatalog.get_next_level("ch1_sala_poltrona")
+	assert_not_null(ch1_to_ch2)
+	assert_eq(ch1_to_ch2.id, "ch2_portao_ferro")

@@ -20,6 +20,14 @@ func _build_all() -> Array:
             _sala_walls(), Vector2i(10, 10), Vector2i(1, 1), "sala"),
         _make("quarto_lullaby", "Quarto (Noite)", Vector2i(10, 10),
             _quarto_lullaby_walls(), Vector2i(2, 2), Vector2i(3, 6), "quarto"),
+        _make("jardim_portao", "Jardim do Portão", Vector2i(10, 10),
+            _jardim_portao_walls(), Vector2i(1, 8), Vector2i(8, 2), "quarto"),
+        _make("padaria_calcada", "Calçada da Padaria", Vector2i(10, 10),
+            _padaria_calcada_walls(), Vector2i(2, 8), Vector2i(7, 2), "sala"),
+        _make("praca_chafariz", "Praça do Chafariz", Vector2i(12, 12),
+            _praca_chafariz_walls(), Vector2i(2, 9), Vector2i(9, 3), "banheiro"),
+        _make("largo_matriz", "Largo da Matriz", Vector2i(12, 12),
+            _largo_matriz_walls(), Vector2i(10, 10), Vector2i(2, 2), "sala"),
     ]
 
 # Quarto de dormir no escuro (Lullaby): obstáculos em volta do caminho seguro.
@@ -61,6 +69,53 @@ func _sala_walls() -> Array[Vector2i]:
         Vector2i(4,6),
         Vector2i(10,2), Vector2i(10,3), Vector2i(10,4), Vector2i(10,5),
         Vector2i(1,4),
+    ]
+
+# Jardim do Portão: canteiros de flores e arbustos nas laterais
+func _jardim_portao_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 6), Vector2i(2, 6),
+        Vector2i(4, 7),
+        Vector2i(5, 3), Vector2i(6, 3),
+        Vector2i(7, 5),
+        Vector2i(8, 4), Vector2i(8, 5),
+    ]
+
+# Calçada da Padaria: meio-fio, poste e mesinhas externas
+func _padaria_calcada_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 5), Vector2i(1, 6),
+        Vector2i(2, 5),
+        Vector2i(4, 7),
+        Vector2i(5, 6),
+        Vector2i(6, 4),
+        Vector2i(7, 4),
+        Vector2i(8, 3),
+    ]
+
+# Praça do Chafariz: canteiros de flores e bancos ao redor
+func _praca_chafariz_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 7),
+        Vector2i(3, 6),
+        Vector2i(4, 5),
+        Vector2i(5, 8), Vector2i(6, 8),
+        Vector2i(8, 6),
+        Vector2i(9, 5),
+        Vector2i(10, 4),
+    ]
+
+# Largo da Matriz: pilastras e balustradas da escadaria
+func _largo_matriz_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(10, 8),
+        Vector2i(9, 7),
+        Vector2i(7, 9),
+        Vector2i(6, 8),
+        Vector2i(4, 6),
+        Vector2i(3, 5),
+        Vector2i(2, 4),
+        Vector2i(1, 3),
     ]
 
 func _make(p_id: String, p_label: String, p_size: Vector2i,

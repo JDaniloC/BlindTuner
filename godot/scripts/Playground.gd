@@ -10,6 +10,10 @@ const VISION_OVERLAY_SCENE := preload("res://scenes/VisionImpairmentOverlay.tscn
 const TactileRippleScript := preload("res://scripts/TactileRipple.gd")
 const AcousticFocusGuideScript := preload("res://scripts/AcousticFocusGuide.gd")
 const CharacterPortraitScript := preload("res://scripts/CharacterPortrait.gd")
+const BaseMobScript := preload("res://scripts/mobs/BaseMob.gd")
+const CatMobScript := preload("res://scripts/mobs/CatMob.gd")
+const DogMobScript := preload("res://scripts/mobs/DogMob.gd")
+const PigeonMobScript := preload("res://scripts/mobs/PigeonMob.gd")
 const FLOOR_WOOD_OAK_A := preload("res://assets/sprites/tilemap/floor_wood_oak_a.png")
 const FLOOR_WOOD_OAK_B := preload("res://assets/sprites/tilemap/floor_wood_oak_b.png")
 const WALL_WOOD_QUARTO := preload("res://assets/sprites/tilemap/wall_wood_quarto.png")
@@ -34,6 +38,7 @@ var _story_intro_modal: Control = null
 var _goal_beacon: Node2D = null
 var _goal_diamond_marker: Polygon2D = null
 var _vision_overlay: CanvasLayer = null
+var _mobs: Array = []
 
 @onready var _character: Node2D = $Character
 @onready var _joystick: Control = $UI/DirectionJoystick
@@ -93,6 +98,7 @@ func _ready() -> void:
 	_character.position = _character.grid_to_world(first_map.start_grid)
 	_camera.position = _character.position + Vector2(0.0, CAMERA_VIEWPORT_OFFSET_Y)
 	_character.blocked.connect(_on_character_blocked)
+	_character.moved.connect(_on_character_moved)
 	_character.trip_state_changed.connect(_on_character_trip_state_changed)
 	_character.armed_state_changed.connect(_special_actions.on_armed_state_changed)
 	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
@@ -201,11 +207,13 @@ func _begin_preset(preset_id: String, cue_level: int, input_mode: int = InputMod
 	if _current_map_id != map.id:
 		_current_map_id = map.id
 		_build_room()
-	elif _goal_beacon != null and is_instance_valid(_goal_beacon):
-		var beacon_s = str(preset.get("beacon_sound_id"))
-		if not beacon_s.is_empty():
-			_goal_beacon.setup(beacon_s)
-			_goal_beacon.start()
+	else:
+		_spawn_mobs()
+		if _goal_beacon != null and is_instance_valid(_goal_beacon):
+			var beacon_s = str(preset.get("beacon_sound_id"))
+			if not beacon_s.is_empty():
+				_goal_beacon.setup(beacon_s)
+				_goal_beacon.start()
 	_apply_level_visual_cues(preset)
 	_character.reset()
 	_character.grid_position = map.start_grid
@@ -469,13 +477,49 @@ func _build_room() -> void:
 		_spawn_sala_furniture()
 	if _conductor._preset != null:
 		_apply_level_visual_cues(_conductor._preset)
+	_spawn_mobs()
 
 func _clear_room() -> void:
 	_goal_diamond_marker = null
 	for n in [_floor_node, _walls_node, _goal_node]:
 		for c in n.get_children():
 			c.queue_free()
+	for m in _mobs:
+		if m != null and is_instance_valid(m):
+			m.queue_free()
+	_mobs.clear()
 	_wall_tiles.clear()
+
+func _spawn_mobs() -> void:
+	for m in _mobs:
+		if m != null and is_instance_valid(m):
+			m.queue_free()
+	_mobs.clear()
+	var lvl = _conductor._preset if _conductor != null and _conductor._preset != null else null
+	if lvl == null and not LevelManager.is_sandbox:
+		lvl = LevelManager.get_current_level()
+	if lvl == null:
+		return
+	var m_data = lvl.get("mobs_data")
+	if m_data == null or not (m_data is Array):
+		return
+	for entry in m_data:
+		var type = str(entry.get("type", ""))
+		var grid: Vector2i = entry.get("grid", Vector2i.ZERO)
+		var m_name = str(entry.get("name", ""))
+		var mob_node = null
+		match type:
+			"cat":
+				mob_node = CatMobScript.new()
+			"dog":
+				mob_node = DogMobScript.new()
+			"pigeon":
+				mob_node = PigeonMobScript.new()
+			_:
+				mob_node = CatMobScript.new()
+		mob_node.setup(grid, m_name)
+		add_child(mob_node)
+		_mobs.append(mob_node)
 
 func _border_walls(s: Vector2i) -> Array[Vector2i]:
 	var arr: Array[Vector2i] = []
@@ -792,11 +836,19 @@ func _flash_screen() -> void:
 	_flash_tween.tween_property(_screen_flash, "color:a", FLASH_PEAK_ALPHA, FLASH_DURATION * 0.3)
 	_flash_tween.tween_property(_screen_flash, "color:a", 0.0, FLASH_DURATION * 0.7)
 
+func _on_character_moved(new_grid_pos: Vector2i) -> void:
+	for mob in _mobs:
+		if mob != null and is_instance_valid(mob):
+			mob.on_player_moved(new_grid_pos)
+
 func _on_tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, _facing: Vector2i) -> void:
 	AudioManager.play_cane_tap_sfx()
 	var ripple = TactileRippleScript.new()
 	ripple.position = world_pos
 	add_child(ripple)
+	for mob in _mobs:
+		if mob != null and is_instance_valid(mob):
+			mob.on_tactile_pulse(world_pos, grid_pos)
 	var show_outlines: bool = true
 	if _conductor != null and _conductor._preset != null and _conductor._preset.get("show_obstacle_outlines") != null:
 		show_outlines = bool(_conductor._preset.get("show_obstacle_outlines"))

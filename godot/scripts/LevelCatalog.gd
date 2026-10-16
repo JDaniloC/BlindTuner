@@ -15,13 +15,7 @@ const CHAPTER_INFO := {
 		"title": "Capítulo 2: O Bairro e o Cotidiano",
 		"subtitle": "O mundo além do portão: ruídos que se cruzam e passos que exigem coragem.",
 		"description": "A travessia para o exterior. Calçadas, sons do comércio, praças e a transição para a percepção auditiva refinada.",
-		"status": "coming_soon",
-		"teasers": [
-			{ "num": "2.1", "title": "O Portão de Ferro", "beacon": "Trinco metálico", "icon": "🗝️", "story": "A maçaneta fria é a fronteira entre o que conheço e o que aprendo a ouvir." },
-			{ "num": "2.2", "title": "O Pão da Esquina", "beacon": "Sino de porta", "icon": "🔔", "story": "O sino tilinta ao abrir da porta: cheiro de fermento e conversa baixa." },
-			{ "num": "2.3", "title": "O Banco da Praça", "beacon": "Pássaros no chafariz", "icon": "🐦", "story": "O vento balança as copas dos jacarandás; sigo o farfalhar das folhas." },
-			{ "num": "2.4", "title": "O Carrilhão da Matriz", "beacon": "Badalo solene", "icon": "⛪", "story": "As doze badaladas vibram no meu peito muito antes de alcançar a praça." }
-		]
+		"status": "available"
 	},
 	3: {
 		"title": "Capítulo 3: As Últimas Paisagens",
@@ -86,7 +80,8 @@ func _build_all() -> Array:
 			0.0, 0.95, 0.25, 0.35,
 			true, true, true,
 			"Canção de Ninar (Wiegenlied)",
-			"Johannes Brahms (1868)"
+			"Johannes Brahms (1868)",
+			[{"type": "cat", "grid": Vector2i(4, 8), "name": "Mimi"}]
 		),
 
 		# 1.3 Banheiro: Passos com cautela e desvios
@@ -128,7 +123,98 @@ func _build_all() -> Array:
 			0.0, 0.40, 0.95, 1.0,
 			false, false, false, # Sem chão e sem pistas visuais (pura percepção auditiva)
 			"Minueto em Sol Maior (BWV Anh. 114)",
-			"J.S. Bach / C. Petzold (1725)"
+			"J.S. Bach / C. Petzold (1725)",
+			[{"type": "cat", "grid": Vector2i(4, 5), "name": "Mimi"}]
+		),
+
+		# --- CAPÍTULO 2: O Bairro e o Cotidiano ---
+		# 2.1 Jardim e Portão: A travessia para o mundo exterior
+		_make(
+			"ch2_portao_ferro",
+			2, 1,
+			"O Portão de Ferro",
+			"A maçaneta fria é a fronteira entre o que conheço e o que aprendo a ouvir. O cão Thor vigia o jardim da frente.",
+			"O estalo metálico do trinco abriu o caminho para a rua. Com passo firme e ouvido atento, nada me intimida.",
+			"jardim_portao",
+			["D4", "D4", "D4", "Ds4", "D4", "D4", "D4"],
+			"piano",
+			1, # Pista 1: freq + cor
+			0, # Joystick
+			30.0,
+			"gate_latch",
+			"Siga o estalo metálico do trinco do portão.",
+			0.0, 1.0, 0.15, 0.3,
+			true, true, true,
+			"Musette em Ré Maior (BWV Anh. 126)",
+			"J.S. Bach (1725)",
+			[{"type": "dog", "grid": Vector2i(7, 2), "name": "Thor"}]
+		),
+
+		# 2.2 Calçada da Padaria: Aromas e o tilintar da porta
+		_make(
+			"ch2_pao_esquina",
+			2, 2,
+			"O Pão da Esquina",
+			"O sino tilinta ao abrir da porta: cheiro de fermento, pão fresco e conversa baixa na padaria.",
+			"A sacola de papel pardo e o calor do pão francês recém-saído do forno aquecem a minha manhã.",
+			"padaria_calcada",
+			["D4", "D4", "G4", "D4", "D4", "Cs4", "D4", "Ds4"],
+			"piano",
+			2, # Pista 2: só cor
+			0, # Joystick
+			35.0,
+			"shop_bell",
+			"Siga o tinir alegre do sino na porta da padaria.",
+			0.0, 0.85, 0.35, 0.5,
+			true, true, true,
+			"Ah! vous dirai-je, maman (K. 265)",
+			"W.A. Mozart (1781)"
+		),
+
+		# 2.3 Praça Central: O chafariz de pedra e o arrulho dos pombos
+		_make(
+			"ch2_praca_chafariz",
+			2, 3,
+			"O Banco da Praça",
+			"O vento balança as copas dos jacarandás; sigo o borbulhar do chafariz e os pombos na praça.",
+			"Sentei-me no banco de madeira polida. As asas dos pombos e o frescor da água lavam o cansaço.",
+			"praca_chafariz",
+			["D4", "D4", "D4", "Ds4", "D4", "D4", "D4"],
+			"piano",
+			2, # Pista 2: só cor
+			0, # Joystick
+			35.0,
+			"fountain_birds",
+			"Siga o borbulhar da água do chafariz e o canto dos pássaros.",
+			0.0, 0.65, 0.6, 0.75,
+			true, false, false, # Sem pistas visuais nem contornos de obstáculo
+			"Primavera: Allegro (Op. 8 nº 1)",
+			"Antonio Vivaldi (1725)",
+			[
+				{"type": "pigeon", "grid": Vector2i(7, 4), "name": "Pombos da Praça"},
+				{"type": "pigeon", "grid": Vector2i(8, 3), "name": "Pombos da Praça"}
+			]
+		),
+
+		# 2.4 Matriz: O eco sagrado do grande sino de bronze
+		_make(
+			"ch2_igreja_carrilhao",
+			2, 4,
+			"O Carrilhão da Matriz",
+			"As doze badaladas solenes vibram no meu peito. Sigo o eco profundo do bronze até a escadaria da Matriz.",
+			"Alcancei o patamar da grande igreja. O som sagrado do sino dissipa qualquer escuridão dos olhos.",
+			"largo_matriz",
+			["C4", "C4", "Cs4", "G4", "C4", "C4", "Cs4", "G4", "C4", "C4"],
+			"cello", # Violoncelo solo
+			3, # Pista 3: só som
+			1, # Piano Virtual
+			45.0,
+			"church_bell",
+			"Siga as solenes badaladas do sino da torre da Matriz.",
+			0.0, 0.35, 0.95, 1.0,
+			false, false, false, # Chão invisível, percepção puramente auditiva
+			"See, the Conquering Hero Comes (Judas Macabeu)",
+			"G.F. Händel (1746)"
 		),
 	]
 
@@ -155,7 +241,8 @@ func _make(
 	p_show_visual_cues: bool = true,
 	p_show_obstacle_outlines: bool = true,
 	p_song_title: String = "",
-	p_composer: String = ""
+	p_composer: String = "",
+	p_mobs: Array = []
 ) -> Resource:
 	var lvl = LevelDataScript.new()
 	lvl.id = p_id
@@ -185,6 +272,7 @@ func _make(
 	lvl.show_obstacle_outlines = p_show_obstacle_outlines
 	lvl.song_title = p_song_title
 	lvl.composer = p_composer
+	lvl.mobs_data = p_mobs
 	return lvl
 
 func by_id(p_id: String) -> Resource:
