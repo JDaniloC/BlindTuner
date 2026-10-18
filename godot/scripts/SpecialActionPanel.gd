@@ -43,6 +43,7 @@ var _labels: Array[Label] = []
 # Atualizado por on_armed_state_changed (conectado pelo Playground).
 var _armed: Array[bool] = [false, false, false, false]
 var _active_tweens: Array = [null, null, null, null]
+var _level_cues_allowed: bool = true
 
 func _ready() -> void:
 	var grid := GridContainer.new()
@@ -92,12 +93,22 @@ func _ready() -> void:
 	# efeito nenhum nas 4 placas até a fase reiniciar.
 	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 	_apply_cue()
+	queue_redraw()
+
+func _draw() -> void:
+	var panel_span := BUTTON_SIZE * 2.0 + Vector2(8.0, 8.0)
+	var tray_rect := Rect2(Vector2(-8.0, -8.0), panel_span + Vector2(16.0, 16.0))
+	draw_rect(tray_rect, Color(0.12, 0.10, 0.09, 0.96))
+	draw_rect(tray_rect, Color(0.28, 0.22, 0.16, 0.85), false, 2.5)
+	draw_rect(tray_rect.grow(2.0), Color(0.76, 0.60, 0.36, 0.45), false, 1.5)
 
 func _emit_note(note_key: String) -> void:
 	note_triggered.emit(note_key)
 	var idx := ACTION_NOTES.find(note_key)
 	if idx == 0 or idx == 1:
 		_pulse_action_button(idx, 2.5)
+	elif idx == 2 or idx == 3:
+		_pulse_action_button(idx, 0.55)
 
 func _pulse_action_button(idx: int, duration: float) -> void:
 	if idx < 0 or idx >= _buttons.size():
@@ -108,8 +119,17 @@ func _pulse_action_button(idx: int, duration: float) -> void:
 	var tw := create_tween()
 	_active_tweens[idx] = tw
 	tw.tween_property(btn, "scale", Vector2(1.08, 1.08), 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(duration - 0.45)
+	tw.tween_interval(maxf(0.05, duration - 0.45))
 	tw.tween_property(btn, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
+
+func set_level_cues_allowed(allowed: bool) -> void:
+	if _level_cues_allowed == allowed:
+		return
+	_level_cues_allowed = allowed
+	_apply_cue()
+
+func _effective_show_cues() -> bool:
+	return ColorSchemeSettings.shows_control_cues() and _level_cues_allowed
 
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()
@@ -122,7 +142,7 @@ func _apply_cue() -> void:
 	# de pista. Aquele governa o que o HUD conta sobre a nota tocada (é a
 	# dificuldade); as placas são material didático permanente e continuam
 	# coloridas e nomeadas no "só som" se o jogador quiser.
-	var show_cues := ColorSchemeSettings.shows_control_cues()
+	var show_cues := _effective_show_cues()
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
 		_labels[i].text = NoteMapping.label_for(note_key) if show_cues else ""

@@ -137,6 +137,10 @@ func test_pause_modal_submodal_restores_focus():
 	assert_true(modal._colors_btn.has_focus(), "Foco deve retornar imediatamente para o botão Cores das Notas")
 
 func test_level_select_chapter_switch_shows_teasers():
+	var orig_path: String = SaveManager.save_file_path
+	var orig_data: Dictionary = SaveManager._data.duplicate(true)
+	SaveManager._data = SaveManager.get_default_data()
+
 	var screen: Control = LevelSelectScene.instantiate()
 	_screen.add_child(screen)
 	await wait_frames(2)
@@ -152,4 +156,7 @@ func test_level_select_chapter_switch_shows_teasers():
 	assert_gt(buttons.size(), 0, "Capítulo 2 deve exibir botões de teasers acessíveis")
 	for btn in buttons:
 		assert_true(btn.text.begins_with("🔒 Memória"), "Teasers de memórias futuras devem iniciar com 🔒 Memória: %s" % btn.text)
+
+	SaveManager.save_file_path = orig_path
+	SaveManager._data = orig_data
 

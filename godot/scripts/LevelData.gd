@@ -32,6 +32,7 @@ class_name LevelData
 @export var show_floor: bool = true
 @export var show_visual_cues: bool = true
 @export var show_obstacle_outlines: bool = true
+@export var remove_control_colors: bool = false
 @export var mobs_data: Array = [] # Array de Dictionary: [{ "type": "cat"|"dog"|"pigeon", "grid": Vector2i, "name": String }]
 
 func is_valid() -> bool:

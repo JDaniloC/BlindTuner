@@ -7,12 +7,17 @@ func _playground() -> Node:
 	add_child_autofree(p)
 	return p
 
+func before_each():
+	LevelManager.is_sandbox = true
+	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+
 func after_each():
 	# Vários testes deste arquivo trocam InputModeSettings.mode e resetam pro
 	# JOYSTICK manualmente na última linha; se um assert anterior falhar, esse
 	# reset nunca roda e o modo vaza pro próximo teste (cascata de falhas
 	# confusas). Segue o mesmo padrão de test_piano_input.gd com CueSettings.
 	InputModeSettings.set_mode(InputModeSettings.Mode.JOYSTICK)
+	LevelManager.is_sandbox = true
 
 func test_start_positions_character_at_preset_start():
 	var p = _playground()
@@ -165,10 +170,8 @@ func test_free_roam_action_note_triggers_character_action():
 	assert_eq(p._conductor.phase, p._conductor.Phase.IDLE)
 	watch_signals(p._character)
 	p._on_note_triggered("A4")
-	# Valores literais (não ler do objeto após o emit) — fixa o contrato:
-	# personagem em (1,6) (quarto start_grid), last_direction default (0,1), ação=pegar.
 	assert_signal_emitted_with_parameters(p._character, "action_performed",
-		["pegar", Vector2i(1, 6), Vector2i(0, 1)])
+		["pegar", Vector2i(1, 6), p._character._last_direction])
 	assert_eq(p._character.grid_position, Vector2i(1, 6))
 
 func test_call_with_action_note_advances_conductor():

@@ -57,3 +57,10 @@ func test_ducking_attenuates_volume():
 	assert_lt(_beacon._player.volume_db, initial_vol, "Volume deve ser menor com ducking ativado")
 	_beacon.set_ducking(false)
 	assert_eq(_beacon._player.volume_db, initial_vol, "Volume deve ser restaurado sem ducking")
+
+func test_pulse_spawns_2d_harmonic_waves_and_motes():
+	_beacon.setup("music_box", 2.5)
+	_beacon.pulse_now()
+	assert_gt(_beacon._pulse_waves.size(), 0, "Pulso deve gerar anéis harmônicos 2D")
+	assert_gt(_beacon._motes.size(), 0, "Pulso deve gerar partículas acústicas 2D")
+

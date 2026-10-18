@@ -86,3 +86,12 @@ func test_playground_listening_focus_triggers_beacon_and_guide():
 			found_guide = true
 			break
 	assert_true(found_guide, "AcousticFocusGuide deve ser instanciado no Playground ao escutar")
+
+func test_playground_instantiates_ambient_atmosphere_2d():
+	var pg = PlaygroundScene.instantiate()
+	add_child_autofree(pg)
+	var floor_node = pg.get_node("Floor")
+	var atmo = floor_node.get_node_or_null("AmbientAtmosphere2D")
+	assert_not_null(atmo, "AmbientAtmosphere2D deve ser instanciado no Floor do Playground")
+	assert_gt(atmo._particles.size(), 0, "AmbientAtmosphere2D deve gerar partículas pixel-art 2D")
+

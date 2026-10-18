@@ -183,7 +183,10 @@ func _build_all() -> Array:
 			true, true, true,
 			"Musette em Ré Maior (BWV Anh. 126)",
 			"J.S. Bach (1725)",
-			[{"type": "dog", "grid": Vector2i(7, 2), "name": "Thor"}]
+			[
+				{"type": "dog", "grid": Vector2i(7, 2), "name": "Thor"},
+				{"type": "postman", "grid": Vector2i(3, 4), "name": "Tiago o Carteiro"}
+			]
 		),
 
 		# 2.2 Calçada da Padaria: Aromas e o tilintar da porta
@@ -204,7 +207,11 @@ func _build_all() -> Array:
 			0.0, 0.85, 0.35, 0.5,
 			true, true, true,
 			"Ah! vous dirai-je, maman (K. 265)",
-			"W.A. Mozart (1781)"
+			"W.A. Mozart (1781)",
+			[
+				{"type": "pedestrian", "grid": Vector2i(5, 3), "name": "Dona Rosa"},
+				{"type": "baker", "grid": Vector2i(7, 3), "name": "Seu Alberto"}
+			]
 		),
 
 		# 2.3 Praça Central: O chafariz de pedra e o arrulho dos pombos
@@ -336,7 +343,9 @@ func _build_all() -> Array:
 			0.0, 0.3, 0.95, 1.0,
 			false, false, false, # Escuridão completa: apenas som e o eco da bengala
 			"Largo da Sinfonia do Novo Mundo (Going Home)",
-			"Antonín Dvořák (1893)"
+			"Antonín Dvořák (1893)",
+			[],
+			true # remove_control_colors: modo autêntico sem cores nos controles
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 1 (PRIMEIROS PASSOS) ---
@@ -492,6 +501,28 @@ func _build_all() -> Array:
 			[{"type": "dog", "grid": Vector2i(7, 3), "name": "Thor"}]
 		),
 
+		# S2.4 Gavotte (Lully): O Pêndulo da Meia-Noite
+		_make(
+			"arcade_suzuki_2_4",
+			102, 4,
+			"O Pêndulo da Meia-Noite",
+			"O tique-taque ritmado do relógio de parede no corredor marca a cadência da casa que adormece. Sigo o compasso das badaladas leves para conferir os trincos antes de deitar.",
+			"O pêndulo de latão oscila calmo à minha frente. A casa inteira respira no mesmo compasso sereno.",
+			"arcade_s2_pendulo",
+			["D4", "Cs4", "D4", "D4", "Ds4", "D4", "Cs4"],
+			"piano",
+			2,
+			0,
+			25.0,
+			"clock",
+			"Siga o tique-taque constante e metálico do grande relógio de pêndulo.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Gavotte",
+			"Jean-Baptiste Lully (1632–1687)",
+			[{"type": "cat", "grid": Vector2i(5, 6), "name": "Mimi"}]
+		),
+
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 3 (DESTREZA E ENCONTROS) ---
 		# S3.1 Humoresque (Dvořák): A Bicicleta do Carteiro
 		_make(
@@ -512,7 +543,10 @@ func _build_all() -> Array:
 			true, true, true,
 			"Humoresque (Op. 101 nº 7)",
 			"Antonín Dvořák (1894)",
-			[{"type": "pigeon", "grid": Vector2i(4, 5), "name": "Pipo"}]
+			[
+				{"type": "postman", "grid": Vector2i(6, 3), "name": "Tiago o Carteiro"},
+				{"type": "pigeon", "grid": Vector2i(4, 5), "name": "Pipo"}
+			]
 		),
 
 		# S3.2 Bourrée (Bach): O Chá na Cozinha Tarde da Noite
@@ -535,6 +569,50 @@ func _build_all() -> Array:
 			"Bourrée (Suíte para Cello nº 3)",
 			"J. S. Bach (1720)",
 			[{"type": "cat", "grid": Vector2i(5, 5), "name": "Mimi"}]
+		),
+
+		# S3.3 Gavotte em Sol Menor (Bach): O Aroma do Café Moído
+		_make(
+			"arcade_suzuki_3_3",
+			103, 3,
+			"O Aroma do Café Moído",
+			"Na despensa de madeira, o velho moedor manual guarda os grãos torrados da manhã. Pelo ranger ritmado da manivela de ferro e o aroma tostado, encontro o caminho até a bancada rústica.",
+			"O pó fino de café perfuma o ar da cozinha. A madeira áspera do balcão me dá as boas-vindas ao novo dia.",
+			"arcade_s3_moedor",
+			["D4", "D4", "Ds4", "D4", "Cs4", "D4", "D4"],
+			"cello",
+			2,
+			0,
+			25.0,
+			"coffee_grinder",
+			"Siga o ranger cadenciado e seco da manivela do moedor de café na bancada.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Gavotte em Sol Menor",
+			"J. S. Bach (1685–1750)",
+			[{"type": "canary", "grid": Vector2i(4, 4), "name": "Pitoquinho"}]
+		),
+
+		# S3.4 Canção Triste (Tchaikovsky): O Apito da Chaleira
+		_make(
+			"arcade_suzuki_3_4",
+			103, 4,
+			"O Apito da Chaleira",
+			"A água ferveu sobre o fogão de lenha. O apito fino e constante da chaleira corta a penumbra da cozinha com um calor amigo.",
+			"Retirei a chaleira da chama com a luva acolchoada. O chiado cessa devagar, deixando apenas a fumaça acolhedora.",
+			"arcade_s3_chaleira",
+			["D4", "Cs4", "D4", "Ds4", "D4", "Cs4", "D4"],
+			"cello",
+			2,
+			0,
+			25.0,
+			"kettle_whistle",
+			"Siga o apito contínuo e aveludado do vapor subindo da chaleira.",
+			0.0, 0.95, 0.25, 0.35,
+			true, true, true,
+			"Canção Triste Op. 40 nº 2",
+			"P. I. Tchaikovsky (1840–1893)",
+			[{"type": "cat", "grid": Vector2i(4, 7), "name": "Mimi"}]
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 4 (O CONCERTO E A MEMÓRIA) ---
@@ -582,6 +660,50 @@ func _build_all() -> Array:
 			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
 		),
 
+		# S4.3 Concerto em Sol Maior (Telemann): O Pátio das Sebes e Laranjeiras
+		_make(
+			"arcade_suzuki_4_3",
+			104, 3,
+			"O Pátio das Sebes e Laranjeiras",
+			"O vento da tarde agita as folhas das laranjeiras no jardim interno. Sigo o tilintar dos pequenos sinos de latão pendurados na pérgola enquanto desvio dos vasos de cerâmica.",
+			"O perfume cítrico das folhas machucadas pelo vento me envolve. O jardim se desenha como uma partitura aberta.",
+			"arcade_s4_patio",
+			["D4", "D4", "Ds4", "D4", "D4", "Cs4", "D4"],
+			"cello",
+			2,
+			0,
+			30.0,
+			"wind_chimes",
+			"Siga o retinir cristalino e aleatório dos sinos de vento na pérgola.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Concerto em Sol Maior: Allegro",
+			"Georg Philipp Telemann (1681–1767)",
+			[{"type": "dog", "grid": Vector2i(5, 7), "name": "Thor"}]
+		),
+
+		# S4.4 Movimento Perpétuo (Bohm): O Tear da Tecelã
+		_make(
+			"arcade_suzuki_4_4",
+			104, 4,
+			"O Tear da Tecelã",
+			"O vaivém perpétuo da lançadeira no tear de madeira dita uma cadência hipnótica. Passo a passo, o som de linha esticada e batida de pente me guia pelo ateliê de tecidos.",
+			"Toquei a trama macia do linho recém-tecido no tear. O ritmo incessante descansou sob minhas mãos.",
+			"arcade_s4_tear",
+			["D4", "Ds4", "D4", "D4", "Cs4", "D4", "Ds4"],
+			"cello",
+			2,
+			0,
+			30.0,
+			"loom_shuttle",
+			"Siga o estalo ritmado da lançadeira de madeira cruzando a urdidura do tear.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Movimento Perpétuo (Perpetual Motion)",
+			"Carl Bohm (1844–1920)",
+			[{"type": "canary", "grid": Vector2i(6, 6), "name": "Pitoquinho"}]
+		),
+
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 5 (DANÇAS E ROMARIAS) ---
 		# S5.1 Dança Campestre (Weber): A Barraca de Flores da Feira
 		_make(
@@ -605,6 +727,72 @@ func _build_all() -> Array:
 			[{"type": "pigeon", "grid": Vector2i(4, 4), "name": "Pipo"}, {"type": "dog", "grid": Vector2i(6, 6), "name": "Thor"}]
 		),
 
+		# S5.2 Dança Alemã (Dittersdorf): O Fole da Sanfona na Taberna
+		_make(
+			"arcade_suzuki_5_2",
+			105, 2,
+			"O Fole da Sanfona na Taberna",
+			"Perto da pracinha, os acordes alegres de um acordeão ecoam pela porta aberta da estalagem. O ar cheira a madeira encerada e pão fresco.",
+			"O acorde final da dança foi celebrado com risos e palmas. A música de rua é a melhor bússola do viajante.",
+			"arcade_s5_sanfona",
+			["D4", "D4", "Cs4", "D4", "Ds4", "D4", "Cs4"],
+			"piano",
+			2,
+			0,
+			30.0,
+			"accordion_drone",
+			"Siga a respiração viva do fole e o acorde estridente do acordeão.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Dança Alemã (German Dance)",
+			"Carl Ditters von Dittersdorf (1739–1799)",
+			[{"type": "dog", "grid": Vector2i(6, 6), "name": "Thor"}]
+		),
+
+		# S5.3 Gavotte en Rondeau (Bach): O Baile das Castanholas
+		_make(
+			"arcade_suzuki_5_3",
+			105, 3,
+			"O Baile das Castanholas",
+			"O compasso vivo de uma gavotte salta entre as arcadas do pátio de paralelepípedos. O estalar seco de castanholas de madeira me chama ao centro do círculo de dança.",
+			"O último estalido ecoou sob as vigas de carvalho. Meus pés encontraram o centro exato da festa.",
+			"arcade_s5_castanholas",
+			["D4", "Ds4", "D4", "Cs4", "D4", "D4", "Cs4"],
+			"piano",
+			2,
+			0,
+			30.0,
+			"castanets_click",
+			"Siga o estalar brilhante e rápido das castanholas de jacarandá.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Gavotte en Rondeau (Partita nº 3)",
+			"J. S. Bach (1685–1750)",
+			[{"type": "pigeon", "grid": Vector2i(5, 6), "name": "Pipo"}]
+		),
+
+		# S5.4 Giga em Ré Maior (Bach): O Ancoradouro dos Veleiros
+		_make(
+			"arcade_suzuki_5_4",
+			105, 4,
+			"O Ancoradouro dos Veleiros",
+			"O sino de bronze do píer avisa quando a balsa atraca. As tábuas de pinho estalam sob os passos enquanto o marulho bate calmo contra os mourões de amarra.",
+			"O cabo de amarração foi laçado no cabeço de ferro. O vento salgado sopra com a promessa de novas travessias.",
+			"arcade_s5_ancoradouro",
+			["D4", "D4", "Ds4", "D4", "Cs4", "D4", "D4"],
+			"piano",
+			2,
+			0,
+			30.0,
+			"dock_bell",
+			"Siga as batidas solenes do sino de bronze e o rumor da maré contra o cais.",
+			0.0, 0.95, 0.30, 0.40,
+			true, true, true,
+			"Giga da Suíte em Ré Maior",
+			"J. S. Bach (1723)",
+			[{"type": "canary", "grid": Vector2i(5, 4), "name": "Pitoquinho"}]
+		),
+
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 6 (ECOS E CATEDRAIS) ---
 		# S6.1 La Folia (Corelli): O Eco na Igreja Matriz
 		_make(
@@ -626,6 +814,72 @@ func _build_all() -> Array:
 			"La Folia",
 			"Arcangelo Corelli (1700)",
 			[{"type": "pigeon", "grid": Vector2i(5, 5), "name": "Pipo"}]
+		),
+
+		# S6.2 Sonata em Sol Menor (Eccles): O Som dos Tubos de Órgão
+		_make(
+			"arcade_suzuki_6_2",
+			106, 2,
+			"O Som dos Tubos de Órgão",
+			"O organista aquece os foles na galeria superior. As notas graves dos tubos de chumbo fazem o piso de mármore vibrar diretamente na sola dos meus sapatos.",
+			"O pedal grave do órgão sustentou o silêncio que se seguiu. A igreja inteira vibrou como uma imensa caixa acústica.",
+			"arcade_s6_orgao",
+			["D4", "Cs4", "D4", "D4", "Ds4", "D4", "Cs4"],
+			"cello",
+			3,
+			0,
+			35.0,
+			"organ_pipe",
+			"Siga a vibração telúrica e grave dos tubos do órgão de foles.",
+			0.0, 0.95, 0.35, 0.50,
+			true, true, true,
+			"Sonata em Sol Menor: Grave",
+			"Henry Eccles (1670–1742)",
+			[{"type": "pigeon", "grid": Vector2i(5, 6), "name": "Pipo"}]
+		),
+
+		# S6.3 Tambourin (Rameau): O Ritmo do Tamborim da Festa
+		_make(
+			"arcade_suzuki_6_3",
+			106, 3,
+			"O Ritmo do Tamborim da Festa",
+			"O som saltitante do tamborim com guizos conduz os dançarinos pelo claustro do mosteiro. O eco alegre salta de arco em arco sobre as lajes seculares.",
+			"O rufar dos guizos pousou suave. A alegria antiga da melodia ficou gravada em cada laje.",
+			"arcade_s6_tamborim",
+			["D4", "D4", "Ds4", "D4", "Cs4", "D4", "D4"],
+			"cello",
+			3,
+			0,
+			35.0,
+			"tambourine_shake",
+			"Siga o chacoalhar vivo dos guizos de latão do tamborim.",
+			0.0, 0.95, 0.35, 0.50,
+			true, true, true,
+			"Tambourin",
+			"Jean-Philippe Rameau (1683–1764)",
+			[{"type": "cat", "grid": Vector2i(4, 4), "name": "Mimi"}]
+		),
+
+		# S6.4 Chaconne em Sol Menor (Vitali): A Chaconne da Catedral Secular
+		_make(
+			"arcade_suzuki_6_4",
+			106, 4,
+			"A Chaconne da Catedral Secular",
+			"No ápice da catedral, a acústica transforma cada fricção da corda num monumento invisível. Sigo a reverberação de dez segundos pelas colunas majestosas até o coro alto.",
+			"O último acorde da Chaconne ressoou pelo infinito da nave de pedra. Ver com os ouvidos é a suprema afinidade com o mundo.",
+			"arcade_s6_catedral",
+			["D4", "Ds4", "D4", "Cs4", "D4", "D4", "Cs4"],
+			"cello",
+			3,
+			0,
+			35.0,
+			"cathedral_echo",
+			"Siga o eco imponente e a longa reverberação ressoando pelo topo da abóbada.",
+			0.0, 0.95, 0.35, 0.50,
+			true, true, true,
+			"Chaconne em Sol Menor",
+			"Tomaso Antonio Vitali (1663–1745)",
+			[{"type": "canary", "grid": Vector2i(4, 4), "name": "Pitoquinho"}, {"type": "pigeon", "grid": Vector2i(6, 6), "name": "Pipo"}]
 		),
 	]
 
@@ -653,7 +907,8 @@ func _make(
 	p_show_obstacle_outlines: bool = true,
 	p_song_title: String = "",
 	p_composer: String = "",
-	p_mobs: Array = []
+	p_mobs: Array = [],
+	p_remove_control_colors: bool = false
 ) -> Resource:
 	var lvl = LevelDataScript.new()
 	lvl.id = p_id
@@ -684,6 +939,7 @@ func _make(
 	lvl.song_title = p_song_title
 	lvl.composer = p_composer
 	lvl.mobs_data = p_mobs
+	lvl.remove_control_colors = p_remove_control_colors
 	return lvl
 
 func by_id(p_id: String) -> Resource:

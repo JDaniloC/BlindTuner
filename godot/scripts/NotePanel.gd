@@ -53,10 +53,17 @@ const PANEL_FALLBACK := Color("#ADB7C4")
 ## Sem isso, o chip ficava com a cor do esquema antigo enquanto o controle de
 ## input já mostrava a nova -- a MESMA nota em duas cores ao mesmo tempo.
 var _last_note: String = ""
+var _chip_tween: Tween
 
 func _ready() -> void:
 	CueSettings.cue_level_changed.connect(_on_cue_changed)
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
+	if _label != null:
+		_label.add_theme_color_override("font_color", Color(0.10, 0.08, 0.06))
+	if _freq != null:
+		_freq.add_theme_color_override("font_color", Color(0.06, 0.16, 0.26))
+	if _guide_lbl != null:
+		_guide_lbl.add_theme_color_override("font_color", Color(0.28, 0.08, 0.04))
 	if _replay_btn != null:
 		_replay_btn.pressed.connect(func(): replay_cue_requested.emit())
 		_replay_btn.focus_entered.connect(func():
@@ -136,6 +143,13 @@ func display_note(note_key: String) -> void:
 	_label.text = NoteMapping.label_for(note_key)
 	_freq.text = "%d Hz" % NoteMapping.frequency_for(note_key)
 	_color_chip.color = NoteMapping.color_for(note_key)
+	if _chip_frame != null and _chip_frame.visible and is_inside_tree():
+		_chip_frame.pivot_offset = _chip_frame.size * 0.5
+		if _chip_tween != null and _chip_tween.is_valid():
+			_chip_tween.kill()
+		_chip_tween = create_tween()
+		_chip_tween.tween_property(_chip_frame, "scale", Vector2(1.14, 1.14), 0.05).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_chip_tween.tween_property(_chip_frame, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_SINE)
 
 func display_miss(played_note: String, target_note: String) -> void:
 	var played_freq := NoteMapping.frequency_for(played_note)

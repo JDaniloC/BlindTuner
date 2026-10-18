@@ -104,6 +104,7 @@ const TAPE_EDGE := 2.0
 var _dragging := false
 var _finger_y := 0.0
 var _drag_samples: Array[Dictionary] = []
+var _level_cues_allowed: bool = true
 
 func _ready() -> void:
 	custom_minimum_size = BOARD_SIZE
@@ -120,6 +121,15 @@ func _ready() -> void:
 	ColorSchemeSettings.scheme_changed.connect(_on_scheme_changed)
 	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 
+func set_level_cues_allowed(allowed: bool) -> void:
+	if _level_cues_allowed == allowed:
+		return
+	_level_cues_allowed = allowed
+	queue_redraw()
+
+func _effective_show_cues() -> bool:
+	return ColorSchemeSettings.shows_control_cues() and _level_cues_allowed
+
 func _on_scheme_changed(_id: String) -> void:
 	queue_redraw()
 
@@ -128,19 +138,30 @@ func _on_control_cues_changed(_enabled: bool) -> void:
 
 func _draw() -> void:
 	var cx := BOARD_SIZE.x * 0.5
-	# Cravelhal (topo) + 4 cravelhas, 2 de cada lado
+	# Cravelhal (topo) + recesso esculpido + 4 cravelhas, 2 de cada lado
 	var head_pos := Vector2(cx - HEAD_SIZE.x * 0.5, 0.0)
 	draw_rect(Rect2(head_pos, HEAD_SIZE), HEAD_COLOR)
+	draw_rect(Rect2(head_pos + Vector2(12.0, 14.0), HEAD_SIZE - Vector2(24.0, 24.0)), Color(0.16, 0.10, 0.06))
+	draw_rect(Rect2(head_pos, HEAD_SIZE), Color(0.14, 0.09, 0.05), false, 2.0)
 	for i in range(4):
 		var on_left := i < 2
 		var py := PEG_ROW_TOP + float(i % 2) * PEG_ROW_SPACING
+		var shaft_y := py + PEG_SIZE.y * 0.5
+		draw_line(Vector2(head_pos.x + 10.0, shaft_y), Vector2(head_pos.x + HEAD_SIZE.x - 10.0, shaft_y), Color(0.55, 0.42, 0.26), 3.0)
 		var px := head_pos.x - PEG_SIZE.x + PEG_INSET if on_left else head_pos.x + HEAD_SIZE.x - PEG_INSET
-		draw_rect(Rect2(Vector2(px, py), PEG_SIZE), PEG_COLOR)
+		var peg_rect := Rect2(Vector2(px, py), PEG_SIZE)
+		draw_rect(peg_rect, PEG_COLOR)
+		draw_rect(peg_rect, Color(0.28, 0.18, 0.09), false, 1.5)
 
 	# Braço, com gradiente simulado por faixas (sem asset de imagem)
 	var strip_h := _strip_height()
 	for i in range(GRADIENT_STRIPS):
 		draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP + strip_h * i), Vector2(NECK_WIDTH, strip_h + 1.0)), _wood_color_at_strip(i))
+
+	# Pestana de ébano no topo do braço (acima da 1ª fita em y=105) e chanfros laterais
+	draw_rect(Rect2(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP), Vector2(NECK_WIDTH, 4.0)), Color(0.10, 0.08, 0.07))
+	draw_line(Vector2(cx - NECK_WIDTH * 0.5, NECK_TOP), Vector2(cx - NECK_WIDTH * 0.5, BOARD_SIZE.y), Color(0.12, 0.08, 0.05, 0.85), 2.0)
+	draw_line(Vector2(cx + NECK_WIDTH * 0.5, NECK_TOP), Vector2(cx + NECK_WIDTH * 0.5, BOARD_SIZE.y), Color(0.12, 0.08, 0.05, 0.85), 2.0)
 
 	# Fitinhas de posição. A ordem de chamada dentro de _draw() é o único
 	# z-index que existe aqui: elas entram DEPOIS do braço e ANTES das cordas e
@@ -164,6 +185,10 @@ func _draw() -> void:
 		var is_active := i == ACTIVE_STRING_INDEX
 		var col := STRING_ACTIVE_COLOR if is_active else STRING_COLOR
 		var w := 3.0 if is_active else 2.0
+		draw_line(Vector2(sx + 1.5, top), Vector2(sx + 1.5, bottom), Color(0.08, 0.05, 0.03, 0.45), w, true)
+		if is_active and _dragging and _finger_y > top + 8.0:
+			draw_line(Vector2(sx - 2.0, top), Vector2(sx - 2.0, _finger_y), Color(1.0, 0.88, 0.45, 0.45), 2.0, true)
+			draw_line(Vector2(sx + 2.0, top), Vector2(sx + 2.0, _finger_y), Color(1.0, 0.88, 0.45, 0.45), 2.0, true)
 		draw_line(Vector2(sx, top), Vector2(sx, bottom), col, w, true)
 
 	# Marcador de dedo, centrado no braço.
@@ -176,8 +201,12 @@ func _draw() -> void:
 	# coisa que o arrasto de fato controla (a corda nunca troca -- ver
 	# test_audio_manager: arrastar muda o comprimento que vibra, não a corda).
 	var fx := cx
-	draw_circle(Vector2(fx, _finger_y), FINGER_RADIUS, FINGER_FILL)
-	draw_arc(Vector2(fx, _finger_y), FINGER_RADIUS, 0, TAU, 24, FINGER_BORDER, 2.0, true)
+	var finger_pos := Vector2(fx, _finger_y)
+	draw_circle(finger_pos + Vector2(0.0, 2.0), FINGER_RADIUS + 1.0, Color(0.08, 0.05, 0.03, 0.40))
+	draw_circle(finger_pos, FINGER_RADIUS, FINGER_FILL)
+	draw_arc(finger_pos, FINGER_RADIUS, 0, TAU, 24, FINGER_BORDER, 2.5, true)
+	draw_arc(finger_pos, FINGER_RADIUS * 0.58, 0, TAU, 20, Color(FINGER_BORDER.r, FINGER_BORDER.g, FINGER_BORDER.b, 0.55), 1.5, true)
+	draw_line(finger_pos + Vector2(-8.0, 0.0), finger_pos + Vector2(8.0, 0.0), FINGER_BORDER, 2.0)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index != MOUSE_BUTTON_LEFT:
@@ -266,7 +295,7 @@ func _y_for_frequency(freq: float) -> float:
 ## pinta, senão a régua duplica.
 func _tapes() -> Array[Dictionary]:
 	var tapes: Array[Dictionary] = []
-	if not ColorSchemeSettings.shows_control_cues():
+	if not _effective_show_cues():
 		return tapes
 	# Largura do BRAÇO (84px, de x=33 a x=117), não a do board (150px): este nó
 	# não tem clip_contents, então uma fita da largura do board pintaria 33px de
@@ -339,6 +368,7 @@ func _highest_frequency() -> float:
 
 func _on_drag_ended() -> void:
 	AudioManager.stop_continuous_pitch()
+	queue_redraw()
 	var final_y := _finger_y
 	var now := Time.get_ticks_msec()
 	# Touch-Up Hysteresis: filtra saltos involuntários nos últimos 50ms de soltura do dedo na tela touch

@@ -53,6 +53,8 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "Um Instante de Silêncio"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	col.add_child(title)
 
 	# 1. Continuar

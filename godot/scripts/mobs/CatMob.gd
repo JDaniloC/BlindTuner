@@ -16,11 +16,21 @@ func _ready() -> void:
 	if _sprite != null:
 		_sprite.texture = load_texture_safe(CAT_TEXTURE_PATH)
 		_sprite.offset = Vector2(0, -6)
-		_start_breathing_animation()
+		_start_breathing_animation(1.2, 0.05)
 
-func _start_breathing_animation() -> void:
+func _on_cane_heard(dist: float, is_rhythmic: bool, _note_key: String) -> void:
+	super._on_cane_heard(dist, is_rhythmic, _note_key)
+	if dist <= 140.0:
+		if is_rhythmic:
+			play_mob_sound("cat_purr")
+			_animate_tail_swish()
+		elif dist <= 60.0:
+			play_mob_sound("cat_meow")
+
+func _animate_tail_swish() -> void:
 	if _sprite == null:
 		return
-	var tw := create_tween().set_loops()
-	tw.tween_property(_sprite, "scale:y", 1.05, 1.2).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_sprite, "scale:y", 0.96, 1.2).set_trans(Tween.TRANS_SINE)
+	var tw := create_tween()
+	tw.tween_property(_sprite, "scale:x", 1.15, 0.14).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_sprite, "scale:x", 0.95, 0.14).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_sprite, "scale:x", 1.0, 0.12).set_trans(Tween.TRANS_SINE)

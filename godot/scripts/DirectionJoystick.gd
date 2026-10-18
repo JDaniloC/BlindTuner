@@ -107,6 +107,9 @@ var _active_slice_index: int = -1         # 0..7 (índice da fatia em _slice_pol
 var _flash_tween: Tween
 var _backdrop_disc: Polygon2D
 var _backdrop_ring: Line2D
+var _backdrop_bezel: Line2D
+var _drag_line: Line2D
+var _level_cues_allowed: bool = true
 
 @onready var _slices_root: Node2D = $Slices
 @onready var _thumb: Polygon2D = $Thumb
@@ -146,9 +149,12 @@ func _recenter() -> void:
 func _build_backdrop() -> void:
 	var r := RADIUS + BACKDROP_OVERHANG
 	var pts: Array[Vector2] = []
+	var bezel_pts: Array[Vector2] = []
 	for v in range(BACKDROP_SEGMENTS):
 		var a := TAU * float(v) / float(BACKDROP_SEGMENTS)
-		pts.append(Vector2(cos(a), sin(a)) * r)
+		var dir := Vector2(cos(a), sin(a))
+		pts.append(dir * r)
+		bezel_pts.append(dir * (r + 2.0))
 	_backdrop_disc = Polygon2D.new()
 	_backdrop_disc.polygon = PackedVector2Array(pts)
 	_backdrop_disc.color = BACKDROP_DISC
@@ -157,9 +163,15 @@ func _build_backdrop() -> void:
 	ring_pts.append(pts[0])
 	_backdrop_ring = Line2D.new()
 	_backdrop_ring.points = PackedVector2Array(ring_pts)
-	_backdrop_ring.width = 2.0
-	_backdrop_ring.default_color = Color(0.20, 0.17, 0.14, 0.6)
+	_backdrop_ring.width = 2.5
+	_backdrop_ring.default_color = Color(0.28, 0.22, 0.16, 0.85)
 	_slices_root.add_child(_backdrop_ring)
+	bezel_pts.append(bezel_pts[0])
+	_backdrop_bezel = Line2D.new()
+	_backdrop_bezel.points = PackedVector2Array(bezel_pts)
+	_backdrop_bezel.width = 1.5
+	_backdrop_bezel.default_color = Color(0.76, 0.60, 0.36, 0.45)
+	_slices_root.add_child(_backdrop_bezel)
 
 func _build_slices() -> void:
 	_slice_polygons.clear()
@@ -178,10 +190,46 @@ func _build_slices() -> void:
 		_slice_polygons.append(slice)
 		_slice_note_keys.append(key)
 		idx += 1
+	_build_slice_dividers()
 	_build_slice_icons()
 	# Depois dos ícones de propósito: em Node2D a ordem de filho é a ordem de
 	# desenho, e o nome precisa ficar por cima da seta se um dia encostarem.
 	_build_slice_labels()
+
+## Divisórias radiais 2D entre as 8 fatias, anel de zona morta e linha vetorial de arrasto.
+func _build_slice_dividers() -> void:
+	for i in range(SLICE_COUNT):
+		var edge_deg := i * SLICE_ANGLE_DEG - SLICE_ANGLE_DEG * 0.5
+		var rad := deg_to_rad(edge_deg)
+		var dir := Vector2(sin(rad), -cos(rad))
+		var spoke := Line2D.new()
+		spoke.points = PackedVector2Array([dir * DEAD_ZONE, dir * RADIUS])
+		spoke.width = 1.5
+		spoke.default_color = Color(0.12, 0.10, 0.09, 0.60)
+		_slices_root.add_child(spoke)
+	var dz_pts: Array[Vector2] = []
+	var outer_pts: Array[Vector2] = []
+	for v in range(BACKDROP_SEGMENTS + 1):
+		var a := TAU * float(v) / float(BACKDROP_SEGMENTS)
+		var dir := Vector2(cos(a), sin(a))
+		dz_pts.append(dir * DEAD_ZONE)
+		outer_pts.append(dir * RADIUS)
+	var dz_ring := Line2D.new()
+	dz_ring.points = PackedVector2Array(dz_pts)
+	dz_ring.width = 1.5
+	dz_ring.default_color = Color(0.85, 0.76, 0.60, 0.40)
+	_slices_root.add_child(dz_ring)
+	var slice_rim := Line2D.new()
+	slice_rim.points = PackedVector2Array(outer_pts)
+	slice_rim.width = 2.0
+	slice_rim.default_color = Color(0.85, 0.76, 0.60, 0.45)
+	_slices_root.add_child(slice_rim)
+	_drag_line = Line2D.new()
+	_drag_line.points = PackedVector2Array([Vector2.ZERO, Vector2.ZERO])
+	_drag_line.width = 3.0
+	_drag_line.default_color = Color(1.0, 0.92, 0.68, 0.80)
+	_drag_line.visible = false
+	_slices_root.add_child(_drag_line)
 
 ## Centro do conteúdo da fatia i, num raio dado em fração do raio do joystick.
 ## 0° aponta pro Norte da tela (-y), igual a _build_slice_polygon.
@@ -243,8 +291,17 @@ func _place_label(slice_index: int) -> void:
 	lbl.size = LABEL_SIZE_FRAC * RADIUS  # o setter já sobe pro mínimo combinado
 	lbl.position = _slice_anchor(slice_index, LABEL_RADIUS_FRAC) - lbl.size * 0.5
 
+func set_level_cues_allowed(allowed: bool) -> void:
+	if _level_cues_allowed == allowed:
+		return
+	_level_cues_allowed = allowed
+	_apply_cue()
+
+func _effective_show_cues() -> bool:
+	return ColorSchemeSettings.shows_control_cues() and _level_cues_allowed
+
 func slice_display_color(note_key: String) -> Color:
-	if ColorSchemeSettings.shows_control_cues():
+	if _effective_show_cues():
 		return NoteMapping.color_for(note_key)
 	return NEUTRAL_SLICE
 
@@ -259,7 +316,7 @@ func _on_control_cues_changed(_enabled: bool) -> void:
 ## (seis chaves numa tela para quem tem baixa visão custam mais do que a
 ## granularidade entrega).
 func _apply_cue() -> void:
-	var show_cues := ColorSchemeSettings.shows_control_cues()
+	var show_cues := _effective_show_cues()
 	for i in range(_slice_polygons.size()):
 		var c := slice_display_color(_slice_note_keys[i])
 		c.a = _slice_polygons[i].color.a  # preserva alpha atual (gerido por _refresh_slice_alphas)
@@ -287,11 +344,34 @@ func _build_slice_polygon(slice_index: int) -> PackedVector2Array:
 
 func _build_thumb() -> void:
 	var points: Array[Vector2] = []
-	for v in range(24):
-		var t := float(v) / 24.0
+	var rim_pts: Array[Vector2] = []
+	var inner_pts: Array[Vector2] = []
+	var dot_pts: Array[Vector2] = []
+	for v in range(32):
+		var t := float(v) / 32.0
 		var rad := t * TAU
-		points.append(Vector2(cos(rad), sin(rad)) * THUMB_RADIUS)
+		var dir := Vector2(cos(rad), sin(rad))
+		points.append(dir * THUMB_RADIUS)
+		rim_pts.append(dir * (THUMB_RADIUS - 1.0))
+		inner_pts.append(dir * (THUMB_RADIUS * 0.62))
+		dot_pts.append(dir * (THUMB_RADIUS * 0.22))
 	_thumb.polygon = PackedVector2Array(points)
+	rim_pts.append(rim_pts[0])
+	inner_pts.append(inner_pts[0])
+	var outer_rim := Line2D.new()
+	outer_rim.points = PackedVector2Array(rim_pts)
+	outer_rim.width = 2.5
+	outer_rim.default_color = Color(0.22, 0.16, 0.11, 0.90)
+	_thumb.add_child(outer_rim)
+	var inner_ring := Line2D.new()
+	inner_ring.points = PackedVector2Array(inner_pts)
+	inner_ring.width = 1.5
+	inner_ring.default_color = Color(0.68, 0.62, 0.54, 0.70)
+	_thumb.add_child(inner_ring)
+	var center_dot := Polygon2D.new()
+	center_dot.polygon = PackedVector2Array(dot_pts)
+	center_dot.color = Color(0.76, 0.70, 0.62, 0.85)
+	_thumb.add_child(center_dot)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index != MOUSE_BUTTON_LEFT:
@@ -319,6 +399,9 @@ func _update_thumb(offset: Vector2) -> void:
 	_thumb_offset = offset.limit_length(RADIUS)
 	var center := size / 2.0
 	_thumb.position = center + _thumb_offset
+	if _drag_line != null:
+		_drag_line.visible = _thumb_offset.length() >= DEAD_ZONE
+		_drag_line.points = PackedVector2Array([Vector2.ZERO, _thumb_offset])
 	var prev_slice := _active_slice_index
 	_active_slice_index = slice_index_for_offset(_thumb_offset)
 	if prev_slice != _active_slice_index and _active_slice_index >= 0:
@@ -330,6 +413,8 @@ func _reset_thumb() -> void:
 	_thumb_offset = Vector2.ZERO
 	var center := size / 2.0
 	_thumb.position = center
+	if _drag_line != null:
+		_drag_line.visible = false
 	_active_slice_index = -1
 	_refresh_slice_alphas()
 

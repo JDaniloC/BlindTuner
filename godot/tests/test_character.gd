@@ -32,43 +32,55 @@ func test_cardinal_north_movement():
 
 func test_animation_for_south_uses_native_row():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(0, 1))
+	var result = c._animation_for("walk", Vector2i(1, 1))
 	assert_eq(result.anim, "walk_s")
 	assert_false(result.flip)
 
 func test_animation_for_north_uses_native_row():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(0, -1))
+	var result = c._animation_for("walk", Vector2i(-1, -1))
 	assert_eq(result.anim, "walk_n")
 	assert_false(result.flip)
 
 func test_animation_for_southeast_uses_native_row():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(1, 1))
+	var result = c._animation_for("walk", Vector2i(1, 0))
 	assert_eq(result.anim, "walk_se")
+	assert_false(result.flip)
+
+func test_animation_for_east_uses_native_row():
+	var c = _make_character()
+	var result = c._animation_for("walk", Vector2i(1, -1))
+	assert_eq(result.anim, "walk_e")
+	assert_false(result.flip)
+
+func test_animation_for_northeast_uses_native_row():
+	var c = _make_character()
+	var result = c._animation_for("walk", Vector2i(0, -1))
+	assert_eq(result.anim, "walk_ne")
 	assert_false(result.flip)
 
 func test_animation_for_southwest_mirrors_southeast():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(-1, 1))
+	var result = c._animation_for("walk", Vector2i(0, 1))
 	assert_eq(result.anim, "walk_se")
 	assert_true(result.flip)
 
 func test_animation_for_west_mirrors_east():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(-1, 0))
+	var result = c._animation_for("walk", Vector2i(-1, 1))
 	assert_eq(result.anim, "walk_e")
 	assert_true(result.flip)
 
 func test_animation_for_northwest_mirrors_northeast():
 	var c = _make_character()
-	var result = c._animation_for("walk", Vector2i(-1, -1))
+	var result = c._animation_for("walk", Vector2i(-1, 0))
 	assert_eq(result.anim, "walk_ne")
 	assert_true(result.flip)
 
 func test_animation_for_idle_state():
 	var c = _make_character()
-	var result = c._animation_for("idle", Vector2i(0, 1))
+	var result = c._animation_for("idle", Vector2i(1, 1))
 	assert_eq(result.anim, "idle_s")
 
 func test_state_starts_as_idle():

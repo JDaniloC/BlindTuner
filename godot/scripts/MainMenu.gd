@@ -41,27 +41,43 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "BlindTuner"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	header_box.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Onde a visão descansa e a música lembra"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 18)
+	subtitle.add_theme_color_override("font_color", Color(0.28, 0.22, 0.16))
 	header_box.add_child(subtitle)
 
-	# --- Ilustração Central ---
+	# --- Ilustração Central com Palco Acústico 2D ---
 	var center_box := CenterContainer.new()
 	col.add_child(center_box)
+
+	var stage := RadioStage2D.new()
+	stage.custom_minimum_size = Vector2(240, 120)
+	center_box.add_child(stage)
 
 	var radio_tex := TextureRect.new()
 	radio_tex.texture = RADIO_ICON
 	radio_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	radio_tex.custom_minimum_size = Vector2(96, 96)
 	radio_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	radio_tex.pivot_offset = Vector2(48, 48)
 	center_box.add_child(radio_tex)
+
+	# Pulso harmônico suave no rádio simulando calor das válvulas e som
+	var r_tw := create_tween().set_loops()
+	r_tw.tween_property(radio_tex, "scale", Vector2(1.05, 1.05), 1.5).set_trans(Tween.TRANS_SINE)
+	r_tw.tween_property(radio_tex, "scale", Vector2(0.98, 0.98), 1.5).set_trans(Tween.TRANS_SINE)
 
 	# --- Contador de Estrelas ---
 	_stars_label = Label.new()
 	_stars_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_stars_label.add_theme_font_size_override("font_size", 17)
+	_stars_label.add_theme_color_override("font_color", Color(0.30, 0.16, 0.04))
 	col.add_child(_stars_label)
 
 	# --- Lista de Botões ---
@@ -120,6 +136,8 @@ func _ready() -> void:
 	var footer := Label.new()
 	footer.text = "BlindTuner • Uma jornada de afeto e som"
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_size_override("font_size", 14)
+	footer.add_theme_color_override("font_color", Color(0.32, 0.27, 0.22))
 	col.add_child(footer)
 
 	_update_stars_display()
@@ -164,3 +182,50 @@ func _on_colors_pressed() -> void:
 		_sub_screen.queue_free()
 		_sub_screen = null
 	)
+
+class RadioStage2D extends Control:
+	var _time: float = 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var center := size * 0.5 + Vector2(0, 16)
+		# 1. Base isométrica 2:1 de nogueira sob o rádio
+		var w := 70.0
+		var h := 35.0
+		var poly := PackedVector2Array([
+			center + Vector2(0, -h),
+			center + Vector2(w, 0),
+			center + Vector2(0, h),
+			center + Vector2(-w, 0)
+		])
+		draw_colored_polygon(poly, Color(0.24, 0.16, 0.11, 0.95))
+		draw_polyline(PackedVector2Array([poly[0], poly[1], poly[2], poly[3], poly[0]]), Color(0.14, 0.09, 0.06), 2.0)
+		draw_polyline(PackedVector2Array([poly[3], poly[2], poly[1]]), Color(0.38, 0.26, 0.17), 1.5)
+
+		# 2. Anéis acústicos harmônicos 2:1 em expansão contínua
+		for i in range(3):
+			var phase := fmod(_time * 0.45 + float(i) * 0.33, 1.0)
+			var cur_w := 24.0 + phase * 85.0
+			var cur_h := cur_w * 0.5
+			var alpha := (1.0 - phase) * 0.65
+			var ring_color := Color(0.88, 0.72, 0.35, alpha)
+			var pts: Array[Vector2] = []
+			for s in range(25):
+				var a := TAU * float(s) / 24.0
+				pts.append(center + Vector2(cos(a) * cur_w, sin(a) * cur_h))
+			draw_polyline(PackedVector2Array(pts), ring_color, 1.8)
+
+		# 3. Partículas de poeira luminosa subindo
+		for m in range(5):
+			var m_phase := fmod(_time * 0.25 + float(m) * 0.2, 1.0)
+			var mx := center.x + sin(float(m) * 2.3 + _time) * 45.0
+			var my := center.y - m_phase * 50.0 - 5.0
+			var m_alpha := sin(m_phase * PI) * 0.75
+			var mote_color := Color(1.0, 0.92, 0.65, m_alpha)
+			draw_rect(Rect2(Vector2(mx - 1.5, my - 1.5), Vector2(3.0, 3.0)), mote_color)

@@ -9,12 +9,16 @@ const GOAL_AUDIO_BEACON_SCENE := preload("res://scenes/GoalAudioBeacon.tscn")
 const VISION_OVERLAY_SCENE := preload("res://scenes/VisionImpairmentOverlay.tscn")
 const TactileRippleScript := preload("res://scripts/TactileRipple.gd")
 const AcousticFocusGuideScript := preload("res://scripts/AcousticFocusGuide.gd")
+const AmbientAtmosphere2DScript := preload("res://scripts/AmbientAtmosphere2D.gd")
 const CharacterPortraitScript := preload("res://scripts/CharacterPortrait.gd")
 const BaseMobScript := preload("res://scripts/mobs/BaseMob.gd")
 const CatMobScript := preload("res://scripts/mobs/CatMob.gd")
 const DogMobScript := preload("res://scripts/mobs/DogMob.gd")
 const PigeonMobScript := preload("res://scripts/mobs/PigeonMob.gd")
 const CanaryMobScript := preload("res://scripts/mobs/CanaryMob.gd")
+const PedestrianMobScript := preload("res://scripts/mobs/PedestrianMob.gd")
+const PostmanMobScript := preload("res://scripts/mobs/PostmanMob.gd")
+const BakerMobScript := preload("res://scripts/mobs/BakerMob.gd")
 const FLOOR_WOOD_OAK_A := preload("res://assets/sprites/tilemap/floor_wood_oak_a.png")
 const FLOOR_WOOD_OAK_B := preload("res://assets/sprites/tilemap/floor_wood_oak_b.png")
 const WALL_WOOD_QUARTO := preload("res://assets/sprites/tilemap/wall_wood_quarto.png")
@@ -85,6 +89,7 @@ var _shake_remaining := 0.0
 var _flash_tween: Tween
 
 func _ready() -> void:
+	$UI.layer = 10
 	_joystick_default_filter = _joystick.mouse_filter
 	_special_actions_default_filter = _special_actions.mouse_filter
 	_piano_input_default_filter = _piano_input.mouse_filter
@@ -105,6 +110,7 @@ func _ready() -> void:
 	_character.armed_state_changed.connect(_piano_input.on_armed_state_changed)
 	_character.tactile_pulse_requested.connect(_on_tactile_pulse_requested)
 	_character.listening_focus_requested.connect(_on_listening_focus_requested)
+	_character.cane_tapped.connect(_on_cane_tapped)
 	_joystick.note_triggered.connect(_on_note_triggered)
 	_special_actions.note_triggered.connect(_on_note_triggered)
 	_piano_input.note_triggered.connect(_on_note_triggered)
@@ -133,6 +139,7 @@ func _ready() -> void:
 	_apply_input_mode()
 
 	_vision_overlay = VISION_OVERLAY_SCENE.instantiate()
+	_vision_overlay.layer = 1
 	add_child(_vision_overlay)
 
 	# Se for nível da campanha, inicia automaticamente com HUD limpo e dificuldade do nível!
@@ -234,6 +241,21 @@ func _apply_level_visual_cues(preset: Resource) -> void:
 	var show_cues: bool = bool(preset.get("show_visual_cues")) if preset.get("show_visual_cues") != null else true
 	if _goal_diamond_marker != null and is_instance_valid(_goal_diamond_marker):
 		_goal_diamond_marker.visible = show_cues
+	if _goal_beacon != null and is_instance_valid(_goal_beacon) and _goal_beacon.has_method("set_visual_enabled"):
+		_goal_beacon.set_visual_enabled(show_cues)
+
+	var remove_colors: bool = bool(preset.get("remove_control_colors")) if preset.get("remove_control_colors") != null else false
+	_set_control_cues_level_allowed(not remove_colors)
+
+func _set_control_cues_level_allowed(allowed: bool) -> void:
+	if _joystick != null and _joystick.has_method("set_level_cues_allowed"):
+		_joystick.set_level_cues_allowed(allowed)
+	if _piano_input != null and _piano_input.has_method("set_level_cues_allowed"):
+		_piano_input.set_level_cues_allowed(allowed)
+	if _pitch_scroll_input != null and _pitch_scroll_input.has_method("set_level_cues_allowed"):
+		_pitch_scroll_input.set_level_cues_allowed(allowed)
+	if _special_actions != null and _special_actions.has_method("set_level_cues_allowed"):
+		_special_actions.set_level_cues_allowed(allowed)
 
 func _apply_input_mode() -> void:
 	var joystick_active := InputModeSettings.mode == InputModeSettings.Mode.JOYSTICK
@@ -457,11 +479,18 @@ func _on_level_select_from_pause() -> void:
 
 func _build_room() -> void:
 	_clear_room()
+	RenderingServer.set_default_clear_color(AmbientAtmosphere2DScript._backdrop_color_for(_current_map_id))
 	var map = MapPresets.by_id(_current_map_id)
 	var theme = SceneryThemes.by_id(map.theme_id)
+	var room_center: Vector2 = _character.grid_to_world(Vector2i(map.size.x / 2, map.size.y / 2))
+	var room_extent := Vector2(float(map.size.x + map.size.y) * TILE_WIDTH * 0.28, float(map.size.x + map.size.y) * TILE_HEIGHT * 0.28)
+	var atmo = AmbientAtmosphere2DScript.new()
+	atmo.name = "AmbientAtmosphere2D"
+	_floor_node.add_child(atmo)
+	atmo.setup(_current_map_id, room_center, room_extent)
 	for x in range(map.size.x):
 		for y in range(map.size.y):
-			_spawn_floor_tile(Vector2i(x, y), theme)
+			_spawn_floor_tile(Vector2i(x, y), theme, map.size)
 	var all_walls: Array[Vector2i] = _border_walls(map.size)
 	# Manual append em vez de `+` concat porque GDScript 4 perde Array[Vector2i] no concat.
 	for w in map.walls:
@@ -520,6 +549,12 @@ func _spawn_mobs() -> void:
 				mob_node = PigeonMobScript.new()
 			"canary":
 				mob_node = CanaryMobScript.new()
+			"pedestrian":
+				mob_node = PedestrianMobScript.new()
+			"postman":
+				mob_node = PostmanMobScript.new()
+			"baker":
+				mob_node = BakerMobScript.new()
 			_:
 				mob_node = CatMobScript.new()
 		mob_node.setup(grid, m_name)
@@ -536,7 +571,20 @@ func _border_walls(s: Vector2i) -> Array[Vector2i]:
 		arr.append(Vector2i(s.x - 1, y))
 	return arr
 
-func _spawn_floor_tile(tile: Vector2i, theme) -> void:
+func _spawn_contact_shadow(parent: Node2D, world_pos: Vector2, rx: float, ry: float, z_idx: int) -> Polygon2D:
+	var sh := Polygon2D.new()
+	var pts: Array[Vector2] = []
+	for i in range(20):
+		var a := TAU * float(i) / 20.0
+		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
+	sh.polygon = PackedVector2Array(pts)
+	sh.color = Color(0.05, 0.03, 0.02, 0.30)
+	sh.position = world_pos
+	sh.z_index = z_idx
+	parent.add_child(sh)
+	return sh
+
+func _spawn_floor_tile(tile: Vector2i, theme, map_size: Vector2i = Vector2i.ZERO) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
 	var checker := (tile.x + tile.y) % 2 == 0
 	if _current_map_id == "quarto" or _current_map_id == "quarto_lullaby":
@@ -553,24 +601,67 @@ func _spawn_floor_tile(tile: Vector2i, theme) -> void:
 		poly.position = center
 		poly.z_index = -100
 		_floor_node.add_child(poly)
+		# Costura sutil de ladrilho para dar leitura de grade isométrica 2:1
+		var seam := Line2D.new()
+		var dpts := _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
+		seam.points = PackedVector2Array([dpts[0], dpts[1], dpts[2]])
+		seam.width = 1.0
+		seam.default_color = theme.floor_b.darkened(0.14)
+		seam.position = center
+		seam.z_index = -99
+		_floor_node.add_child(seam)
+
+	# Espessura 3D de laje (diorama) nas bordas frontais externas da sala
+	if map_size != Vector2i.ZERO:
+		var hw := TILE_WIDTH * 0.5
+		var hh := TILE_HEIGHT * 0.5
+		var slab_h := 10.0
+		if tile.y == map_size.y - 1:
+			var slab_sw := Polygon2D.new()
+			slab_sw.polygon = PackedVector2Array([
+				Vector2(-hw, 0.0),
+				Vector2(0.0, hh),
+				Vector2(0.0, hh + slab_h),
+				Vector2(-hw, slab_h),
+			])
+			slab_sw.color = theme.floor_b.darkened(0.32)
+			slab_sw.position = center
+			slab_sw.z_index = -101
+			_floor_node.add_child(slab_sw)
+		if tile.x == map_size.x - 1:
+			var slab_se := Polygon2D.new()
+			slab_se.polygon = PackedVector2Array([
+				Vector2(0.0, hh),
+				Vector2(hw, 0.0),
+				Vector2(hw, slab_h),
+				Vector2(0.0, hh + slab_h),
+			])
+			slab_se.color = theme.floor_b.darkened(0.46)
+			slab_se.position = center
+			slab_se.z_index = -101
+			_floor_node.add_child(slab_se)
 
 func _spawn_quarto_furniture() -> void:
 	if _current_map_id == "quarto_lullaby":
 		# Cama no destino (2, 7) e (3, 7)
+		var bed_center: Vector2 = (_character.grid_to_world(Vector2i(2, 7)) + _character.grid_to_world(Vector2i(3, 7))) * 0.5
+		var bed_z := int(_character.grid_to_world(Vector2i(3, 7)).y)
+		_spawn_contact_shadow(_floor_node, bed_center + Vector2(0, 4), 40.0, 20.0, -95)
 		var bed := Sprite2D.new()
 		bed.texture = BED_PROP
 		bed.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		var bed_center: Vector2 = (_character.grid_to_world(Vector2i(2, 7)) + _character.grid_to_world(Vector2i(3, 7))) * 0.5
 		bed.position = bed_center + Vector2(0, -12)
-		bed.z_index = int(_character.grid_to_world(Vector2i(3, 7)).y)
+		bed.z_index = bed_z
 		_walls_node.add_child(bed)
 
 		# Criado-mudo com abajur em (2, 6)
+		var ns_pos: Vector2 = _character.grid_to_world(Vector2i(2, 6))
+		_spawn_contact_shadow(_floor_node, ns_pos + Vector2(0, 2), 20.0, 10.0, -95)
 		var ns := Sprite2D.new()
 		ns.texture = NIGHTSTAND_PROP
 		ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		ns.position = _character.grid_to_world(Vector2i(2, 6)) + Vector2(0, -16)
-		ns.z_index = int(_character.grid_to_world(Vector2i(2, 6)).y)
+		ns.position = ns_pos + Vector2(0, -16)
+		ns.z_index = int(ns_pos.y)
 		_walls_node.add_child(ns)
 
 		# Chinelos aos pés da cama em (3, 6)
@@ -584,21 +675,24 @@ func _spawn_quarto_furniture() -> void:
 		return
 
 	# Cama de solteiro do velhinho na área 2x3 (1,1)..(2,3)
+	var bed_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 3))) * 0.5
+	_spawn_contact_shadow(_floor_node, bed_center + Vector2(0, 4), 40.0, 20.0, -95)
 	var bed := Sprite2D.new()
 	bed.texture = BED_PROP
 	bed.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var bed_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 3))) * 0.5
 	bed.position = bed_center + Vector2(0, -12)
 	# Profundidade isométrica: base inferior da cama está no tile (2, 3)
 	bed.z_index = int(_character.grid_to_world(Vector2i(2, 3)).y)
 	_walls_node.add_child(bed)
 
 	# Criado-mudo com abajur em (3,2)
+	var ns_pos: Vector2 = _character.grid_to_world(Vector2i(3, 2))
+	_spawn_contact_shadow(_floor_node, ns_pos + Vector2(0, 2), 20.0, 10.0, -95)
 	var ns := Sprite2D.new()
 	ns.texture = NIGHTSTAND_PROP
 	ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	ns.position = _character.grid_to_world(Vector2i(3, 2)) + Vector2(0, -16)
-	ns.z_index = int(_character.grid_to_world(Vector2i(3, 2)).y)
+	ns.position = ns_pos + Vector2(0, -16)
+	ns.z_index = int(ns_pos.y)
 	_walls_node.add_child(ns)
 
 	# Chinelos aos pés da cama em (2, 4) com escala proporcional aos pés do velhinho
@@ -612,18 +706,21 @@ func _spawn_quarto_furniture() -> void:
 
 func _spawn_banheiro_furniture() -> void:
 	# Vaso Sanitário em (7, 1)
+	var t_pos: Vector2 = _character.grid_to_world(Vector2i(7, 1))
+	_spawn_contact_shadow(_floor_node, t_pos + Vector2(0, 2), 16.0, 8.0, -95)
 	var toilet := Sprite2D.new()
 	toilet.texture = TOILET_PROP
 	toilet.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	toilet.position = _character.grid_to_world(Vector2i(7, 1)) + Vector2(0, -10)
-	toilet.z_index = int(_character.grid_to_world(Vector2i(7, 1)).y)
+	toilet.position = t_pos + Vector2(0, -10)
+	toilet.z_index = int(t_pos.y)
 	_walls_node.add_child(toilet)
 
 	# Banheira clássica ocupando área (1, 1)..(2, 2)
+	var tub_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 2))) * 0.5
+	_spawn_contact_shadow(_floor_node, tub_center + Vector2(0, 4), 34.0, 17.0, -95)
 	var tub := Sprite2D.new()
 	tub.texture = BATHTUB_PROP
 	tub.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var tub_center: Vector2 = (_character.grid_to_world(Vector2i(1, 1)) + _character.grid_to_world(Vector2i(2, 2))) * 0.5
 	tub.position = tub_center + Vector2(0, -10)
 	tub.z_index = int(_character.grid_to_world(Vector2i(2, 2)).y)
 	_walls_node.add_child(tub)
@@ -638,36 +735,13 @@ func _spawn_banheiro_furniture() -> void:
 
 func _spawn_sala_furniture() -> void:
 	# Poltrona aconchegante em (1, 4)
-	var chair := Sprite2D.new()
-	chair.texture = ARMCHAIR_PROP
-	chair.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	chair.position = _character.grid_to_world(Vector2i(1, 4)) + Vector2(0, -12)
-	chair.z_index = int(_character.grid_to_world(Vector2i(1, 4)).y)
-	_walls_node.add_child(chair)
-
+	_spawn_armchair(Vector2i(1, 4))
 	# Mesa de centro com livro e chá em (4, 6)
-	var table := Sprite2D.new()
-	table.texture = COFFEE_TABLE_PROP
-	table.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	table.position = _character.grid_to_world(Vector2i(4, 6)) + Vector2(0, -8)
-	table.z_index = int(_character.grid_to_world(Vector2i(4, 6)).y)
-	_walls_node.add_child(table)
-
+	_spawn_coffee_table(Vector2i(4, 6))
 	# Estante / cômoda em (10, 3)
-	var dresser := Sprite2D.new()
-	dresser.texture = DRESSER_PROP
-	dresser.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	dresser.position = _character.grid_to_world(Vector2i(10, 3)) + Vector2(0, -16)
-	dresser.z_index = int(_character.grid_to_world(Vector2i(10, 3)).y)
-	_walls_node.add_child(dresser)
-
+	_spawn_dresser(Vector2i(10, 3))
 	# Tapete com ponta dobrada (obstáculo de tropeço) em (5, 7)
-	var rug := Sprite2D.new()
-	rug.texture = RUG_FOLDED_PROP
-	rug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	rug.position = _character.grid_to_world(Vector2i(5, 7))
-	rug.z_index = int(_character.grid_to_world(Vector2i(5, 7)).y) - 2
-	_floor_node.add_child(rug)
+	_spawn_rug(Vector2i(5, 7))
 
 func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	if _current_map_id == "quarto_lullaby":
@@ -717,21 +791,73 @@ func _spawn_wall_visual(tile: Vector2i, theme) -> void:
 	var node := Node2D.new()
 	node.position = center
 	node.z_index = int(center.y)
-	var front := Polygon2D.new()
 	var hw := TILE_WIDTH * 0.5
-	front.polygon = PackedVector2Array([
-		Vector2(-hw,  0),
-		Vector2( hw,  0),
-		Vector2( hw, -WALL_HEIGHT),
+	var hh := TILE_HEIGHT * 0.5
+	var skirt_h := 5.0
+
+	# Face Sul-Oeste (esquerda — iluminada, 100% de wall_front)
+	var left_face := Polygon2D.new()
+	left_face.polygon = PackedVector2Array([
 		Vector2(-hw, -WALL_HEIGHT),
+		Vector2(0.0, hh - WALL_HEIGHT),
+		Vector2(0.0, hh),
+		Vector2(-hw, 0.0),
 	])
-	front.color = theme.wall_front
-	node.add_child(front)
+	left_face.color = theme.wall_front
+	node.add_child(left_face)
+
+	# Rodapé Sul-Oeste
+	var skirt_l := Polygon2D.new()
+	skirt_l.polygon = PackedVector2Array([
+		Vector2(-hw, -skirt_h),
+		Vector2(0.0, hh - skirt_h),
+		Vector2(0.0, hh),
+		Vector2(-hw, 0.0),
+	])
+	skirt_l.color = theme.wall_outline.lightened(0.14)
+	node.add_child(skirt_l)
+
+	# Face Sul-Leste (direita — em sombra, escurecida em 18%)
+	var right_face := Polygon2D.new()
+	right_face.polygon = PackedVector2Array([
+		Vector2(0.0, hh - WALL_HEIGHT),
+		Vector2(hw, -WALL_HEIGHT),
+		Vector2(hw, 0.0),
+		Vector2(0.0, hh),
+	])
+	right_face.color = theme.wall_front.darkened(0.18)
+	node.add_child(right_face)
+
+	# Rodapé Sul-Leste
+	var skirt_r := Polygon2D.new()
+	skirt_r.polygon = PackedVector2Array([
+		Vector2(0.0, hh - skirt_h),
+		Vector2(hw, -skirt_h),
+		Vector2(hw, 0.0),
+		Vector2(0.0, hh),
+	])
+	skirt_r.color = theme.wall_outline
+	node.add_child(skirt_r)
+
+	# Topo isométrico (losango elevado por WALL_HEIGHT)
 	var top := Polygon2D.new()
 	top.polygon = _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	top.color = theme.wall_top
 	top.position = Vector2(0, -WALL_HEIGHT)
 	node.add_child(top)
+
+	# Highlight interno na aresta frontal superior (1px claro)
+	var crest := Line2D.new()
+	crest.points = PackedVector2Array([
+		Vector2(-hw + 1.0, -WALL_HEIGHT),
+		Vector2(0.0, hh - WALL_HEIGHT - 0.5),
+		Vector2(hw - 1.0, -WALL_HEIGHT),
+	])
+	crest.width = 1.0
+	crest.default_color = theme.wall_top.lightened(0.16)
+	node.add_child(crest)
+
+	# Contorno do topo e da quina vertical
 	var outline := Line2D.new()
 	var pts := _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	var pts_closed: Array[Vector2] = []
@@ -773,6 +899,7 @@ func _load_prop_texture(path: String) -> Texture2D:
 	return null
 
 func _spawn_goal_prop(center: Vector2) -> void:
+	_spawn_contact_shadow(_goal_node, center + Vector2(0, 2), 20.0, 10.0, int(center.y) - 1)
 	if _current_map_id == "quarto":
 		var radio := Sprite2D.new()
 		radio.texture = RADIO_PROP
@@ -834,6 +961,9 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		"arcade_s2_chaves":
 			prop_path = "res://assets/sprites/props/hallway_stand_48x64.png"
 			offset = Vector2(0, -20)
+		"arcade_s2_pendulo":
+			prop_path = "res://assets/sprites/furniture/clock_grandfather_32x80.png"
+			offset = Vector2(0, -28)
 		"praia_mirante":
 			prop_path = "res://assets/sprites/props/seaside_bench_56x40.png"
 			offset = Vector2(0, -12)
@@ -852,16 +982,46 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		"arcade_s3_cha":
 			prop_path = "res://assets/sprites/props/porcelain_cupboard_48x64.png"
 			offset = Vector2(0, -20)
+		"arcade_s3_moedor":
+			prop_path = "res://assets/sprites/props/reading_desk_56x48.png"
+			offset = Vector2(0, -16)
+		"arcade_s3_chaleira":
+			prop_path = "res://assets/sprites/props/porcelain_cupboard_48x64.png"
+			offset = Vector2(0, -20)
 		"arcade_s4_vento":
 			prop_path = "res://assets/sprites/props/window_breeze_48x64.png"
 			offset = Vector2(0, -20)
 		"arcade_s4_duo":
 			prop_path = "res://assets/sprites/props/cello_stand_48x64.png"
 			offset = Vector2(0, -20)
+		"arcade_s4_patio":
+			prop_path = "res://assets/sprites/props/wind_chimes_stand_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s4_tear":
+			prop_path = "res://assets/sprites/props/yarn_basket_40x36.png"
+			offset = Vector2(0, -10)
 		"arcade_s5_flores":
 			prop_path = "res://assets/sprites/props/fountain_stone_64x64.png"
 			offset = Vector2(0, -24)
+		"arcade_s5_sanfona":
+			prop_path = "res://assets/sprites/props/bakery_counter_64x48.png"
+			offset = Vector2(0, -16)
+		"arcade_s5_castanholas":
+			prop_path = "res://assets/sprites/props/hallway_stand_48x64.png"
+			offset = Vector2(0, -20)
+		"arcade_s5_ancoradouro":
+			prop_path = "res://assets/sprites/props/station_lantern_40x64.png"
+			offset = Vector2(0, -22)
 		"arcade_s6_igreja":
+			prop_path = "res://assets/sprites/props/church_portal_64x80.png"
+			offset = Vector2(0, -30)
+		"arcade_s6_orgao":
+			prop_path = "res://assets/sprites/props/church_portal_64x80.png"
+			offset = Vector2(0, -30)
+		"arcade_s6_tamborim":
+			prop_path = "res://assets/sprites/props/fountain_stone_64x64.png"
+			offset = Vector2(0, -24)
+		"arcade_s6_catedral":
 			prop_path = "res://assets/sprites/props/church_portal_64x80.png"
 			offset = Vector2(0, -30)
 
@@ -907,27 +1067,33 @@ func _spawn_thematic_scenery_furniture() -> void:
 			_spawn_armchair(Vector2i(5, 7))
 
 func _spawn_armchair(grid: Vector2i) -> void:
+	var pos: Vector2 = _character.grid_to_world(grid)
+	_spawn_contact_shadow(_floor_node, pos + Vector2(0, 2), 24.0, 12.0, -95)
 	var chair := Sprite2D.new()
 	chair.texture = ARMCHAIR_PROP
 	chair.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	chair.position = _character.grid_to_world(grid) + Vector2(0, -12)
-	chair.z_index = int(_character.grid_to_world(grid).y)
+	chair.position = pos + Vector2(0, -12)
+	chair.z_index = int(pos.y)
 	_walls_node.add_child(chair)
 
 func _spawn_coffee_table(grid: Vector2i) -> void:
+	var pos: Vector2 = _character.grid_to_world(grid)
+	_spawn_contact_shadow(_floor_node, pos + Vector2(0, 2), 24.0, 12.0, -95)
 	var table := Sprite2D.new()
 	table.texture = COFFEE_TABLE_PROP
 	table.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	table.position = _character.grid_to_world(grid) + Vector2(0, -8)
-	table.z_index = int(_character.grid_to_world(grid).y)
+	table.position = pos + Vector2(0, -8)
+	table.z_index = int(pos.y)
 	_walls_node.add_child(table)
 
 func _spawn_dresser(grid: Vector2i) -> void:
+	var pos: Vector2 = _character.grid_to_world(grid)
+	_spawn_contact_shadow(_floor_node, pos + Vector2(0, 3), 32.0, 16.0, -95)
 	var dresser := Sprite2D.new()
 	dresser.texture = DRESSER_PROP
 	dresser.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	dresser.position = _character.grid_to_world(grid) + Vector2(0, -16)
-	dresser.z_index = int(_character.grid_to_world(grid).y)
+	dresser.position = pos + Vector2(0, -16)
+	dresser.z_index = int(pos.y)
 	_walls_node.add_child(dresser)
 
 func _spawn_rug(grid: Vector2i) -> void:
@@ -1013,6 +1179,16 @@ func _flash_screen() -> void:
 	_flash_tween.tween_property(_screen_flash, "color:a", FLASH_PEAK_ALPHA, FLASH_DURATION * 0.3)
 	_flash_tween.tween_property(_screen_flash, "color:a", 0.0, FLASH_DURATION * 0.7)
 
+func _on_cane_tapped(world_pos: Vector2, note_key: String) -> void:
+	var note_color: Color = Color(0.92, 0.85, 0.65, 1.0)
+	if not note_key.is_empty() and NoteMapping.NOTES.has(note_key):
+		note_color = NoteMapping.color_for(note_key)
+	if _character_portrait != null and _character_portrait.has_method("on_cane_tap"):
+		_character_portrait.on_cane_tap(note_color)
+	for mob in _mobs:
+		if mob != null and is_instance_valid(mob):
+			mob.on_cane_tap(world_pos, note_key)
+
 func _on_character_moved(new_grid_pos: Vector2i) -> void:
 	for mob in _mobs:
 		if mob != null and is_instance_valid(mob):
@@ -1039,21 +1215,45 @@ func _highlight_nearby_obstacles(center_grid: Vector2i, radius: int) -> void:
 
 func _spawn_obstacle_highlight(tile: Vector2i) -> void:
 	var center: Vector2 = _character.grid_to_world(tile)
-	var outline := Line2D.new()
+	var echo_node := Node2D.new()
+	echo_node.position = center
+	echo_node.z_index = int(center.y) + 50
+
 	var pts := _diamond_polygon(TILE_WIDTH, TILE_HEIGHT)
 	var pts_closed: Array[Vector2] = []
 	for p in pts:
 		pts_closed.append(p)
 	pts_closed.append(pts[0])
-	outline.points = PackedVector2Array(pts_closed)
-	outline.width = 2.5
-	outline.default_color = Color(0.3, 0.9, 1.0, 0.9)
-	outline.position = center
-	outline.z_index = int(center.y) + 50
-	add_child(outline)
-	var tw := outline.create_tween()
-	tw.tween_property(outline, "modulate:a", 0.0, 2.5)
-	tw.tween_callback(outline.queue_free)
+
+	# Losango da base no piso
+	var base_ring := Line2D.new()
+	base_ring.points = PackedVector2Array(pts_closed)
+	base_ring.width = 2.0
+	base_ring.default_color = Color(0.35, 0.92, 1.0, 0.65)
+	echo_node.add_child(base_ring)
+
+	# Losango do topo elevado (silhueta 2D isométrica da parede/obstáculo)
+	var top_ring := Line2D.new()
+	top_ring.points = PackedVector2Array(pts_closed)
+	top_ring.width = 2.5
+	top_ring.default_color = Color(0.55, 0.96, 1.0, 0.92)
+	top_ring.position = Vector2(0, -WALL_HEIGHT)
+	echo_node.add_child(top_ring)
+
+	# Arestas verticais frontais do prisma 2D (Oeste, Sul, Leste)
+	var hw := TILE_WIDTH * 0.5
+	var hh := TILE_HEIGHT * 0.5
+	for v_pt in [Vector2(-hw, 0.0), Vector2(0.0, hh), Vector2(hw, 0.0)]:
+		var pillar := Line2D.new()
+		pillar.points = PackedVector2Array([v_pt, v_pt + Vector2(0.0, -WALL_HEIGHT)])
+		pillar.width = 1.8
+		pillar.default_color = Color(0.45, 0.94, 1.0, 0.75)
+		echo_node.add_child(pillar)
+
+	add_child(echo_node)
+	var tw := echo_node.create_tween()
+	tw.tween_property(echo_node, "modulate:a", 0.0, 2.5)
+	tw.tween_callback(echo_node.queue_free)
 
 func _on_listening_focus_requested(world_pos: Vector2) -> void:
 	if _character_portrait != null:

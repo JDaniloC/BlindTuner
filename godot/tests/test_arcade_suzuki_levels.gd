@@ -45,7 +45,7 @@ func test_suzuki_volume_1_levels():
 
 func test_suzuki_volume_2_levels():
 	var s2_levels = LevelCatalog.by_chapter(102)
-	assert_eq(s2_levels.size(), 3, "Volume 2 deve conter 3 fases (S2.1 a S2.3)")
+	assert_eq(s2_levels.size(), 4, "Volume 2 deve conter 4 fases (S2.1 a S2.4)")
 	
 	var s2_1 = LevelCatalog.by_id("arcade_suzuki_2_1")
 	assert_not_null(s2_1)
@@ -64,6 +64,12 @@ func test_suzuki_volume_2_levels():
 	assert_eq(s2_3.title, "O Molho de Chaves Antigo")
 	assert_eq(s2_3.beacon_sound_id, "keys_jingle")
 	assert_eq(s2_3.song_title, "Minueto em Sol Maior")
+
+	var s2_4 = LevelCatalog.by_id("arcade_suzuki_2_4")
+	assert_not_null(s2_4)
+	assert_eq(s2_4.title, "O Pêndulo da Meia-Noite")
+	assert_eq(s2_4.beacon_sound_id, "clock")
+	assert_eq(s2_4.song_title, "Gavotte")
 
 func test_suzuki_audio_beacons():
 	var beacons := [

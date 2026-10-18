@@ -425,3 +425,14 @@ func test_arrow_tint_clears_the_graphic_minimum_idle_and_under_the_finger():
 					"%s: a seta da fatia %d dá %.2f:1 (ativa=%d)" % [esquema, i, razao, ativa])
 	j._active_slice_index = -1
 	j._refresh_slice_alphas()
+
+func test_joystick_has_2d_tactile_thumb_details_and_drag_line():
+	var j = _make_joystick()
+	assert_not_null(j._backdrop_bezel, "Joystick deve possuir bisel externo 2D no backdrop")
+	assert_not_null(j._drag_line, "Joystick deve possuir linha vetorial 2D de arrasto")
+	assert_false(j._drag_line.visible, "Linha de arrasto começa invisível em repouso")
+	assert_gte(j._thumb.get_child_count(), 3, "Thumb deve possuir anéis concêntricos táteis 2D")
+	j._update_thumb(Vector2(0.0, -80.0))
+	assert_true(j._drag_line.visible, "Linha de arrasto fica visível fora da zona morta")
+	j._reset_thumb()
+	assert_false(j._drag_line.visible, "Linha de arrasto some ao soltar o thumb")

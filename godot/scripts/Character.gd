@@ -12,6 +12,8 @@ signal tactile_pulse_requested(world_pos: Vector2, grid_pos: Vector2i, facing: V
 signal listening_focus_requested(world_pos: Vector2)
 ## Dispara ao entrar (true) e sair (false) do estado de tropeço para guiar UI e feedback.
 signal trip_state_changed(is_tripping: bool)
+## Dispara a cada toque da bengala no solo (durante passos ou tatear) com a posição da ponta e a nota emitida.
+signal cane_tapped(world_pos: Vector2, note_key: String)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -25,6 +27,7 @@ const JUMP_ARC_HEIGHT_PX := 18.0     # elevação Y do sprite no pico do arco
 const DUST_PUFF_COUNT := 4
 const DUST_PUFF_LIFETIME := 0.5
 const DUST_PUFF_COLOR := Color(0.85, 0.78, 0.6, 0.7)
+const CaneAcousticPulseScript := preload("res://scripts/CaneAcousticPulse.gd")
 
 enum State { IDLE, WALK, RUN, TRIP }
 ## Distingue por que o personagem tropeçou: colisão física de verdade (WALL)
@@ -57,17 +60,22 @@ const SHEETS := {
 	"attack":   { "file": "16x32 Attack-Sheet.png",   "cols": 7, "frame_w": 32, "frame_h": 32, "loop": false, "fps": 12 },
 }
 const DIRECTION_ROWS := ["s", "se", "e", "ne", "n"]
+## O vetor de direção vem da grade isométrica (NoteMapping.direction_for),
+## onde grid_to_world projeta (x - y, x + y):
+## (-1,-1)=N (↑), (0,-1)=NE (↗), (1,-1)=E (→), (1,0)=SE (↘),
+## (1,1)=S (↓), (0,1)=SW (↙), (-1,1)=W (←), (-1,0)=NW (↖).
 const DIRECTION_TO_KEY := {
-	Vector2i(0, 1):   { "key": "s",  "flip": false },
-	Vector2i(1, 1):   { "key": "se", "flip": false },
-	Vector2i(1, 0):   { "key": "e",  "flip": false },
-	Vector2i(1, -1):  { "key": "ne", "flip": false },
-	Vector2i(0, -1):  { "key": "n",  "flip": false },
-	Vector2i(-1, -1): { "key": "ne", "flip": true },
-	Vector2i(-1, 0):  { "key": "e",  "flip": true },
-	Vector2i(-1, 1):  { "key": "se", "flip": true },
+	Vector2i( 1,  1): { "key": "s",  "flip": false },
+	Vector2i( 1,  0): { "key": "se", "flip": false },
+	Vector2i( 1, -1): { "key": "e",  "flip": false },
+	Vector2i( 0, -1): { "key": "ne", "flip": false },
+	Vector2i(-1, -1): { "key": "n",  "flip": false },
+	Vector2i(-1,  0): { "key": "ne", "flip": true },
+	Vector2i(-1,  1): { "key": "e",  "flip": true },
+	Vector2i( 0,  1): { "key": "se", "flip": true },
 }
 
+var _shadow: Polygon2D = null
 @onready var _animated_sprite: AnimatedSprite2D = $AnimatedSprite
 
 func _animation_for(state_name: String, direction: Vector2i) -> Dictionary:
@@ -101,10 +109,26 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 func _ready() -> void:
 	position = grid_to_world(grid_position)
 	z_index = int(position.y) + 1
+	_ensure_contact_shadow()
 	_animated_sprite.sprite_frames = _build_sprite_frames()
 	_sprite_base_y = _animated_sprite.position.y
-	_play_animation("idle", Vector2i(0, 1))
+	_play_animation("idle", _last_direction)
 	_ensure_audio_listener()
+
+func _ensure_contact_shadow() -> void:
+	if _shadow != null:
+		return
+	_shadow = Polygon2D.new()
+	_shadow.name = "ContactShadow"
+	var pts: Array[Vector2] = []
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		pts.append(Vector2(cos(a) * 15.0, sin(a) * 7.5))
+	_shadow.polygon = PackedVector2Array(pts)
+	_shadow.color = Color(0.05, 0.03, 0.02, 0.36)
+	_shadow.position = Vector2(0.0, 2.0)
+	add_child(_shadow)
+	move_child(_shadow, 0)
 
 func _ensure_audio_listener() -> void:
 	var listener := AudioListener2D.new()
@@ -113,6 +137,11 @@ func _ensure_audio_listener() -> void:
 
 func _process(_delta: float) -> void:
 	z_index = int(position.y) + 1
+	if _shadow != null and _animated_sprite != null:
+		var lift := clampf((_sprite_base_y - _animated_sprite.position.y) / JUMP_ARC_HEIGHT_PX, 0.0, 1.0)
+		var sc := lerpf(1.0, 0.62, lift)
+		_shadow.scale = Vector2(sc, sc)
+		_shadow.color.a = lerpf(0.36, 0.18, lift)
 
 ## Reseta o estado do personagem para início ou repetição de fase.
 func reset() -> void:
@@ -177,6 +206,8 @@ func _try_walk(dir: Vector2i) -> void:
 	grid_position = target
 	moved.emit(grid_position)
 	_play_animation("walk", dir)
+	spawn_cane_acoustic_pulse(_last_note_key)
+	AudioManager.play_cane_step_sfx()
 	_tween_to(grid_to_world(target), MOVE_DURATION)
 
 func _try_run(dir: Vector2i) -> void:
@@ -190,7 +221,37 @@ func _try_run(dir: Vector2i) -> void:
 	moved.emit(grid_position)
 	_play_animation("run", dir)
 	_spawn_dust_puffs()
+	spawn_cane_acoustic_pulse(_last_note_key)
+	AudioManager.play_cane_step_sfx()
 	_tween_to(grid_to_world(target), RUN_MOVE_DURATION)
+
+## Retorna a posição no mundo onde a ponta da bengala toca o solo.
+func get_cane_tip_world_position() -> Vector2:
+	var offset: Vector2
+	match _last_direction:
+		Vector2i( 1,  1): offset = Vector2(10.0, 4.0)   # s  (baixo ↓)
+		Vector2i( 1,  0): offset = Vector2(12.0, 2.0)   # se (baixo-direita ↘)
+		Vector2i( 1, -1): offset = Vector2(14.0, -1.0)  # e  (direita →)
+		Vector2i( 0, -1): offset = Vector2(10.0, -5.0)  # ne (cima-direita ↗)
+		Vector2i(-1, -1): offset = Vector2(8.0, -7.0)   # n  (cima ↑)
+		Vector2i(-1,  0): offset = Vector2(-10.0, -5.0) # nw (cima-esquerda ↖)
+		Vector2i(-1,  1): offset = Vector2(-14.0, -1.0) # w  (esquerda ←)
+		Vector2i( 0,  1): offset = Vector2(-12.0, 2.0)  # sw (baixo-esquerda ↙)
+		_:                offset = Vector2(10.0, 4.0)
+	return position + offset
+
+## Emite um pulso acústico no solo na posição da ponta da bengala.
+func spawn_cane_acoustic_pulse(note_key: String = "") -> void:
+	if not is_inside_tree() or get_parent() == null:
+		return
+	var pulse := CaneAcousticPulseScript.new()
+	var col := Color(0.75, 0.94, 1.0)
+	if not note_key.is_empty() and NoteMapping.NOTES.has(note_key):
+		col = NoteMapping.color_for(note_key)
+	var tip_pos := get_cane_tip_world_position()
+	pulse.setup(tip_pos, col)
+	get_parent().add_child(pulse)
+	cane_tapped.emit(tip_pos, note_key)
 
 ## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com
 ## anim 'jump' nos dois segmentos). 1º tile bloqueado = trip;
@@ -320,9 +381,9 @@ func _do_pegar() -> void:
 	get_tree().create_timer(INTERACT_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_interagir() -> void:
-	# Anim de "balançar bengala" via sprite Attack (5 dirs, 8 frames @ 12fps).
+	# Anim de "varredura com a bengala" via sprite Attack (5 dirs, 7 frames @ 12fps).
 	_play_animation("attack", _last_direction)
-	tactile_pulse_requested.emit(position, grid_position, _last_direction)
+	tactile_pulse_requested.emit(get_cane_tip_world_position(), grid_position, _last_direction)
 	get_tree().create_timer(ATTACK_DURATION_SEC).timeout.connect(_return_to_idle_if_static)
 
 func _do_tatear() -> void:

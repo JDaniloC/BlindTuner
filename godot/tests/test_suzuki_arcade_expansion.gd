@@ -13,16 +13,14 @@ func test_chapters_101_to_106_metadata_present():
 		assert_eq(info.get("status"), "available", "Volume %d deve estar disponível" % ch)
 
 func test_all_expanded_arcade_levels_registered():
-	var level_ids: Array[String] = [
-		"arcade_suzuki_3_1",
-		"arcade_suzuki_3_2",
-		"arcade_suzuki_4_1",
-		"arcade_suzuki_4_2",
-		"arcade_suzuki_5_1",
-		"arcade_suzuki_6_1"
-	]
+	var all_arcade_ids: Array[String] = []
+	for vol in [1, 2, 3, 4, 5, 6]:
+		for lvl_num in [1, 2, 3, 4]:
+			all_arcade_ids.append("arcade_suzuki_%d_%d" % [vol, lvl_num])
 	
-	for lvl_id in level_ids:
+	assert_eq(all_arcade_ids.size(), 24, "Devem existir exatamente 24 fases no Modo Arcade Suzuki")
+	
+	for lvl_id in all_arcade_ids:
 		var lvl = LevelCatalog.by_id(lvl_id)
 		assert_not_null(lvl, "Nível %s deve estar no LevelCatalog" % lvl_id)
 		assert_gt(lvl.notes.size(), 0, "Nível %s deve possuir notas" % lvl_id)
@@ -32,16 +30,12 @@ func test_all_expanded_arcade_levels_registered():
 		assert_false(lvl.beacon_hint.is_empty(), "Nível %s deve ter dica de farol" % lvl_id)
 
 func test_expanded_arcade_maps_and_paths_valid():
-	var level_ids: Array[String] = [
-		"arcade_suzuki_3_1",
-		"arcade_suzuki_3_2",
-		"arcade_suzuki_4_1",
-		"arcade_suzuki_4_2",
-		"arcade_suzuki_5_1",
-		"arcade_suzuki_6_1"
-	]
+	var all_arcade_ids: Array[String] = []
+	for vol in [1, 2, 3, 4, 5, 6]:
+		for lvl_num in [1, 2, 3, 4]:
+			all_arcade_ids.append("arcade_suzuki_%d_%d" % [vol, lvl_num])
 	
-	for lvl_id in level_ids:
+	for lvl_id in all_arcade_ids:
 		var lvl = LevelCatalog.by_id(lvl_id)
 		assert_not_null(lvl)
 		var map = MapPresets.by_id(lvl.map_id)
@@ -62,7 +56,12 @@ func test_expanded_arcade_maps_and_paths_valid():
 		assert_eq(current_pos, map.goal_grid, "Caminho de notas do nível %s deve terminar exatamente no objetivo" % lvl_id)
 
 func test_new_procedural_beacons_generate_valid_audio():
-	var beacons: Array[String] = ["bike_bell", "paper_rustle"]
+	var beacons: Array[String] = [
+		"bike_bell", "paper_rustle",
+		"coffee_grinder", "kettle_whistle", "loom_shuttle",
+		"accordion_drone", "castanets_click", "dock_bell",
+		"organ_pipe", "tambourine_shake", "cathedral_echo"
+	]
 	for b in beacons:
 		var stream: AudioStreamWAV = AudioManager.get_beacon_stream(b)
 		assert_not_null(stream, "Stream para farol '%s' não pode ser nulo" % b)
@@ -81,10 +80,10 @@ func test_arcade_initial_levels_unlocked_by_default():
 		assert_true(SaveManager.is_level_unlocked(lvl_id), "Nível de entrada %s deve estar desbloqueado por padrão" % lvl_id)
 
 func test_intra_volume_next_level_progression():
-	var next_s3 = LevelCatalog.get_next_level("arcade_suzuki_3_1")
-	assert_not_null(next_s3)
-	assert_eq(next_s3.id, "arcade_suzuki_3_2")
-	
-	var next_s4 = LevelCatalog.get_next_level("arcade_suzuki_4_1")
-	assert_not_null(next_s4)
-	assert_eq(next_s4.id, "arcade_suzuki_4_2")
+	for vol in [1, 2, 3, 4, 5, 6]:
+		for lvl_num in [1, 2, 3]:
+			var current_id := "arcade_suzuki_%d_%d" % [vol, lvl_num]
+			var expected_next_id := "arcade_suzuki_%d_%d" % [vol, lvl_num + 1]
+			var next_lvl = LevelCatalog.get_next_level(current_id)
+			assert_not_null(next_lvl, "Nível seguinte a %s deve existir" % current_id)
+			assert_eq(next_lvl.id, expected_next_id, "Nível seguinte a %s deve ser %s" % [current_id, expected_next_id])

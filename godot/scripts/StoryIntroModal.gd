@@ -14,6 +14,7 @@ var _song_lbl: Label
 var _portrait: Control
 var _story_lbl: Label
 var _beacon_lbl: Label
+var _beacon_thumb: TextureRect
 var _config_lbl: Label
 var _start_btn: Button
 var _is_closing: bool = false
@@ -52,20 +53,24 @@ func _ready() -> void:
 	_chapter_tag_lbl = Label.new()
 	_chapter_tag_lbl.text = "CAPÍTULO 1 • MEMÓRIA"
 	_chapter_tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_chapter_tag_lbl.add_theme_color_override("font_color", Color(0.95, 0.78, 0.35))
+	_chapter_tag_lbl.add_theme_font_size_override("font_size", 15)
+	_chapter_tag_lbl.add_theme_color_override("font_color", Color(0.30, 0.16, 0.04))
 	col.add_child(_chapter_tag_lbl)
 
 	# Título do Nível
 	_title_lbl = Label.new()
 	_title_lbl.text = "A Canção de Ninar"
 	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_lbl.add_theme_font_size_override("font_size", 26)
+	_title_lbl.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	col.add_child(_title_lbl)
 
 	# Peça Musical em Domínio Público
 	_song_lbl = Label.new()
 	_song_lbl.text = ""
 	_song_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_song_lbl.add_theme_color_override("font_color", Color(0.85, 0.90, 0.98))
+	_song_lbl.add_theme_font_size_override("font_size", 16)
+	_song_lbl.add_theme_color_override("font_color", Color(0.10, 0.25, 0.38))
 	col.add_child(_song_lbl)
 
 	# Retrato do Personagem ouvindo atentamente
@@ -81,33 +86,55 @@ func _ready() -> void:
 	_story_lbl.text = ""
 	_story_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_story_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_story_lbl.add_theme_font_size_override("font_size", 18)
+	_story_lbl.add_theme_color_override("font_color", Color(0.16, 0.13, 0.10))
 	col.add_child(_story_lbl)
 
 	# Caixa de Destaque do Farol Sonoro
 	var beacon_panel := PanelContainer.new()
+	var b_sb := StyleBoxFlat.new()
+	b_sb.bg_color = Color(0.88, 0.93, 0.96, 1.0)
+	b_sb.border_color = Color(0.14, 0.42, 0.62, 1.0)
+	b_sb.set_border_width_all(2)
+	b_sb.set_corner_radius_all(6)
+	beacon_panel.add_theme_stylebox_override("panel", b_sb)
 	col.add_child(beacon_panel)
+
 	var beacon_margin := MarginContainer.new()
 	for s in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
-		beacon_margin.add_theme_constant_override(s, 8)
+		beacon_margin.add_theme_constant_override(s, 10)
 	beacon_panel.add_child(beacon_margin)
+
+	var beacon_hbox := HBoxContainer.new()
+	beacon_hbox.add_theme_constant_override("separation", 10)
+	beacon_margin.add_child(beacon_hbox)
+
+	_beacon_thumb = TextureRect.new()
+	_beacon_thumb.custom_minimum_size = Vector2(36, 36)
+	_beacon_thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_beacon_thumb.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	beacon_hbox.add_child(_beacon_thumb)
 
 	_beacon_lbl = Label.new()
 	_beacon_lbl.text = "👂 Farol Sonoro: Siga o som no ambiente."
+	_beacon_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beacon_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_beacon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_beacon_lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
-	beacon_margin.add_child(_beacon_lbl)
+	_beacon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_beacon_lbl.add_theme_font_size_override("font_size", 16)
+	_beacon_lbl.add_theme_color_override("font_color", Color(0.08, 0.26, 0.40))
+	beacon_hbox.add_child(_beacon_lbl)
 
 	# Resumo de Pistas & Modo
 	_config_lbl = Label.new()
 	_config_lbl.text = ""
 	_config_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_config_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	_config_lbl.add_theme_font_size_override("font_size", 15)
+	_config_lbl.add_theme_color_override("font_color", Color(0.28, 0.23, 0.18))
 	col.add_child(_config_lbl)
 
 	# Botão de Início
 	_start_btn = Button.new()
-	_start_btn.custom_minimum_size = Vector2(0, 48)
+	_start_btn.custom_minimum_size = Vector2(0, 52)
 	_start_btn.text = "Começar a Ouvir"
 	_start_btn.pressed.connect(_on_start_pressed)
 	col.add_child(_start_btn)
@@ -117,7 +144,8 @@ func _ready() -> void:
 	var hint_lbl := Label.new()
 	hint_lbl.text = "(Toque em qualquer lugar ou aperte Espaço / Enter)"
 	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
+	hint_lbl.add_theme_font_size_override("font_size", 14)
+	hint_lbl.add_theme_color_override("font_color", Color(0.32, 0.27, 0.22))
 	col.add_child(hint_lbl)
 
 	if _level_data != null:
@@ -165,11 +193,20 @@ func _apply_data(data: Resource) -> void:
 
 	_config_lbl.text = "%s  •  %s" % [cue_desc, mode_desc]
 
+	var b_id: String = str(data.get("beacon_sound_id"))
+	if _beacon_thumb != null:
+		var tex := _beacon_texture_for(b_id)
+		_beacon_thumb.texture = tex
+		_beacon_thumb.visible = tex != null
+
 	var song_speech := (" Música: %s de %s." % [song_name, comp_name]) if not song_name.is_empty() else ""
 	var speech_text := "Memória %d.%d: %s.%s %s. %s. Toque na tela ou pressione Espaço para começar a ouvir." % [
 		ch, num, _title_lbl.text, song_speech, _story_lbl.text, _beacon_lbl.text
 	]
 	AccessibleAnnouncer.announce("focus", speech_text)
+
+func _beacon_texture_for(beacon_id: String) -> Texture2D:
+	return preload("res://scripts/BeaconArt.gd").texture_for(beacon_id)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _is_closing:

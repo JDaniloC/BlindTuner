@@ -5,6 +5,7 @@ extends Control
 ## leitura acessível e retorno sonoro.
 
 const UI_THEME := preload("res://assets/ui/blindtuner_theme.tres")
+const BeaconArt := preload("res://scripts/BeaconArt.gd")
 
 var _chapter_opt: OptionButton
 var _cards_container: VBoxContainer
@@ -36,10 +37,14 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "Diário de Memórias"
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	header_box.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Escolha uma recordação para afinar e praticar"
+	subtitle.add_theme_font_size_override("font_size", 16)
+	subtitle.add_theme_color_override("font_color", Color(0.28, 0.22, 0.16))
 	header_box.add_child(subtitle)
 
 	# --- Seletor de Capítulos ---
@@ -199,7 +204,21 @@ func _format_beacon_name(beacon_id: String) -> String:
 		"train_whistle": return "🚂 Farol: Apito e Vapor do Trem"
 		"cello_drone": return "🎻 Farol: Corda Solta do Cello"
 		"wind_chimes": return "✨ Farol: Sinos de Vento do Palco"
+		"bike_bell": return "🚲 Farol: Campainha da Bicicleta"
+		"paper_rustle": return "📜 Farol: Folhas de Partitura"
+		"coffee_grinder": return "☕ Farol: Moedor de Café"
+		"kettle_whistle": return "🫖 Farol: Apito da Chaleira"
+		"loom_shuttle": return "🧵 Farol: Lançadeira do Tear"
+		"accordion_drone": return "🪗 Farol: Fole da Sanfona"
+		"castanets_click": return "🪵 Farol: Castanholas de Madeira"
+		"dock_bell": return "🔔 Farol: Sino do Cais"
+		"organ_pipe": return "🎼 Farol: Tubos de Órgão"
+		"tambourine_shake": return "🥁 Farol: Tamborim de Guizos"
+		"cathedral_echo": return "🏛️ Farol: Eco da Catedral"
 		_: return "👂 Farol Sonoro"
+
+func _beacon_texture_for(beacon_id: String) -> Texture2D:
+	return BeaconArt.texture_for(beacon_id)
 
 func _stars_taxonomy_text(stars: int) -> String:
 	match stars:
@@ -217,12 +236,31 @@ func _create_level_card(lvl) -> Button:
 		card_margin.add_theme_constant_override(s, 12)
 	card_panel.add_child(card_margin)
 
-	var card_vbox := VBoxContainer.new()
-	card_vbox.add_theme_constant_override("separation", 6)
-	card_margin.add_child(card_vbox)
+	var card_hbox := HBoxContainer.new()
+	card_hbox.add_theme_constant_override("separation", 14)
+	card_margin.add_child(card_hbox)
 
 	var is_unlocked := SaveManager.is_level_unlocked(lvl.id)
 	var stars := SaveManager.get_level_stars(lvl.id)
+
+	# Miniatura 2D do Farol / Objeto de Afeto
+	var thumb_center := CenterContainer.new()
+	thumb_center.custom_minimum_size = Vector2(48, 48)
+	card_hbox.add_child(thumb_center)
+
+	var thumb_rect := TextureRect.new()
+	thumb_rect.texture = _beacon_texture_for(lvl.beacon_sound_id)
+	thumb_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	thumb_rect.custom_minimum_size = Vector2(44, 44)
+	thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if not is_unlocked:
+		thumb_rect.modulate = Color(0.20, 0.17, 0.14, 0.60)
+	thumb_center.add_child(thumb_rect)
+
+	var card_vbox := VBoxContainer.new()
+	card_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_vbox.add_theme_constant_override("separation", 6)
+	card_hbox.add_child(card_vbox)
 
 	var num_str: String
 	if lvl.chapter >= 100:
@@ -237,6 +275,8 @@ func _create_level_card(lvl) -> Button:
 	var title_lbl := Label.new()
 	title_lbl.text = "%s %s" % [num_str, lvl.title]
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_lbl.add_theme_font_size_override("font_size", 20)
+	title_lbl.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	top_row.add_child(title_lbl)
 
 	var stars_lbl := Label.new()
@@ -244,6 +284,8 @@ func _create_level_card(lvl) -> Button:
 	for i in range(3):
 		stars_text += "★" if i < stars else "☆"
 	stars_lbl.text = "%s (%d/3)" % [stars_text, stars]
+	stars_lbl.add_theme_font_size_override("font_size", 18)
+	stars_lbl.add_theme_color_override("font_color", Color(0.30, 0.16, 0.04))
 	top_row.add_child(stars_lbl)
 
 	# Linha 2: Resumo / Detalhes da música e farol sonoro
@@ -253,12 +295,17 @@ func _create_level_card(lvl) -> Button:
 	var beacon_desc: String = _format_beacon_name(lvl.beacon_sound_id)
 	var song_info: String = ("🎵 %s • " % lvl.song_title) if not lvl.song_title.is_empty() else ""
 	details_lbl.text = "%s%s • %s • %s • %d notas" % [song_info, beacon_desc, scenario_name, inst_name, lvl.total_steps()]
+	details_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	details_lbl.add_theme_font_size_override("font_size", 15)
+	details_lbl.add_theme_color_override("font_color", Color(0.10, 0.25, 0.38))
 	card_vbox.add_child(details_lbl)
 
 	# Linha 3: Texto de história
 	var story_lbl := Label.new()
 	story_lbl.text = "\"%s\"" % lvl.story_intro
 	story_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	story_lbl.add_theme_font_size_override("font_size", 16)
+	story_lbl.add_theme_color_override("font_color", Color(0.24, 0.20, 0.16))
 	card_vbox.add_child(story_lbl)
 
 	# Linha 4: Botão de Ação Acessível

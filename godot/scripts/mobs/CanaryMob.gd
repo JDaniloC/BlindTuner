@@ -23,3 +23,16 @@ func _start_singing_animation() -> void:
 	var tw := create_tween().set_loops()
 	tw.tween_property(_sprite, "position:y", -2.0, 0.4).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(_sprite, "position:y", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+
+func _on_cane_heard(dist: float, is_rhythmic: bool, _note_key: String) -> void:
+	super._on_cane_heard(dist, is_rhythmic, _note_key)
+	if dist <= 160.0:
+		play_mob_sound("canary_sing")
+		_animate_hop()
+
+func _animate_hop() -> void:
+	if _sprite == null:
+		return
+	var tw := create_tween()
+	tw.tween_property(_sprite, "position:y", -6.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_sprite, "position:y", 0.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

@@ -27,6 +27,7 @@ func _setup_nodes() -> void:
 	if _material == null:
 		_material = ShaderMaterial.new()
 		_material.shader = SHADER
+		_material.set_shader_parameter("contour_strength", 0.55)
 		_color_rect.material = _material
 
 ## Configura os parâmetros do shader baseados no nível atual.

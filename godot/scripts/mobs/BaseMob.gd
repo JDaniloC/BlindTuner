@@ -6,6 +6,7 @@ class_name BaseMob
 
 signal alerted
 signal stepped_on
+signal cane_heard(distance: float, is_rhythmic: bool, note_key: String)
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
@@ -19,11 +20,17 @@ const TILE_HEIGHT := 32
 @export var max_audio_distance: float = 600.0
 @export var audio_attenuation: float = 1.5
 
+var _shadow: Polygon2D
 var _sprite: Sprite2D
 var _audio_player: AudioStreamPlayer2D
 var _idle_timer: Timer
 var _last_alert_time_ms: int = 0
 const ALERT_COOLDOWN_MS: int = 1200
+
+var _cane_tap_history: Array[int] = []
+var _last_cane_reaction_time_ms: int = 0
+const CANE_REACTION_COOLDOWN_MS: int = 350
+const CANE_HEARING_DISTANCE: float = 180.0
 
 static func load_texture_safe(res_path: String) -> Texture2D:
 	var global_path := ProjectSettings.globalize_path(res_path)
@@ -51,10 +58,22 @@ func _setup_nodes() -> void:
 
 	if _idle_timer == null:
 		_idle_timer = Timer.new()
-		_idle_timer.wait_time = idle_interval
+		_idle_timer.wait_time = maxf(0.1, idle_interval)
 		_idle_timer.one_shot = false
 		_idle_timer.timeout.connect(_on_idle_timeout)
 		add_child(_idle_timer)
+
+	if _shadow == null:
+		_shadow = Polygon2D.new()
+		_shadow.name = "ContactShadow"
+		var pts: Array[Vector2] = []
+		for i in range(20):
+			var a := TAU * float(i) / 20.0
+			pts.append(Vector2(cos(a) * 13.0, sin(a) * 6.5))
+		_shadow.polygon = PackedVector2Array(pts)
+		_shadow.color = Color(0.05, 0.03, 0.02, 0.32)
+		_shadow.position = Vector2(0.0, 2.0)
+		add_child(_shadow)
 
 	if _sprite == null:
 		_sprite = Sprite2D.new()
@@ -88,10 +107,57 @@ func play_mob_sound(sound_key: String) -> void:
 		return
 	_audio_player.stream = AudioManager.get_mob_stream(sound_key)
 	_audio_player.play()
+	_spawn_acoustic_ring(Color(0.96, 0.78, 0.35, 0.75))
 
 func _on_idle_timeout() -> void:
 	if not idle_sound_id.is_empty():
 		play_mob_sound(idle_sound_id)
+
+## Verifica se as batidas recentes da bengala formam uma cadência rítmica regular (passo firme)
+func is_rhythmic_cadence() -> bool:
+	if _cane_tap_history.size() < 2:
+		return false
+	var now := Time.get_ticks_msec()
+	if now - _cane_tap_history[-1] > 1400:
+		return false
+	var intervals: Array[int] = []
+	for i in range(1, _cane_tap_history.size()):
+		var dt: int = _cane_tap_history[i] - _cane_tap_history[i - 1]
+		intervals.append(dt)
+	for dt in intervals:
+		if dt < 150 or dt > 800:
+			return false
+	if intervals.size() >= 2:
+		var diff: int = abs(intervals[-1] - intervals[-2])
+		return diff < 280
+	return true
+
+## Define explicitamente o histórico de toques (usado por testes ou sincronização)
+func set_cane_tap_history(history: Array) -> void:
+	_cane_tap_history.clear()
+	for h in history:
+		_cane_tap_history.append(int(h))
+
+## Reage ao toque da bengala no solo (emitido a cada passo ou tatear)
+func on_cane_tap(cane_world_pos: Vector2, note_key: String = "") -> void:
+	var dist: float = position.distance_to(cane_world_pos)
+	if dist > CANE_HEARING_DISTANCE:
+		return
+	var now := Time.get_ticks_msec()
+	_cane_tap_history.append(now)
+	if _cane_tap_history.size() > 4:
+		_cane_tap_history.pop_front()
+	
+	var is_rhythmic: bool = is_rhythmic_cadence()
+	if now - _last_cane_reaction_time_ms >= CANE_REACTION_COOLDOWN_MS:
+		_last_cane_reaction_time_ms = now
+		_on_cane_heard(dist, is_rhythmic, note_key)
+		cane_heard.emit(dist, is_rhythmic, note_key)
+
+## Implementação base para reação à bengala (sobrescrita por cada pet/npc)
+func _on_cane_heard(dist: float, _is_rhythmic: bool, _note_key: String) -> void:
+	if dist <= 110.0:
+		_spawn_acoustic_ring(Color(0.92, 0.85, 0.65, 0.65))
 
 ## Reage ao pulso de bengala do jogador (ação Tatear / Gs4)
 func on_tactile_pulse(_world_pos: Vector2, pulse_grid: Vector2i) -> void:
@@ -123,6 +189,7 @@ func alert() -> void:
 	if not alert_sound_id.is_empty():
 		play_mob_sound(alert_sound_id)
 	alerted.emit()
+	_spawn_acoustic_ring(Color(0.40, 0.88, 1.0, 0.88))
 	_animate_alert()
 
 func on_stepped_on() -> void:
@@ -136,3 +203,30 @@ func _animate_alert() -> void:
 	tw.tween_property(_sprite, "scale", Vector2(1.2, 0.8), 0.08)
 	tw.tween_property(_sprite, "scale", Vector2(0.9, 1.15), 0.1)
 	tw.tween_property(_sprite, "scale", Vector2(1.0, 1.0), 0.1)
+
+## Onda 2D isométrica (elipse 2:1) indicando no chão a vocalização/ronronar do mob
+func _spawn_acoustic_ring(color: Color) -> void:
+	if not is_inside_tree():
+		return
+	var ring := Line2D.new()
+	ring.width = 1.8
+	ring.default_color = color
+	var pts: Array[Vector2] = []
+	for i in range(21):
+		var a := TAU * float(i) / 20.0
+		pts.append(Vector2(cos(a) * 12.0, sin(a) * 6.0))
+	ring.points = PackedVector2Array(pts)
+	ring.position = Vector2(0.0, 4.0)
+	add_child(ring)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ring, "scale", Vector2(2.6, 2.6), 0.65).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "modulate:a", 0.0, 0.65).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_callback(ring.queue_free)
+
+func _start_breathing_animation(cycle_time: float = 1.2, scale_amount: float = 0.04) -> void:
+	if _sprite == null:
+		return
+	var tw := create_tween().set_loops()
+	tw.tween_property(_sprite, "scale:y", 1.0 + scale_amount, cycle_time).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_sprite, "scale:y", 1.0 - scale_amount * 0.8, cycle_time).set_trans(Tween.TRANS_SINE)

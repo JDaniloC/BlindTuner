@@ -76,6 +76,7 @@ func _ready() -> void:
 
 	_title_label = Label.new()
 	_title_label.visible = false
+	_title_label.add_theme_color_override("font_color", Color(0.10, 0.08, 0.06))
 	top_vbox.add_child(_title_label)
 
 	# "Cores" vai para a segunda linha: enfiado na primeira, os 5 controles
@@ -115,10 +116,12 @@ func _ready() -> void:
 
 	_phase_label = Label.new()
 	_phase_label.text = ""
+	_phase_label.add_theme_color_override("font_color", Color(0.06, 0.16, 0.26))
 	row2.add_child(_phase_label)
 
 	_progress = Label.new()
 	_progress.text = "—"
+	_progress.add_theme_color_override("font_color", Color(0.18, 0.10, 0.04))
 	_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(_progress)
 
@@ -133,6 +136,7 @@ func _ready() -> void:
 	var col := VBoxContainer.new()
 	_stats_panel.add_child(col)
 	_stats_label = Label.new()
+	_stats_label.add_theme_color_override("font_color", Color(0.10, 0.08, 0.06))
 	col.add_child(_stats_label)
 	var again := Button.new()
 	again.text = "Repetir"

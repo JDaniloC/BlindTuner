@@ -4,317 +4,485 @@ from PIL import Image, ImageDraw
 OUTPUT_DIR = r"c:\Users\danil\Documents\code\BlindTuner\godot\assets\sprites\props"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+OUTLINE = (38, 24, 16, 255)
+
+
+def _shade(color, factor):
+    return (
+        max(0, min(255, int(color[0] * factor))),
+        max(0, min(255, int(color[1] * factor))),
+        max(0, min(255, int(color[2] * factor))),
+        color[3] if len(color) > 3 else 255,
+    )
+
+
+def iso_pt(cx, cy, u, v, z=0):
+    """Converte coordenadas isométricas 2:1 (u=SE, v=SW, z=altura) para tela."""
+    px = int(round(cx + (u - v) * 2.0))
+    py = int(round(cy + (u + v) * 1.0 - z))
+    return (px, py)
+
+
+def draw_iso_box(d, cx, cy, u0, v0, u1, v1, z0, z1, top_col, left_col=None, right_col=None, outline_col=OUTLINE):
+    """Desenha um prisma isométrico 2:1 com iluminação de topo-esquerda."""
+    if left_col is None:
+        left_col = _shade(top_col, 0.84)
+    if right_col is None:
+        right_col = _shade(top_col, 0.66)
+
+    p_top_n = iso_pt(cx, cy, u0, v0, z1)
+    p_top_e = iso_pt(cx, cy, u1, v0, z1)
+    p_top_s = iso_pt(cx, cy, u1, v1, z1)
+    p_top_w = iso_pt(cx, cy, u0, v1, z1)
+
+    p_bot_e = iso_pt(cx, cy, u1, v0, z0)
+    p_bot_s = iso_pt(cx, cy, u1, v1, z0)
+    p_bot_w = iso_pt(cx, cy, u0, v1, z0)
+
+    # Face esquerda (Sul-Oeste - luz média)
+    d.polygon([p_top_w, p_top_s, p_bot_s, p_bot_w], fill=left_col)
+    # Face direita (Sul-Leste - sombra)
+    d.polygon([p_top_s, p_top_e, p_bot_e, p_bot_s], fill=right_col)
+    # Face de topo (mais clara)
+    d.polygon([p_top_n, p_top_e, p_top_s, p_top_w], fill=top_col)
+
+    # Highlight interno de 1px na quina superior frontal
+    hi_col = _shade(top_col, 1.14)
+    d.line([p_top_w, p_top_s], fill=hi_col, width=1)
+    d.line([p_top_s, p_top_e], fill=_shade(top_col, 1.06), width=1)
+    # Quina vertical central
+    d.line([p_top_s, p_bot_s], fill=_shade(right_col, 0.82), width=1)
+
+    if outline_col is not None:
+        d.line([p_top_n, p_top_e, p_bot_e, p_bot_s, p_bot_w, p_top_w, p_top_n], fill=outline_col, width=1)
+
+
+def apply_crisp_outline(img, outline_col=OUTLINE):
+    """Garante contorno externo de 1px em marrom-escuro quente sem halo."""
+    w, h = img.size
+    src = img.load()
+    out = img.copy()
+    dst = out.load()
+    for y in range(h):
+        for x in range(w):
+            if src[x, y][3] == 0:
+                for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                    if 0 <= nx < w and 0 <= ny < h and src[nx, ny][3] > 200:
+                        dst[x, y] = outline_col
+                        break
+    return out
+
+
 def create_iron_gate():
-    # 48x64 Portão de ferro forjado com trinco dourado
+    # 48x64 Portão de ferro forjado isométrico com pilares de pedra e trinco dourado
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Pilares de tijolo/pedra laterais
-    d.rectangle([2, 16, 8, 62], fill=(70, 65, 60), outline=(40, 35, 30))
-    d.rectangle([40, 16, 46, 62], fill=(70, 65, 60), outline=(40, 35, 30))
-    # Capitéis dos pilares
-    d.rectangle([1, 14, 9, 16], fill=(90, 85, 80), outline=(40, 35, 30))
-    d.rectangle([39, 14, 47, 16], fill=(90, 85, 80), outline=(40, 35, 30))
-    # Grade de ferro arqueada
-    d.arc([8, 10, 40, 40], start=180, end=360, fill=(35, 38, 42), width=2)
-    d.rectangle([9, 24, 39, 62], outline=(35, 38, 42), width=2)
-    # Barras verticais
-    for x in range(13, 37, 4):
-        d.line([x, 22, x, 62], fill=(50, 54, 60), width=2)
-        # Pontas de lança
-        d.polygon([(x-1, 22), (x+1, 22), (x, 18)], fill=(130, 135, 140))
-    # Trinco dourado
-    d.rectangle([22, 38, 28, 43], fill=(220, 180, 50), outline=(140, 100, 20))
-    d.ellipse([23, 40, 25, 42], fill=(60, 40, 10))
+    cx, cy = 24, 40
+
+    # Pilares de pedra isométricos (esquerdo/SW e direito/NE)
+    draw_iso_box(d, cx, cy, -1, 5, 2, 8, 0, 34, (130, 122, 114), (108, 100, 92), (82, 76, 70))
+    draw_iso_box(d, cx, cy, -2, 4, 3, 9, 34, 38, (155, 146, 138))  # Capitel SW
+
+    draw_iso_box(d, cx, cy, 5, -7, 8, -4, 0, 34, (130, 122, 114), (108, 100, 92), (82, 76, 70))
+    draw_iso_box(d, cx, cy, 4, -8, 9, -3, 34, 38, (155, 146, 138))  # Capitel NE
+
+    # Travessas isométricas do portão de ferro
+    p_sw_bot = iso_pt(cx, cy, 1, 5, 4)
+    p_ne_bot = iso_pt(cx, cy, 6, -5, 4)
+    p_sw_mid = iso_pt(cx, cy, 1, 5, 18)
+    p_ne_mid = iso_pt(cx, cy, 6, -5, 18)
+    p_sw_top = iso_pt(cx, cy, 1, 5, 30)
+    p_ne_top = iso_pt(cx, cy, 6, -5, 30)
+
+    d.line([p_sw_bot, p_ne_bot], fill=(42, 46, 52), width=2)
+    d.line([p_sw_mid, p_ne_mid], fill=(42, 46, 52), width=2)
+    d.line([p_sw_top, p_ne_top], fill=(55, 60, 68), width=2)
+
+    # Barras verticais em perspectiva 2:1 com lanças douradas
+    for i in range(6):
+        t = i / 5.0
+        bx = int(round(p_sw_bot[0] * (1 - t) + p_ne_bot[0] * t))
+        by = int(round(p_sw_bot[1] * (1 - t) + p_ne_bot[1] * t))
+        arch = int(4 * (1.0 - (2.0 * t - 1.0) ** 2))
+        ty = by - 28 - arch
+        d.line([(bx, by), (bx, ty)], fill=(48, 52, 58), width=2)
+        d.polygon([(bx - 1, ty), (bx + 1, ty), (bx, ty - 3)], fill=(225, 188, 72))
+
+    # Trinco dourado central (farol sonoro)
+    lx, ly = iso_pt(cx, cy, 3.5, 0, 17)
+    d.rectangle([lx - 3, ly - 2, lx + 3, ly + 3], fill=(238, 195, 65), outline=OUTLINE)
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "iron_gate_48x64.png"))
 
+
 def create_bakery_counter():
-    # 64x48 Balcão da padaria com sino dourado e pães
+    # 64x48 Balcão da padaria em perspectiva isométrica 2:1 com pães e sino dourado
     img = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Estrutura de madeira do balcão
-    d.rectangle([6, 18, 58, 46], fill=(145, 95, 55), outline=(90, 55, 30))
-    # Tampo de mármore/madeira clara
-    d.rectangle([4, 14, 60, 19], fill=(215, 185, 145), outline=(130, 95, 60))
-    # Painéis de madeira chanfrados
-    d.rectangle([10, 24, 28, 42], fill=(120, 75, 40), outline=(80, 45, 20))
-    d.rectangle([36, 24, 54, 42], fill=(120, 75, 40), outline=(80, 45, 20))
-    # Cesta de pães à esquerda
-    d.ellipse([10, 10, 26, 16], fill=(195, 145, 85), outline=(130, 90, 45))
-    d.ellipse([12, 8, 18, 13], fill=(225, 175, 95), outline=(160, 110, 50)) # Pão francês
-    d.ellipse([18, 8, 24, 13], fill=(215, 165, 85), outline=(150, 100, 40))
-    # Sino de balcão dourado à direita (Farol sonoro)
-    d.ellipse([44, 11, 52, 15], fill=(240, 200, 60), outline=(160, 120, 20)) # Campânula
-    d.rectangle([47, 9, 49, 11], fill=(255, 225, 100)) # Botão do sino
-    d.rectangle([43, 14, 53, 16], fill=(180, 140, 30)) # Base
+    cx, cy = 32, 26
+
+    # Corpo de madeira do balcão
+    draw_iso_box(d, cx, cy, -6, -3, 6, 4, 0, 16, (165, 112, 68), (145, 94, 54), (112, 70, 38))
+    # Tampo de mármore creme
+    draw_iso_box(d, cx, cy, -6.5, -3.5, 6.5, 4.5, 16, 19, (238, 226, 204), (214, 198, 174), (184, 168, 144))
+
+    # Cesta de vime e pães dourados no lado esquerdo do tampo
+    bx, by = iso_pt(cx, cy, -2, 1, 20)
+    d.ellipse([bx - 8, by - 4, bx + 8, by + 4], fill=(185, 132, 74), outline=OUTLINE)
+    d.ellipse([bx - 6, by - 6, bx + 1, by - 1], fill=(232, 182, 96), outline=(150, 102, 42))
+    d.ellipse([bx, by - 6, bx + 6, by - 1], fill=(222, 170, 84), outline=(150, 102, 42))
+
+    # Sino de balcão dourado à direita (farol sonoro)
+    sx, sy = iso_pt(cx, cy, 3, -1, 20)
+    d.ellipse([sx - 4, sy - 1, sx + 4, sy + 3], fill=(150, 112, 28))
+    d.ellipse([sx - 4, sy - 5, sx + 4, sy + 1], fill=(248, 212, 72), outline=(168, 126, 28))
+    d.rectangle([sx - 1, sy - 7, sx + 1, sy - 5], fill=(255, 240, 140))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "bakery_counter_64x48.png"))
 
+
 def create_fountain_stone():
-    # 64x64 Chafariz de pedra com água
+    # 64x64 Chafariz de pedra isométrico 2:1 (elipses em proporção 2:1)
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Bacia inferior de pedra
-    d.ellipse([6, 36, 58, 62], fill=(140, 145, 150), outline=(90, 95, 100), width=2)
-    # Água azul na bacia
-    d.ellipse([10, 40, 54, 58], fill=(70, 160, 220), outline=(50, 130, 190))
-    d.ellipse([14, 44, 50, 54], fill=(100, 190, 240)) # Brilho da água
-    # Pedestal central
-    d.rectangle([28, 20, 36, 44], fill=(160, 165, 170), outline=(100, 105, 110))
-    # Bacia superior menor
-    d.ellipse([20, 16, 44, 26], fill=(150, 155, 160), outline=(100, 105, 110))
-    d.ellipse([22, 18, 42, 24], fill=(80, 175, 235))
-    # Bico jorrador e jatos de água
-    d.rectangle([30, 8, 34, 17], fill=(170, 175, 180), outline=(110, 115, 120))
-    d.line([32, 6, 26, 18], fill=(180, 230, 255), width=2)
-    d.line([32, 6, 38, 18], fill=(180, 230, 255), width=2)
-    d.line([22, 22, 16, 42], fill=(160, 220, 255), width=1)
-    d.line([42, 22, 48, 42], fill=(160, 220, 255), width=1)
+
+    # Base octogonal/elíptica 2:1 de pedra (sombra lateral + borda superior)
+    d.ellipse([6, 36, 58, 60], fill=(104, 110, 118), outline=OUTLINE)
+    d.ellipse([6, 32, 58, 56], fill=(154, 160, 168), outline=OUTLINE)
+    # Água cristalina na bacia inferior (proporção 2:1)
+    d.ellipse([11, 35, 53, 53], fill=(64, 152, 212), outline=(46, 116, 172))
+    d.ellipse([16, 38, 48, 50], fill=(98, 186, 238))
+    d.arc([14, 37, 50, 51], start=190, end=350, fill=(195, 238, 255), width=1)
+
+    # Coluna central esculpida
+    draw_iso_box(d, 32, 44, -2, -2, 2, 2, 0, 22, (168, 174, 182), (144, 150, 158), (112, 118, 126))
+
+    # Bacia superior 2:1
+    d.ellipse([18, 18, 46, 30], fill=(116, 122, 130), outline=OUTLINE)
+    d.ellipse([18, 15, 46, 27], fill=(166, 172, 180), outline=OUTLINE)
+    d.ellipse([21, 17, 43, 25], fill=(78, 172, 232))
+
+    # Pináculo central e quedas d'água arqueadas
+    draw_iso_box(d, 32, 21, -1, -1, 1, 1, 0, 10, (176, 182, 190))
+    d.line([(32, 9), (24, 19)], fill=(190, 236, 255), width=2)
+    d.line([(32, 9), (40, 19)], fill=(190, 236, 255), width=2)
+    d.line([(21, 23), (16, 41)], fill=(165, 224, 252), width=1)
+    d.line([(43, 23), (48, 41)], fill=(165, 224, 252), width=1)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "fountain_stone_64x64.png"))
 
+
 def create_church_portal():
-    # 64x80 Portal da Matriz com sino de bronze
+    # 64x80 Portal da Matriz em perspectiva isométrica 2:1 com torre sineira
     img = Image.new("RGBA", (64, 80), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Fachada em pedra
-    d.rectangle([8, 16, 56, 78], fill=(135, 130, 125), outline=(85, 80, 75))
-    # Arco ogival superior
-    d.polygon([(8, 16), (32, 2), (56, 16)], fill=(150, 145, 140), outline=(85, 80, 75))
-    # Nicho do sino na torre
-    d.rectangle([22, 8, 42, 28], fill=(50, 45, 40), outline=(75, 70, 65))
-    d.arc([22, 6, 42, 20], start=180, end=360, fill=(75, 70, 65), width=2)
-    # Sino de bronze
-    d.ellipse([27, 14, 37, 24], fill=(190, 120, 40), outline=(120, 70, 20))
-    d.rectangle([29, 10, 35, 14], fill=(130, 75, 20)) # Cabeçote
-    d.ellipse([30, 23, 34, 26], fill=(220, 150, 50)) # Badalo
-    # Portal de carvalho escuro
-    d.rectangle([18, 38, 46, 78], fill=(65, 42, 25), outline=(40, 25, 15))
-    d.arc([18, 26, 46, 50], start=180, end=360, fill=(40, 25, 15), width=2)
-    # Dobradiças de ferro e ferragens
-    d.line([19, 44, 30, 44], fill=(20, 20, 20), width=2)
-    d.line([19, 66, 30, 66], fill=(20, 20, 20), width=2)
-    d.line([34, 44, 45, 44], fill=(20, 20, 20), width=2)
-    d.line([34, 66, 45, 66], fill=(20, 20, 20), width=2)
+    cx, cy = 32, 56
+
+    # Degrau de pedra colonial na base
+    draw_iso_box(d, cx, cy, -7, -4, 7, 5, 0, 4, (172, 166, 156), (148, 142, 132), (118, 112, 104))
+    # Corpo principal do portal em cantaria isométrica
+    draw_iso_box(d, cx, cy, -6, -3, 6, 3, 4, 38, (224, 214, 196), (206, 196, 178), (168, 158, 142))
+    # Cornija/Cimalha colonial
+    draw_iso_box(d, cx, cy, -6.5, -3.5, 6.5, 3.5, 38, 42, (164, 148, 128), (146, 130, 112), (116, 102, 86))
+    # Campanário superior (torre do sino)
+    draw_iso_box(d, cx, cy, -3.5, -2, 3.5, 2, 42, 60, (216, 206, 188), (198, 188, 170), (162, 152, 136))
+
+    # Porta arqueada de jacarandá na face Sul-Oeste (iluminada)
+    p1 = iso_pt(cx, cy, -3, 3, 4)
+    p2 = iso_pt(cx, cy, 3, 3, 4)
+    p3 = iso_pt(cx, cy, 3, 3, 28)
+    p4 = iso_pt(cx, cy, 0, 3, 33)
+    p5 = iso_pt(cx, cy, -3, 3, 28)
+    d.polygon([p1, p2, p3, p4, p5], fill=(78, 48, 28), outline=OUTLINE)
+    mid_top = iso_pt(cx, cy, 0, 3, 32)
+    mid_bot = iso_pt(cx, cy, 0, 3, 4)
+    d.line([mid_top, mid_bot], fill=OUTLINE, width=1)
+
+    # Nicho do sino e sino de bronze dourado
+    s1 = iso_pt(cx, cy, -1.8, 2, 44)
+    s2 = iso_pt(cx, cy, 1.8, 2, 44)
+    s3 = iso_pt(cx, cy, 1.8, 2, 55)
+    s4 = iso_pt(cx, cy, -1.8, 2, 55)
+    d.polygon([s1, s2, s3, s4], fill=(46, 38, 34), outline=OUTLINE)
+    bx, by = iso_pt(cx, cy, 0, 2, 49)
+    d.ellipse([bx - 4, by - 3, bx + 4, by + 4], fill=(228, 176, 58), outline=(138, 96, 24))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "church_portal_64x80.png"))
 
+
 def create_window_breeze():
-    # 48x64 Janela veneziana com vento e cortina
+    # 48x64 Janela veneziana isométrica com brisa e cortina esvoaçante
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Moldura de madeira da janela
-    d.rectangle([6, 8, 42, 58], fill=(60, 75, 95), outline=(120, 80, 45), width=3) # Vidro azul escuro
-    # Veneziana esquerda aberta
-    d.rectangle([2, 10, 14, 56], fill=(145, 95, 55), outline=(85, 50, 25))
-    for y in range(14, 54, 5):
-        d.line([3, y, 13, y], fill=(100, 60, 30), width=1)
-    # Veneziana direita entreaberta batendo
-    d.rectangle([34, 10, 46, 56], fill=(145, 95, 55), outline=(85, 50, 25))
-    for y in range(14, 54, 5):
-        d.line([35, y, 45, y], fill=(100, 60, 30), width=1)
-    # Cortina de linho ondulando com o vento
-    d.polygon([(16, 8), (28, 8), (34, 30), (28, 56), (18, 54), (22, 28)], fill=(245, 245, 240, 220))
-    d.line([(18, 54), (28, 56)], fill=(200, 200, 190), width=1)
-    # Tranca de metal na janela
-    d.rectangle([22, 36, 26, 40], fill=(200, 170, 50), outline=(110, 90, 20))
+    cx, cy = 24, 44
+
+    # Parede/peitoril isométrico onde a janela se apoia
+    draw_iso_box(d, cx, cy, -5, -2, 5, 2, 0, 36, (158, 106, 64), (138, 90, 52), (104, 66, 36))
+    # Vidro celeste em perspectiva na face SW
+    w1 = iso_pt(cx, cy, -3.5, 2, 6)
+    w2 = iso_pt(cx, cy, 3.5, 2, 6)
+    w3 = iso_pt(cx, cy, 3.5, 2, 31)
+    w4 = iso_pt(cx, cy, -3.5, 2, 31)
+    d.polygon([w1, w2, w3, w4], fill=(92, 146, 186), outline=OUTLINE)
+    # Reflexo diagonal no vidro
+    d.line([(w4[0] + 3, w4[1] + 4), (w1[0] + 6, w1[1] - 3)], fill=(175, 220, 248), width=2)
+
+    # Cortina de linho creme soprando para fora (isométrica)
+    c1 = iso_pt(cx, cy, -2, 2, 30)
+    c2 = iso_pt(cx, cy, 3, 2, 30)
+    c3 = iso_pt(cx, cy, 4, 5, 14)
+    c4 = iso_pt(cx, cy, -1, 4, 10)
+    d.polygon([c1, c2, c3, c4], fill=(246, 240, 226), outline=(182, 172, 154))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "window_breeze_48x64.png"))
 
+
 def create_reading_desk():
-    # 56x48 Escrivaninha de mogno com estojo de óculos e relógio
+    # 56x48 Escrivaninha de leitura isométrica 2:1 com partitura e óculos
     img = Image.new("RGBA", (56, 48), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Pernas e gaveteiro
-    d.rectangle([6, 18, 50, 46], fill=(110, 60, 30), outline=(65, 35, 15))
-    d.rectangle([10, 24, 24, 42], fill=(85, 45, 20), outline=(55, 30, 10)) # Gavetas
-    d.rectangle([15, 30, 19, 32], fill=(210, 180, 50)) # Puxador
-    d.rectangle([15, 38, 19, 40], fill=(210, 180, 50))
-    # Tampo da escrivaninha
-    d.rectangle([4, 14, 52, 20], fill=(150, 85, 45), outline=(90, 50, 25))
-    # Partitura aberta branca
-    d.rectangle([26, 12, 38, 16], fill=(240, 235, 220), outline=(180, 175, 160))
-    d.line([28, 13, 36, 13], fill=(80, 80, 80))
-    d.line([28, 15, 36, 15], fill=(80, 80, 80))
-    # Estojo de óculos vermelho aveludado
-    d.ellipse([38, 13, 48, 17], fill=(160, 35, 45), outline=(95, 20, 25))
-    # Óculos de aro metálico redondos
-    d.ellipse([40, 11, 44, 15], outline=(220, 200, 70), width=1)
-    d.ellipse([44, 11, 48, 15], outline=(220, 200, 70), width=1)
-    d.line([43, 13, 45, 13], fill=(220, 200, 70))
-    # Relógio de pulso de couro
-    d.line([12, 14, 18, 14], fill=(80, 50, 20), width=2)
-    d.ellipse([14, 12, 17, 16], fill=(230, 230, 230), outline=(180, 150, 40))
+    cx, cy = 28, 28
+
+    # Gaveteiro lateral esquerdo e pernas direitas
+    draw_iso_box(d, cx, cy, -5.5, -2.5, -1.5, 3.5, 0, 14, (124, 72, 38), (108, 62, 32), (84, 46, 22))
+    draw_iso_box(d, cx, cy, 3.5, -2.5, 5.5, 3.5, 0, 14, (124, 72, 38), (108, 62, 32), (84, 46, 22))
+    # Tampo de mogno polido
+    draw_iso_box(d, cx, cy, -6, -3, 6, 4, 14, 17, (168, 102, 54), (144, 84, 42), (112, 64, 30))
+
+    # Partitura aberta em losango sobre o tampo
+    s_n = iso_pt(cx, cy, -2, -1, 18)
+    s_e = iso_pt(cx, cy, 2, -1, 18)
+    s_s = iso_pt(cx, cy, 2, 2, 18)
+    s_w = iso_pt(cx, cy, -2, 2, 18)
+    d.polygon([s_n, s_e, s_s, s_w], fill=(246, 240, 224), outline=(172, 162, 146))
+
+    # Estojo vermelho e relógio dourado (farol sonoro)
+    rx, ry = iso_pt(cx, cy, 3.5, 1, 18)
+    d.ellipse([rx - 4, ry - 2, rx + 4, ry + 2], fill=(182, 42, 52), outline=OUTLINE)
+    wx, wy = iso_pt(cx, cy, -3.5, 1, 18)
+    d.ellipse([wx - 3, wy - 2, wx + 3, wy + 2], fill=(242, 206, 78), outline=(152, 116, 28))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "reading_desk_56x48.png"))
 
+
 def create_hanging_fern():
-    # 48x64 Samambaia suspensa com regador de latão
+    # 48x64 Pedestal isométrico com samambaia e regador de latão
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Corrente de suspensão
-    d.line([24, 2, 24, 18], fill=(160, 160, 160), width=1)
-    d.line([24, 18, 16, 26], fill=(130, 130, 130), width=1)
-    d.line([24, 18, 32, 26], fill=(130, 130, 130), width=1)
-    # Vaso de cerâmica terracota
-    d.polygon([(16, 26), (32, 26), (28, 36), (20, 36)], fill=(195, 95, 60), outline=(130, 60, 35))
-    # Folhagem da samambaia caindo em cascata
-    for dx, dy in [(-8, 4), (-4, 8), (0, 12), (4, 10), (8, 6), (-12, 10), (12, 12), (-6, 16), (6, 18)]:
-        d.arc([24+dx-10, 26+dy-6, 24+dx+10, 26+dy+14], start=30, end=150, fill=(45, 140, 55), width=2)
-        d.arc([24+dx-8, 26+dy-4, 24+dx+8, 26+dy+12], start=40, end=140, fill=(75, 185, 70), width=1)
-    # Regador de latão apoiado embaixo
-    d.rectangle([18, 48, 30, 60], fill=(215, 180, 60), outline=(145, 110, 30))
-    d.line([30, 54, 38, 46], fill=(215, 180, 60), width=2) # Bico fino
-    d.ellipse([36, 44, 40, 48], fill=(235, 200, 80)) # Ponta do regador
-    d.arc([12, 48, 20, 60], start=90, end=270, fill=(145, 110, 30), width=2) # Alça
+    cx, cy = 22, 44
+
+    # Pedestal de madeira isométrico
+    draw_iso_box(d, cx, cy, -2.5, -2.5, 2.5, 2.5, 0, 22, (148, 96, 56), (126, 80, 44), (96, 58, 30))
+    # Vaso de terracota
+    draw_iso_box(d, cx, cy, -3, -3, 3, 3, 22, 32, (204, 102, 64), (182, 86, 52), (144, 64, 38))
+
+    # Folhagem rica da samambaia em camadas
+    vx, vy = iso_pt(cx, cy, 0, 0, 32)
+    for ox, oy, r, col in [
+        (-8, 2, 6, (44, 128, 56)), (8, 2, 6, (38, 114, 48)),
+        (-5, -4, 6, (58, 152, 68)), (5, -4, 6, (48, 138, 58)),
+        (0, 4, 7, (52, 144, 62)), (0, -2, 7, (78, 182, 84)),
+    ]:
+        d.ellipse([vx + ox - r, vy + oy - r // 2, vx + ox + r, vy + oy + r // 2 + 3], fill=col, outline=OUTLINE)
+
+    # Regador de latão dourado na base direita
+    draw_iso_box(d, cx + 10, cy + 4, -2, -2, 2, 2, 0, 9, (232, 194, 68), (206, 168, 52), (168, 132, 36))
+    d.line([(cx + 14, cy), (cx + 21, cy - 6)], fill=(232, 194, 68), width=2)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "hanging_fern_48x64.png"))
 
+
 def create_porcelain_cupboard():
-    # 48x64 Cristaleira de porcelana com xícara e bule
+    # 48x64 Cristaleira isométrica 2:1 com xícaras e bule de porcelana
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Estrutura em madeira clara
-    d.rectangle([6, 8, 42, 62], fill=(155, 115, 80), outline=(95, 65, 40))
-    # Prateleiras envidraçadas
-    d.rectangle([10, 12, 38, 38], fill=(225, 240, 245, 180), outline=(85, 55, 35))
-    d.line([10, 25, 38, 25], fill=(125, 85, 55), width=2)
-    # Xícaras de porcelana branca e dourada
-    d.ellipse([14, 20, 22, 24], fill=(250, 250, 250), outline=(210, 175, 60))
-    d.ellipse([26, 20, 34, 24], fill=(250, 250, 250), outline=(210, 175, 60))
-    # Bule de café/chá na bancada
-    d.ellipse([18, 42, 30, 52], fill=(245, 245, 245), outline=(180, 145, 40))
-    d.line([30, 45, 36, 41], fill=(220, 180, 60), width=2) # Bico
-    # Portas inferiores de madeira
-    d.rectangle([10, 40, 23, 58], fill=(130, 90, 60), outline=(80, 50, 30))
-    d.rectangle([25, 40, 38, 58], fill=(130, 90, 60), outline=(80, 50, 30))
+    cx, cy = 24, 44
+
+    # Base do buffet
+    draw_iso_box(d, cx, cy, -4.5, -2.5, 4.5, 3, 0, 18, (162, 108, 66), (140, 90, 52), (108, 66, 36))
+    # Cristaleira superior
+    draw_iso_box(d, cx, cy, -4, -2.5, 4, 2, 18, 40, (176, 122, 78), (152, 102, 62), (118, 76, 44))
+
+    # Vitrine azul-clara na face SW com porcelanas brancas/douradas
+    v1 = iso_pt(cx, cy, -3, 2, 21)
+    v2 = iso_pt(cx, cy, 3, 2, 21)
+    v3 = iso_pt(cx, cy, 3, 2, 37)
+    v4 = iso_pt(cx, cy, -3, 2, 37)
+    d.polygon([v1, v2, v3, v4], fill=(186, 218, 228), outline=OUTLINE)
+
+    # Bule e xícara
+    tx, ty = iso_pt(cx, cy, 0, 2, 26)
+    d.ellipse([tx - 4, ty - 3, tx + 4, ty + 3], fill=(250, 248, 242), outline=(196, 158, 52))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "porcelain_cupboard_48x64.png"))
 
+
 def create_yarn_basket():
-    # 40x36 Cesta de novelo de lã com sininho
+    # 40x36 Cesta de vime isométrica 2:1 com novelos de lã e guizo dourado
     img = Image.new("RGBA", (40, 36), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Cesta de vime
-    d.ellipse([6, 14, 34, 32], fill=(175, 130, 80), outline=(115, 80, 45), width=2)
-    d.ellipse([8, 16, 32, 26], fill=(130, 90, 50))
-    # Novelo de lã vermelho-rubi
-    d.ellipse([12, 10, 26, 24], fill=(205, 45, 55), outline=(145, 25, 35))
-    d.arc([14, 12, 24, 22], start=30, end=150, fill=(245, 95, 105), width=2)
-    # Fio desenrolado no chão
-    d.line([(24, 22), (28, 28), (34, 26), (36, 30)], fill=(205, 45, 55), width=2)
-    # Sininho de bronze na ponta
-    d.ellipse([34, 28, 38, 33], fill=(235, 195, 55), outline=(155, 120, 25))
+
+    # Cesta elíptica 2:1
+    d.ellipse([5, 14, 35, 31], fill=(146, 102, 58), outline=OUTLINE)
+    d.ellipse([5, 10, 35, 26], fill=(188, 142, 88), outline=OUTLINE)
+    d.ellipse([8, 12, 32, 24], fill=(122, 84, 46))
+
+    # Novelos de lã rubi e creme
+    d.ellipse([11, 8, 23, 19], fill=(212, 52, 62), outline=OUTLINE)
+    d.arc([13, 10, 21, 17], start=20, end=160, fill=(248, 112, 120), width=1)
+    d.ellipse([20, 10, 30, 19], fill=(238, 216, 172), outline=OUTLINE)
+
+    # Guizo dourado na frente
+    d.ellipse([26, 23, 32, 29], fill=(242, 202, 64), outline=OUTLINE)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "yarn_basket_40x36.png"))
 
+
 def create_broom_bucket():
-    # 36x48 Vassoura de palha apoiada no balde
+    # 36x48 Balde de zinco isométrico e vassoura de palha
     img = Image.new("RGBA", (36, 48), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Balde de metal galvanizado
-    d.polygon([(14, 26), (28, 26), (26, 44), (16, 44)], fill=(165, 175, 185), outline=(105, 115, 125))
-    d.ellipse([14, 24, 28, 28], fill=(185, 195, 205), outline=(105, 115, 125))
-    # Cabo de madeira da vassoura
-    d.line([8, 4, 22, 42], fill=(160, 110, 60), width=3)
-    # Cerdas de palha amarela amarradas
-    d.polygon([(6, 2), (12, 2), (18, 18), (2, 18)], fill=(225, 195, 95), outline=(165, 135, 55))
-    d.line([3, 12, 17, 12], fill=(175, 45, 45), width=2) # Amarração vermelha
-    # Folhas secas no chão
-    d.ellipse([24, 42, 30, 45], fill=(185, 115, 45))
-    d.ellipse([10, 43, 15, 46], fill=(165, 95, 35))
+
+    # Balde cilíndrico isométrico
+    d.polygon([(12, 26), (28, 26), (26, 42), (14, 42)], fill=(154, 166, 178), outline=OUTLINE)
+    d.ellipse([14, 39, 26, 45], fill=(132, 144, 156), outline=OUTLINE)
+    d.ellipse([12, 23, 28, 31], fill=(192, 204, 216), outline=OUTLINE)
+    d.ellipse([14, 25, 26, 29], fill=(92, 164, 214))
+
+    # Cabo e palha da vassoura inclinada
+    d.line([(8, 5), (22, 41)], fill=(168, 114, 62), width=2)
+    d.polygon([(4, 4), (12, 3), (16, 16), (3, 17)], fill=(232, 198, 92), outline=OUTLINE)
+    d.line([(4, 12), (15, 11)], fill=(188, 48, 48), width=2)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "broom_bucket_36x48.png"))
 
+
 def create_hallway_stand():
-    # 48x64 Aparador da entrada com cabideiro e chaves
+    # 48x64 Aparador de entrada isométrico 2:1 com espelho e chaves de latão
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Moldura alta de mogno
-    d.rectangle([8, 6, 40, 60], fill=(125, 75, 40), outline=(75, 40, 20))
-    # Espelho oval
-    d.ellipse([14, 12, 34, 34], fill=(215, 235, 245), outline=(180, 140, 70), width=2)
-    d.line([18, 16, 30, 30], fill=(255, 255, 255, 180), width=2) # Reflexo
-    # Bancada do aparador
-    d.rectangle([6, 36, 42, 44], fill=(155, 95, 55), outline=(90, 50, 25))
-    # Molho de chaves de latão pendurado no gancho
-    d.rectangle([21, 46, 27, 48], fill=(180, 140, 40)) # Gancho
-    d.ellipse([22, 48, 26, 52], outline=(235, 195, 55), width=2) # Argola
-    d.line([23, 52, 23, 58], fill=(235, 195, 55), width=2) # Chave 1
-    d.line([25, 52, 25, 60], fill=(215, 175, 45), width=2) # Chave 2
-    d.line([27, 52, 27, 56], fill=(245, 205, 65), width=2) # Chave 3
+    cx, cy = 24, 44
+
+    # Aparador inferior
+    draw_iso_box(d, cx, cy, -4.5, -2, 4.5, 2.5, 0, 18, (158, 98, 54), (136, 82, 44), (104, 60, 30))
+    # Painel alto do cabideiro/espelho
+    draw_iso_box(d, cx, cy, -4, -2, 4, -0.5, 18, 42, (138, 82, 44), (120, 70, 36), (92, 52, 26))
+
+    # Espelho na face SW
+    m1 = iso_pt(cx, cy, -2.5, -0.5, 22)
+    m2 = iso_pt(cx, cy, 2.5, -0.5, 22)
+    m3 = iso_pt(cx, cy, 2.5, -0.5, 38)
+    m4 = iso_pt(cx, cy, -2.5, -0.5, 38)
+    d.polygon([m1, m2, m3, m4], fill=(196, 228, 242), outline=(212, 172, 64))
+
+    # Molho de chaves dourado sobre o tampo
+    kx, ky = iso_pt(cx, cy, 1, 1, 19)
+    d.ellipse([kx - 3, ky - 2, kx + 3, ky + 2], fill=(242, 202, 64), outline=OUTLINE)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "hallway_stand_48x64.png"))
 
+
 def create_seaside_bench():
-    # 56x40 Banco do mirante com ripas de madeira e sal
+    # 56x40 Banco do mirante em projeção isométrica 2:1
     img = Image.new("RGBA", (56, 40), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Suportes de ferro envelhecido
-    d.rectangle([10, 18, 14, 36], fill=(65, 75, 80), outline=(40, 45, 50))
-    d.rectangle([42, 18, 46, 36], fill=(65, 75, 80), outline=(40, 45, 50))
-    # Encosto de ripas de madeira marítima
-    d.rectangle([6, 8, 50, 13], fill=(165, 145, 125), outline=(115, 95, 75))
-    d.rectangle([6, 15, 50, 20], fill=(155, 135, 115), outline=(115, 95, 75))
-    # Assento do banco
-    d.rectangle([4, 22, 52, 28], fill=(180, 160, 135), outline=(125, 105, 85))
-    # Manchas de sal e maresia
-    d.line([12, 10, 18, 10], fill=(230, 235, 240, 180))
-    d.line([34, 24, 42, 24], fill=(230, 235, 240, 180))
-    # Concha do mar aos pés do banco
-    d.ellipse([30, 33, 36, 37], fill=(245, 220, 200), outline=(190, 165, 145))
+    cx, cy = 28, 22
+
+    # Pés de ferro fundido
+    draw_iso_box(d, cx, cy, -6, -2, -4.5, 3, 0, 8, (68, 78, 86))
+    draw_iso_box(d, cx, cy, 4.5, -2, 6, 3, 0, 8, (68, 78, 86))
+    # Assento de madeira em perspectiva 2:1
+    draw_iso_box(d, cx, cy, -6.5, -2.5, 6.5, 3.5, 8, 11, (186, 158, 126), (162, 136, 106), (128, 106, 82))
+    # Encosto isométrico
+    draw_iso_box(d, cx, cy, -6.5, -2.5, 6.5, -1.2, 11, 21, (176, 148, 116), (154, 128, 98), (122, 98, 74))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "seaside_bench_56x40.png"))
 
+
 def create_station_lantern():
-    # 40x64 Lanterna de vapor da plataforma ferroviária
+    # 40x64 Poste e lanterna de vapor isométricos da plataforma
     img = Image.new("RGBA", (40, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Coluna de ferro fundido verde-escuro
-    d.rectangle([17, 24, 23, 62], fill=(45, 65, 55), outline=(25, 40, 35))
-    d.rectangle([13, 58, 27, 63], fill=(55, 75, 65), outline=(25, 40, 35)) # Base pesada
-    # Braço ornamental curvado
-    d.arc([10, 12, 30, 28], start=180, end=360, fill=(45, 65, 55), width=3)
-    # Cúpula da lanterna
-    d.polygon([(12, 10), (28, 10), (24, 4), (16, 4)], fill=(45, 65, 55), outline=(25, 40, 35))
-    # Vidro com luz âmbar quente de vapor
-    d.polygon([(14, 10), (26, 10), (24, 24), (16, 24)], fill=(255, 205, 80, 230), outline=(55, 75, 65))
-    d.ellipse([17, 14, 23, 20], fill=(255, 245, 180)) # Filamento brilhante
+    cx, cy = 20, 48
+
+    # Base octogonal/prisma de ferro verde-escuro
+    draw_iso_box(d, cx, cy, -3, -3, 3, 3, 0, 6, (62, 84, 74), (48, 68, 58), (34, 50, 42))
+    # Coluna central
+    draw_iso_box(d, cx, cy, -1.2, -1.2, 1.2, 1.2, 6, 32, (54, 76, 66), (42, 60, 52), (30, 44, 38))
+    # Câmara de vidro âmbar iluminada (farol sonoro/visual)
+    draw_iso_box(d, cx, cy, -2.8, -2.8, 2.8, 2.8, 32, 42, (255, 232, 132), (255, 212, 88), (228, 172, 54))
+    # Cúpula superior de ferro
+    draw_iso_box(d, cx, cy, -3.2, -3.2, 3.2, 3.2, 42, 45, (62, 84, 74), (48, 68, 58), (34, 50, 42))
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "station_lantern_40x64.png"))
 
+
 def create_cello_stand():
-    # 48x64 Violoncelo nobre com estante de partituras
+    # 48x64 Violoncelo em repouso no suporte isométrico + estante de partitura
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Suporte tripé de chão
-    d.line([16, 50, 10, 62], fill=(40, 40, 40), width=2)
-    d.line([32, 50, 38, 62], fill=(40, 40, 40), width=2)
-    # Corpo do violoncelo (madeira nobre castanha e envernizada)
-    d.ellipse([14, 26, 34, 52], fill=(145, 65, 25), outline=(85, 35, 10), width=2)
-    # Cintura em 'C' do cello
-    d.ellipse([12, 33, 18, 42], fill=(0, 0, 0, 0)) # Chanfro esquerdo
-    d.ellipse([30, 33, 36, 42], fill=(0, 0, 0, 0)) # Chanfro direito
-    # Efes (f-holes) clássicos
-    d.line([20, 34, 20, 42], fill=(40, 15, 5), width=1)
-    d.line([28, 34, 28, 42], fill=(40, 15, 5), width=1)
-    # Espelho de ébano e braço
-    d.rectangle([22, 10, 26, 32], fill=(30, 28, 26))
-    # Cravelhame e voluta esculpida
-    d.rectangle([21, 4, 27, 10], fill=(120, 50, 20))
-    d.ellipse([21, 2, 27, 6], fill=(145, 65, 25))
-    # 4 Cordas de aço
-    for x in [22, 23, 24, 25]:
-        d.line([x, 6, x, 50], fill=(215, 215, 220), width=1)
-    # Espigão de metal tocando o chão
-    d.line([24, 52, 24, 62], fill=(180, 185, 190), width=2)
+    cx, cy = 24, 46
+
+    # Tapete/base acústica circular 2:1 sob o violoncelo
+    d.ellipse([6, 38, 42, 56], fill=(116, 48, 44), outline=OUTLINE)
+    d.ellipse([9, 40, 39, 54], fill=(142, 62, 56))
+
+    # Caixa acústica do violoncelo em perspectiva 3/4
+    d.ellipse([13, 24, 35, 50], fill=(112, 48, 18), outline=OUTLINE)
+    d.ellipse([11, 24, 33, 50], fill=(168, 78, 32), outline=OUTLINE)
+    # Brilho do verniz e efes (f-holes)
+    d.arc([14, 27, 30, 47], start=195, end=330, fill=(212, 118, 58), width=1)
+    d.line([(18, 33), (18, 41)], fill=OUTLINE, width=1)
+    d.line([(26, 33), (26, 41)], fill=OUTLINE, width=1)
+
+    # Espelho de ébano, cravelhal e voluta
+    d.polygon([(20, 10), (24, 10), (24, 32), (20, 32)], fill=(38, 34, 32), outline=OUTLINE)
+    d.ellipse([19, 4, 25, 10], fill=(154, 68, 28), outline=OUTLINE)
+    # Cordas claras
+    d.line([(21, 9), (21, 46)], fill=(238, 232, 214), width=1)
+    d.line([(23, 9), (23, 46)], fill=(238, 232, 214), width=1)
+    # Espigão metálico
+    d.line([(22, 50), (22, 55)], fill=(210, 216, 222), width=2)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "cello_stand_48x64.png"))
 
+
 def create_wind_chimes_stand():
-    # 48x64 Pedestal com sinos de vento de cristal e bronze
+    # 48x64 Carrilhão de vento de concerto em pedestal isométrico 2:1
     img = Image.new("RGBA", (48, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # Haste dourada e base circular
-    d.rectangle([22, 12, 26, 58], fill=(195, 160, 60), outline=(130, 100, 30))
-    d.ellipse([14, 56, 34, 62], fill=(180, 145, 50), outline=(120, 90, 25))
-    # Disco suspensor superior
-    d.ellipse([12, 10, 36, 16], fill=(225, 195, 75), outline=(145, 115, 35))
-    # Tubos de bronze e cristal suspensos
-    tubes = [(16, 28, (215, 180, 70)), (20, 34, (200, 235, 255)), (28, 32, (200, 235, 255)), (32, 26, (215, 180, 70))]
-    for tx, th, color in tubes:
-        d.line([tx, 14, tx, 14+th], fill=color, width=2)
-    # Pêndulo central e pingente de cristal
-    d.line([24, 14, 24, 38], fill=(160, 130, 40), width=1)
-    d.ellipse([22, 26, 26, 30], fill=(200, 150, 40)) # Batedor
-    d.polygon([(24, 38), (27, 43), (24, 48), (21, 43)], fill=(220, 245, 255, 230), outline=(160, 210, 240)) # Prisma
+    cx, cy = 24, 46
+
+    # Base de madeira e latão em projeção 2:1
+    draw_iso_box(d, cx, cy, -4, -3, 4, 3, 0, 5, (142, 92, 48), (122, 76, 38), (94, 56, 26))
+    # Coluna lateral e travessa superior dourada
+    draw_iso_box(d, cx, cy, -3.5, -0.8, -2, 0.8, 5, 38, (218, 178, 62), (192, 152, 48), (154, 118, 32))
+    draw_iso_box(d, cx, cy, -4, -1.2, 4, 1.2, 36, 40, (238, 198, 76), (212, 172, 58), (172, 136, 42))
+
+    # Tubos acústicos cromáticos suspensos em diagonal isométrica
+    for i in range(6):
+        t = i / 5.0
+        top_pt = iso_pt(cx, cy, -2.5 + 5.0 * t, 0, 36)
+        length = 22 - i * 2
+        col = (242, 208, 92) if i % 2 == 0 else (206, 236, 255)
+        d.line([top_pt, (top_pt[0], top_pt[1] + length)], fill=col, width=2)
+
+    img = apply_crisp_outline(img)
     img.save(os.path.join(OUTPUT_DIR, "wind_chimes_stand_48x64.png"))
+
 
 if __name__ == "__main__":
     create_iron_gate()
@@ -332,4 +500,4 @@ if __name__ == "__main__":
     create_station_lantern()
     create_cello_stand()
     create_wind_chimes_stand()
-    print("All 15 pixel art scenery props generated successfully!")
+    print("All 15 isometric 2:1 pixel art scenery props generated successfully!")

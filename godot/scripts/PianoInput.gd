@@ -38,8 +38,10 @@ const BLACK_KEY_COLOR := Color(0.12, 0.12, 0.14)
 var _buttons: Array[Button] = []
 var _button_notes: Array[String] = []
 var _key_icons: Array[Control] = []
+var _key_tweens: Array = []
 # Paralelo às notas armáveis (correr/pular); atualizado por on_armed_state_changed.
 var _armed: Array[bool] = [false, false, false, false]
+var _level_cues_allowed: bool = true
 
 ## Índices 1,3,6,8,10 (C#,D#,F#,G#,A#) são as teclas pretas de uma oitava --
 ## os únicos 5 "buracos" no padrão cromático de 12 semitons (não há preta
@@ -67,6 +69,7 @@ func _ready() -> void:
 		var btn := Button.new()
 		btn.position = Vector2(key_x_position(i), 0)
 		btn.size = Vector2(BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT) if black else Vector2(WHITE_KEY_WIDTH - 2, WHITE_KEY_HEIGHT)
+		btn.pivot_offset = Vector2(btn.size.x * 0.5, 0.0)
 		btn.pressed.connect(_emit_note.bind(note_key))
 		add_child(btn)
 		var icon: Control = load("res://scripts/ActionIcon.gd").new()
@@ -85,6 +88,7 @@ func _ready() -> void:
 		_key_icons.append(icon)
 		_buttons.append(btn)
 		_button_notes.append(note_key)
+		_key_tweens.append(null)
 	# Reordena os FILHOS (não os arrays _buttons/_button_notes, que ficam na
 	# ordem cromática de NoteMapping) pra que as teclas pretas desenhem por
 	# cima das brancas -- igual a um piano de verdade.
@@ -99,9 +103,39 @@ func _ready() -> void:
 	# parâmetros daquele sinal.
 	ColorSchemeSettings.control_cues_changed.connect(_on_control_cues_changed)
 	_apply_cue()
+	queue_redraw()
+
+func _draw() -> void:
+	var total_w := 7.0 * WHITE_KEY_WIDTH
+	# Caixa de mogno escuro + friso de latão + feltro carmesim no topo do teclado
+	var bed_rect := Rect2(Vector2(-6.0, -12.0), Vector2(total_w + 12.0, WHITE_KEY_HEIGHT + 18.0))
+	draw_rect(bed_rect, Color(0.14, 0.09, 0.06, 0.96))
+	draw_rect(bed_rect, Color(0.72, 0.56, 0.32, 0.70), false, 2.0)
+	draw_rect(Rect2(Vector2(-2.0, -6.0), Vector2(total_w + 4.0, 6.0)), Color(0.58, 0.12, 0.14, 0.95))
 
 func _emit_note(note_key: String) -> void:
+	var idx := _button_notes.find(note_key)
+	if idx >= 0 and idx < _buttons.size():
+		_animate_key_press(idx)
 	note_triggered.emit(note_key)
+
+func _animate_key_press(idx: int) -> void:
+	var btn := _buttons[idx]
+	if _key_tweens[idx] != null and _key_tweens[idx].is_valid():
+		_key_tweens[idx].kill()
+	var tw := create_tween()
+	_key_tweens[idx] = tw
+	tw.tween_property(btn, "scale", Vector2(0.98, 0.96), 0.04).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(btn, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func set_level_cues_allowed(allowed: bool) -> void:
+	if _level_cues_allowed == allowed:
+		return
+	_level_cues_allowed = allowed
+	_apply_cue()
+
+func _effective_show_cues() -> bool:
+	return ColorSchemeSettings.shows_control_cues() and _level_cues_allowed
 
 func _on_scheme_changed(_id: String) -> void:
 	_apply_cue()
@@ -116,7 +150,7 @@ func _apply_cue() -> void:
 	# No "só som" com o interruptor ligado o teclado continua colorido e
 	# nomeado, de propósito -- o desafio é reconhecer a nota de ouvido, não
 	# adivinhar onde ela mora no teclado.
-	var show_cues := ColorSchemeSettings.shows_control_cues()
+	var show_cues := _effective_show_cues()
 	for i in range(_buttons.size()):
 		var note_key := _button_notes[i]
 		_buttons[i].text = NoteMapping.label_for(note_key) if show_cues else ""

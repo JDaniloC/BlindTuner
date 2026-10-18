@@ -228,6 +228,20 @@ func play_cane_tap_sfx() -> AudioStreamPlayer:
     player.play()
     return player
 
+## Toca um clique sutil da ponta da bengala no piso a cada passo, sem mascarar ou interromper a nota musical.
+func play_cane_step_sfx() -> AudioStreamPlayer:
+    var player := AudioStreamPlayer.new()
+    player.stream = _generate_cane_tap_stream()
+    player.volume_db = -8.0
+    add_child(player)
+    player.finished.connect(func():
+        if is_instance_valid(player):
+            player.queue_free()
+    )
+    player.play()
+    return player
+
+
 func _generate_cane_tap_stream() -> AudioStreamWAV:
     var duration := 0.2
     var total_samples := int(MIX_RATE * duration)
@@ -512,6 +526,24 @@ func get_beacon_stream(beacon_type: String) -> AudioStreamWAV:
             stream = _generate_bike_bell_beacon_stream()
         "paper_rustle":
             stream = _generate_paper_rustle_beacon_stream()
+        "coffee_grinder":
+            stream = _generate_coffee_grinder_beacon_stream()
+        "kettle_whistle":
+            stream = _generate_kettle_whistle_beacon_stream()
+        "loom_shuttle":
+            stream = _generate_loom_shuttle_beacon_stream()
+        "accordion_drone":
+            stream = _generate_accordion_drone_beacon_stream()
+        "castanets_click":
+            stream = _generate_castanets_click_beacon_stream()
+        "dock_bell":
+            stream = _generate_dock_bell_beacon_stream()
+        "organ_pipe":
+            stream = _generate_organ_pipe_beacon_stream()
+        "tambourine_shake":
+            stream = _generate_tambourine_shake_beacon_stream()
+        "cathedral_echo":
+            stream = _generate_cathedral_echo_beacon_stream()
         _:
             stream = _generate_radio_beacon_stream()
     _beacon_stream_cache[beacon_type] = stream
@@ -642,6 +674,12 @@ func get_mob_stream(mob_sound: String) -> AudioStreamWAV:
             stream = _generate_canary_sing_stream()
         "canary_flap":
             stream = _generate_canary_flap_stream()
+        "pedestrian_greeting":
+            stream = _generate_pedestrian_greeting_stream()
+        "postman_bell", "bike_bell":
+            stream = _generate_bike_bell_beacon_stream()
+        "baker_greeting":
+            stream = _generate_baker_greeting_stream()
         _:
             stream = _generate_cat_meow_stream()
     _mob_stream_cache[mob_sound] = stream
@@ -1008,6 +1046,49 @@ func _generate_canary_flap_stream() -> AudioStreamWAV:
         phase = fposmod(phase + (cur_freq / MIX_RATE), 1.0)
     return _create_pcm16_wav(samples)
 
+func _generate_pedestrian_greeting_stream() -> AudioStreamWAV:
+    var duration := 0.45
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env1 := sin((t / 0.16) * PI) if (t < 0.16) else 0.0
+        var t2 := t - 0.12
+        var env2 := exp(-t2 * 7.5) if (t2 >= 0.0) else 0.0
+        var tone1 := (sin(phase1 * TAU) + 0.3 * sin(phase1 * TAU * 2.0)) * env1
+        var tone2 := (sin(phase2 * TAU) + 0.25 * sin(phase2 * TAU * 2.0) + 0.1 * sin(phase2 * TAU * 3.0)) * env2
+        samples[i] = (tone1 * 0.4 + tone2 * 0.45) * 0.5
+        phase1 = fposmod(phase1 + (622.25 / MIX_RATE), 1.0)
+        phase2 = fposmod(phase2 + (783.99 / MIX_RATE), 1.0)
+    return _create_pcm16_wav(samples)
+
+func _generate_baker_greeting_stream() -> AudioStreamWAV:
+    var duration := 0.42
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var phase3 := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env1 := sin((t / 0.14) * PI) if (t < 0.14) else 0.0
+        var t2 := t - 0.10
+        var env2 := sin((t2 / 0.14) * PI) if (t2 >= 0.0 and t2 < 0.14) else 0.0
+        var t3 := t - 0.18
+        var env3 := exp(-t3 * 8.0) if (t3 >= 0.0) else 0.0
+        var tone1 := (sin(phase1 * TAU) + 0.3 * sin(phase1 * TAU * 2.0)) * env1
+        var tone2 := (sin(phase2 * TAU) + 0.3 * sin(phase2 * TAU * 2.0)) * env2
+        var tone3 := (sin(phase3 * TAU) + 0.25 * sin(phase3 * TAU * 2.0) + 0.15 * sin(phase3 * TAU * 3.0)) * env3
+        samples[i] = (tone1 * 0.35 + tone2 * 0.4 + tone3 * 0.45) * 0.5
+        phase1 = fposmod(phase1 + (523.25 / MIX_RATE), 1.0)
+        phase2 = fposmod(phase2 + (659.25 / MIX_RATE), 1.0)
+        phase3 = fposmod(phase3 + (783.99 / MIX_RATE), 1.0)
+    return _create_pcm16_wav(samples)
+
 func _generate_ocean_waves_beacon_stream() -> AudioStreamWAV:
     var duration := 1.2
     var total_samples := int(MIX_RATE * duration)
@@ -1131,7 +1212,213 @@ func _generate_paper_rustle_beacon_stream() -> AudioStreamWAV:
         samples[i] = noise * env * 0.35
     return _create_pcm16_wav(samples)
 
+func _generate_coffee_grinder_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.65
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p_ratchet := 0.0
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        # Três pulsos mecânicos de moagem com ruído áspero de grãos triturados
+        var turn_phase: float = fposmod(t * 3.5, 1.0)
+        var click_env: float = exp(-turn_phase * 18.0)
+        p_ratchet = fposmod(p_ratchet + (420.0 / MIX_RATE), 1.0)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.35)
+        var crunch := (sin(p_ratchet * TAU) * 0.4 + noise * 0.6) * click_env
+        var body_env := sin((t / duration) * PI)
+        samples[i] = crunch * body_env * 0.45
+    return _create_pcm16_wav(samples)
 
+func _generate_kettle_whistle_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.75
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var phase1 := 0.0
+    var phase2 := 0.0
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        var vibrato := sin(t * TAU * 5.2) * 14.0
+        var f1 := 1260.0 + vibrato
+        var f2 := 2520.0 + vibrato * 1.5
+        phase1 = fposmod(phase1 + (f1 / MIX_RATE), 1.0)
+        phase2 = fposmod(phase2 + (f2 / MIX_RATE), 1.0)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.08)
+        var steam := sin(phase1 * TAU) * 0.75 + sin(phase2 * TAU) * 0.20 + noise * 0.08
+        samples[i] = steam * env * 0.40
+    return _create_pcm16_wav(samples)
 
+func _generate_loom_shuttle_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.60
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p_wood := 0.0
+    var noise := 0.0
+    var t_tap2 := 0.28
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        # Batida inicial de madeira da lançadeira
+        var env1 := exp(-t * 35.0)
+        # Fricção do fio de linho deslizando pela urdidura
+        var glide_env := sin(clampf(t / 0.50, 0.0, 1.0) * PI)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.22)
+        p_wood = fposmod(p_wood + (320.0 / MIX_RATE), 1.0)
+        var sound := (sin(p_wood * TAU) * 0.7 + noise * 0.3) * env1 + noise * glide_env * 0.25
+        # Segunda batida no batente oposto
+        if t >= t_tap2:
+            var dt: float = t - t_tap2
+            var env2 := exp(-dt * 38.0)
+            sound += (sin(p_wood * TAU * 1.2) * 0.7 + noise * 0.3) * env2 * 0.8
+        samples[i] = sound * 0.45
+    return _create_pcm16_wav(samples)
 
+func _generate_accordion_drone_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.85
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var f1 := 220.0 # A3
+    var f2 := 330.0 # E4
+    var f3 := 221.5 # Detune reed para tremolo natural de sanfona (~1.5Hz)
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        p3 = fposmod(p3 + (f3 / MIX_RATE), 1.0)
+        # Timbre palhetado rico em harmônicos ímpares
+        var s1 := (1.0 if p1 < 0.5 else -1.0) * 0.35 + sin(p1 * TAU) * 0.35
+        var s2 := sin(p2 * TAU) * 0.30
+        var s3 := (1.0 if p3 < 0.5 else -1.0) * 0.35 + sin(p3 * TAU) * 0.35
+        samples[i] = (s1 * 0.45 + s2 * 0.30 + s3 * 0.45) * env * 0.38
+    return _create_pcm16_wav(samples)
 
+func _generate_castanets_click_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.45
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var t2 := 0.11
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var sound := 0.0
+        # Primeiro clique da castanhola ("ta")
+        var env1 := exp(-t * 55.0)
+        p1 = fposmod(p1 + (1150.0 / MIX_RATE), 1.0)
+        sound += (sin(p1 * TAU) * 0.65 + randf_range(-0.35, 0.35)) * env1
+        # Segundo clique decisivo ("tac")
+        if t >= t2:
+            var dt: float = t - t2
+            var env2 := exp(-dt * 48.0)
+            p2 = fposmod(p2 + (980.0 / MIX_RATE), 1.0)
+            sound += (sin(p2 * TAU) * 0.70 + randf_range(-0.30, 0.30)) * env2 * 1.15
+        samples[i] = sound * 0.45
+    return _create_pcm16_wav(samples)
+
+func _generate_dock_bell_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.20
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var noise := 0.0
+    var f1 := 349.23 # F4
+    var f2 := 698.46 # F5
+    var f3 := 880.00 # A5
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var bell_env := exp(-t * 2.8)
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        p3 = fposmod(p3 + (f3 / MIX_RATE), 1.0)
+        var bell := sin(p1 * TAU) * 0.55 + sin(p2 * TAU) * 0.30 + sin(p3 * TAU) * 0.15
+        # Marulho suave de água no fundo
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.05)
+        var tide := noise * sin((t / duration) * PI) * 0.12
+        samples[i] = (bell * bell_env * 0.45 + tide)
+    return _create_pcm16_wav(samples)
+
+func _generate_organ_pipe_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.10
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var f1 := 130.81 # C3
+    var f2 := 261.63 # C4
+    var f3 := 392.00 # G4
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        # Chiff de ar no ataque do tubo
+        var chiff := exp(-t * 25.0) * 0.20
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.15)
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        p3 = fposmod(p3 + (f3 / MIX_RATE), 1.0)
+        var organ := sin(p1 * TAU) * 0.55 + sin(p2 * TAU) * 0.30 + sin(p3 * TAU) * 0.15
+        samples[i] = (organ + noise * chiff) * env * 0.45
+    return _create_pcm16_wav(samples)
+
+func _generate_tambourine_shake_beacon_stream() -> AudioStreamWAV:
+    var duration := 0.55
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p_zil1 := 0.0
+    var p_zil2 := 0.0
+    var p_skin := 0.0
+    var noise := 0.0
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        var env := sin((t / duration) * PI)
+        var shake_lfo := maxf(0.0, sin(t * TAU * 14.0))
+        p_zil1 = fposmod(p_zil1 + (3400.0 / MIX_RATE), 1.0)
+        p_zil2 = fposmod(p_zil2 + (4600.0 / MIX_RATE), 1.0)
+        noise = lerpf(noise, randf_range(-1.0, 1.0), 0.30)
+        var zils := (sin(p_zil1 * TAU) * 0.4 + sin(p_zil2 * TAU) * 0.3 + noise * 0.3) * shake_lfo
+        # Toque suave na pele do tamborim no início
+        var tap := exp(-t * 40.0)
+        p_skin = fposmod(p_skin + (240.0 / MIX_RATE), 1.0)
+        var skin := sin(p_skin * TAU) * tap * 0.4
+        samples[i] = (zils * 0.65 + skin * 0.35) * env * 0.45
+    return _create_pcm16_wav(samples)
+
+func _generate_cathedral_echo_beacon_stream() -> AudioStreamWAV:
+    var duration := 1.40
+    var total_samples := int(MIX_RATE * duration)
+    var samples := PackedFloat32Array()
+    samples.resize(total_samples)
+    var p1 := 0.0
+    var p2 := 0.0
+    var p3 := 0.0
+    var f1 := 146.83 # D3
+    var f2 := 220.00 # A3
+    var f3 := 293.66 # D4
+    for i in range(total_samples):
+        var t := float(i) / float(MIX_RATE)
+        # Ataque suave com longa curva de reverberação de abóbada de pedra
+        var attack: float = clampf(t / 0.12, 0.0, 1.0)
+        var decay: float = exp(-(t - 0.12) * 1.8) if t > 0.12 else 1.0
+        var env: float = attack * decay
+        p1 = fposmod(p1 + (f1 / MIX_RATE), 1.0)
+        p2 = fposmod(p2 + (f2 / MIX_RATE), 1.0)
+        p3 = fposmod(p3 + (f3 / MIX_RATE), 1.0)
+        var tone := sin(p1 * TAU) * 0.50 + sin(p2 * TAU) * 0.30 + sin(p3 * TAU) * 0.20
+        samples[i] = tone * env * 0.45
+    return _create_pcm16_wav(samples)

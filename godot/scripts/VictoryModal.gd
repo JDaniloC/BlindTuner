@@ -37,6 +37,10 @@ func _ready() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
 
+	var sparkles := VictorySparkles2D.new()
+	sparkles.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(sparkles)
+
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
@@ -68,8 +72,8 @@ func _ready() -> void:
 	_title_lbl.text = "Memória Concluída!"
 	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_title_lbl.add_theme_font_size_override("font_size", 20)
-	_title_lbl.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+	_title_lbl.add_theme_font_size_override("font_size", 24)
+	_title_lbl.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	col.add_child(_title_lbl)
 
 	# 2. Informação da Obra Musical e Compositor
@@ -77,8 +81,8 @@ func _ready() -> void:
 	_song_lbl.text = ""
 	_song_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_song_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_song_lbl.add_theme_font_size_override("font_size", 14)
-	_song_lbl.add_theme_color_override("font_color", Color(0.90, 0.78, 0.50))
+	_song_lbl.add_theme_font_size_override("font_size", 16)
+	_song_lbl.add_theme_color_override("font_color", Color(0.10, 0.25, 0.38))
 	col.add_child(_song_lbl)
 
 	# 3. Retrato Emocional do Idoso Feliz
@@ -93,8 +97,8 @@ func _ready() -> void:
 	_stars_lbl = Label.new()
 	_stars_lbl.text = "★★★"
 	_stars_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stars_lbl.add_theme_font_size_override("font_size", 26)
-	_stars_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.20))
+	_stars_lbl.add_theme_font_size_override("font_size", 30)
+	_stars_lbl.add_theme_color_override("font_color", Color(0.30, 0.16, 0.04))
 	col.add_child(_stars_lbl)
 
 	# 5. Lista de Badges / Selos Categóricos (DEC-0005)
@@ -107,13 +111,13 @@ func _ready() -> void:
 	_story_panel = PanelContainer.new()
 	var story_sb := StyleBoxFlat.new()
 	story_sb.set_corner_radius_all(6)
-	story_sb.bg_color = Color(0.12, 0.10, 0.08, 0.85)
+	story_sb.bg_color = Color(0.12, 0.10, 0.08, 0.94)
 	story_sb.border_width_left = 3
-	story_sb.border_color = Color(0.85, 0.65, 0.25, 0.85)
+	story_sb.border_color = Color(0.85, 0.65, 0.25, 0.95)
 	story_sb.content_margin_left = 14
 	story_sb.content_margin_right = 14
-	story_sb.content_margin_top = 8
-	story_sb.content_margin_bottom = 8
+	story_sb.content_margin_top = 10
+	story_sb.content_margin_bottom = 10
 	_story_panel.add_theme_stylebox_override("panel", story_sb)
 	col.add_child(_story_panel)
 
@@ -121,16 +125,16 @@ func _ready() -> void:
 	_story_lbl.text = ""
 	_story_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_story_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_story_lbl.add_theme_font_size_override("font_size", 14)
-	_story_lbl.add_theme_color_override("font_color", Color(0.95, 0.92, 0.85))
+	_story_lbl.add_theme_font_size_override("font_size", 15)
+	_story_lbl.add_theme_color_override("font_color", Color(0.96, 0.93, 0.86))
 	_story_panel.add_child(_story_lbl)
 
 	# 7. Estatísticas de Telemetria (Tempo, Acertos, Tropeços)
 	_stats_lbl = Label.new()
 	_stats_lbl.text = ""
 	_stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stats_lbl.add_theme_font_size_override("font_size", 13)
-	_stats_lbl.add_theme_color_override("font_color", Color(0.80, 0.80, 0.85))
+	_stats_lbl.add_theme_font_size_override("font_size", 14)
+	_stats_lbl.add_theme_color_override("font_color", Color(0.26, 0.22, 0.18))
 	col.add_child(_stats_lbl)
 
 	# 8. Botão Principal: Seguir para a Próxima Lembrança
@@ -205,11 +209,16 @@ func display_result(level_data, summary: Dictionary) -> void:
 	else:
 		_song_lbl.visible = false
 
-	# Resumo em estrelas
+	# Resumo em estrelas com celebração elástica
 	var stars_text := ""
 	for i in range(3):
 		stars_text += "★" if i < stars else "☆"
 	_stars_lbl.text = stars_text
+	if is_inside_tree() and stars >= 2:
+		_stars_lbl.pivot_offset = _stars_lbl.size * 0.5
+		var s_tw := create_tween()
+		s_tw.tween_property(_stars_lbl, "scale", Vector2(1.22, 1.22), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		s_tw.tween_property(_stars_lbl, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_SINE)
 
 	# Retrato
 	if _portrait != null and _portrait.has_method("on_victory"):
@@ -314,11 +323,11 @@ func _create_badge_card(badge_name: String, requirement: String, earned: bool, r
 	sb.content_margin_bottom = 8
 
 	if earned:
-		sb.bg_color = Color(0.18, 0.15, 0.08, 0.90)
-		sb.border_color = Color(0.92, 0.76, 0.20, 0.95)
+		sb.bg_color = Color(0.16, 0.13, 0.08, 0.96)
+		sb.border_color = Color(0.92, 0.76, 0.20, 0.98)
 	else:
-		sb.bg_color = Color(0.10, 0.10, 0.12, 0.75)
-		sb.border_color = Color(0.40, 0.40, 0.45, 0.45)
+		sb.bg_color = Color(0.12, 0.12, 0.15, 0.94)
+		sb.border_color = Color(0.45, 0.45, 0.52, 0.75)
 
 	card.add_theme_stylebox_override("panel", sb)
 
@@ -332,7 +341,7 @@ func _create_badge_card(badge_name: String, requirement: String, earned: bool, r
 	star_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	star_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	star_lbl.add_theme_font_size_override("font_size", 22)
-	star_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.20) if earned else Color(0.55, 0.55, 0.60))
+	star_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.20) if earned else Color(0.80, 0.80, 0.86))
 	hbox.add_child(star_lbl)
 
 	var text_vbox := VBoxContainer.new()
@@ -343,13 +352,13 @@ func _create_badge_card(badge_name: String, requirement: String, earned: bool, r
 	var title_lbl := Label.new()
 	title_lbl.text = badge_name
 	title_lbl.add_theme_font_size_override("font_size", 15)
-	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.95, 0.88) if earned else Color(0.70, 0.70, 0.75))
+	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.95, 0.88) if earned else Color(0.88, 0.88, 0.92))
 	text_vbox.add_child(title_lbl)
 
 	var req_lbl := Label.new()
 	req_lbl.text = requirement
-	req_lbl.add_theme_font_size_override("font_size", 12)
-	req_lbl.add_theme_color_override("font_color", Color(0.85, 0.82, 0.75) if earned else Color(0.55, 0.55, 0.60))
+	req_lbl.add_theme_font_size_override("font_size", 13)
+	req_lbl.add_theme_color_override("font_color", Color(0.90, 0.86, 0.78) if earned else Color(0.76, 0.76, 0.82))
 	req_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_vbox.add_child(req_lbl)
 
@@ -358,7 +367,7 @@ func _create_badge_card(badge_name: String, requirement: String, earned: bool, r
 	status_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	status_lbl.add_theme_font_size_override("font_size", 13)
-	status_lbl.add_theme_color_override("font_color", Color(0.35, 0.90, 0.45) if earned else Color(0.85, 0.60, 0.45))
+	status_lbl.add_theme_color_override("font_color", Color(0.45, 0.95, 0.55) if earned else Color(0.96, 0.72, 0.58))
 	hbox.add_child(status_lbl)
 
 	return card
@@ -369,3 +378,38 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause"):
 		get_viewport().set_input_as_handled()
 		level_select_requested.emit()
+
+class VictorySparkles2D extends Control:
+	var _time: float = 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		if w <= 0 or h <= 0:
+			return
+		# 16 partículas douradas de celebração subindo suavemente
+		for i in range(16):
+			var speed := 0.18 + float(i % 5) * 0.04
+			var phase := fmod(_time * speed + float(i) * 0.0625, 1.0)
+			var seed_x := fmod(float(i * 97) + 33.0, w)
+			var x := seed_x + sin(_time * 1.5 + float(i)) * 18.0
+			var y := h - phase * (h + 40.0)
+			var alpha := sin(phase * PI) * 0.75
+			var is_gold := (i % 3) != 0
+			var col := Color(1.0, 0.88, 0.35, alpha) if is_gold else Color(0.40, 0.90, 1.0, alpha)
+			var d_size := 3.5 if is_gold else 2.5
+			# Desenha losango de celebração
+			var pts := PackedVector2Array([
+				Vector2(x, y - d_size),
+				Vector2(x + d_size, y),
+				Vector2(x, y + d_size),
+				Vector2(x - d_size, y)
+			])
+			draw_colored_polygon(pts, col)

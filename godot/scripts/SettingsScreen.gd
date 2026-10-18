@@ -35,6 +35,8 @@ func _ready() -> void:
 
 	var title := Label.new()
 	title.text = "Configurações & Acessibilidade"
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(0.14, 0.11, 0.08))
 	col.add_child(title)
 
 	var scroll := ScrollContainer.new()
@@ -129,6 +131,8 @@ func _ready() -> void:
 func _build_section_header(parent: Control, header_text: String) -> void:
 	var lbl := Label.new()
 	lbl.text = "— %s —" % header_text
+	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_color_override("font_color", Color(0.30, 0.16, 0.04))
 	parent.add_child(lbl)
 
 func _on_master_volume_changed(val: float) -> void:
