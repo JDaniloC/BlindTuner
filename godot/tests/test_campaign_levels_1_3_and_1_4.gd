@@ -43,10 +43,10 @@ func test_level_1_4_exists_in_catalog():
 	assert_eq(lvl.level_number, 4)
 	assert_eq(lvl.map_id, "sala")
 	assert_eq(lvl.beacon_sound_id, "clock")
-	assert_eq(lvl.vision_blur, 0.0, "Nível 1.4 não deve usar borrão artificial")
-	assert_eq(lvl.vision_desaturation, 1.0, "Nível 1.4 deve ser 100% monocromático")
-	assert_lt(lvl.vision_vignette, 0.5)
-	assert_false(lvl.show_floor, "Nível 1.4 não deve ter visualização do chão")
+	assert_gt(lvl.vision_blur, 0.0, "Nível 1.4 deve usar desfoque dinâmico de percepção")
+	assert_gt(lvl.vision_desaturation, 0.0)
+	assert_gte(lvl.vision_vignette, 0.5)
+	assert_true(lvl.show_floor, "Nível 1.4 deve manter o chão visível sob desfoque dinâmico")
 	assert_eq(lvl.default_cue_level, 3, "Nível 1.4 deve operar na pista 3 (só som)")
 	assert_false(lvl.beacon_hint.is_empty())
 
@@ -143,5 +143,5 @@ func test_playground_loads_sala_with_furniture_and_clock():
 			has_rug = true
 			break
 	assert_true(has_rug, "Tapete dobrado deve ser spawnado no piso da sala")
-	assert_false(pg._floor_node.visible, "Visualização do chão deve estar desligada no nível 1.4")
+	assert_true(pg._floor_node.visible, "Visualização do chão deve estar ativa sob desfoque dinâmico no nível 1.4")
 	assert_false(pg._goal_diamond_marker.visible, "Marcador de chão do objetivo deve estar invisível no nível 1.4")

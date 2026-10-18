@@ -121,3 +121,18 @@ func test_level_remove_control_colors_applies_neutral_mode_to_controls():
 	assert_true(p._pitch_scroll_input._level_cues_allowed)
 	assert_true(p._special_actions._level_cues_allowed)
 
+func test_motion_clarity_updates_shader_uniform():
+	_overlay.update_motion(true, 0.1)
+	var mat: ShaderMaterial = _overlay._material
+	var mc: float = mat.get_shader_parameter("motion_clarity")
+	assert_gt(mc, 0.0, "Motion clarity deve subir quando o personagem está se movimentando")
+	
+	_overlay.pulse_motion_clarity(0.3)
+	var mc_pulsed: float = mat.get_shader_parameter("motion_clarity")
+	assert_gt(mc_pulsed, mc, "Pulso da bengala deve aumentar a nitidez sensorial")
+
+func test_all_catalog_levels_have_visible_floors():
+	for lvl in LevelCatalog.ALL:
+		assert_true(lvl.show_floor, "O piso deve ser visível no nível %s para evitar tela preta sólida" % lvl.id)
+
+

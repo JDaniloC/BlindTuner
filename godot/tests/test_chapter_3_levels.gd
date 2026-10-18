@@ -26,9 +26,9 @@ func test_chapter_3_blindness_and_cello_invariants():
 	var ch3_levels = LevelCatalog.by_chapter(3)
 	for lvl in ch3_levels:
 		assert_eq(lvl.instrument, "cello", "Fase %s deve utilizar violoncelo solo" % lvl.id)
-		assert_false(lvl.show_floor, "Fase %s deve ter o chão invisível (cegueira plena)" % lvl.id)
+		assert_true(lvl.show_floor, "Fase %s deve ter o chão visível sob desfoque dinâmico" % lvl.id)
 		assert_eq(lvl.default_cue_level, 3, "Fase %s deve estar no nível de pista 3 (só som)" % lvl.id)
-		assert_eq(lvl.vision_blur, 0.0, "Fase %s não deve usar blur incômodo" % lvl.id)
+		assert_gt(lvl.vision_blur, 0.0, "Fase %s deve usar desfoque dinâmico que ganha nitidez com movimento" % lvl.id)
 
 func test_chapter_3_songs_and_composers():
 	var l3_1 = LevelCatalog.by_id("ch3_praia_mare")

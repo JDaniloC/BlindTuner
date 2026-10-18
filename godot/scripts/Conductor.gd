@@ -43,6 +43,10 @@ func beat_sec() -> float:
 ## Carrega o preset e volta a IDLE. Não re-emite phase_changed se já estava em IDLE.
 func load_preset(preset: Resource) -> void:
 	_preset = preset
+	if _preset != null and _preset.get("bpm") != null and float(_preset.bpm) > 0.0:
+		bpm = float(_preset.bpm)
+	else:
+		bpm = DEFAULT_BPM
 	if _timer:
 		_timer.stop()
 	_reset_state()
@@ -151,12 +155,33 @@ func _advance() -> void:
 		Phase.REPLAY:
 			_replay_step()
 
+func get_replay_note_duration_sec(idx: int) -> float:
+	if _preset == null:
+		return beat_sec()
+	if _preset.get("note_durations") != null and idx < _preset.note_durations.size():
+		return float(_preset.note_durations[idx]) * beat_sec()
+	return beat_sec()
+
+func get_replay_note_rest_sec(idx: int) -> float:
+	if _preset == null:
+		return 0.0
+	if _preset.get("note_rests") != null and idx < _preset.note_rests.size():
+		return float(_preset.note_rests[idx]) * beat_sec()
+	return 0.0
+
+func get_replay_step_sec(idx: int) -> float:
+	return get_replay_note_duration_sec(idx) + get_replay_note_rest_sec(idx)
+
 func _preview_step() -> void:
 	if _preview_index >= _preset.notes.size():
 		_begin_call()
 		return
-	preview_note.emit(_preset.notes[_preview_index], _preview_index)
+	var idx := _preview_index
 	_preview_index += 1
+	preview_note.emit(_preset.notes[idx], idx)
+	if _timer:
+		_timer.one_shot = true
+		_timer.start(get_replay_step_sec(idx))
 
 func _begin_call() -> void:
 	if _timer:
@@ -174,14 +199,19 @@ func _begin_replay() -> void:
 	_replay_index = 0
 	_set_phase(Phase.REPLAY)
 	if _timer:
+		_timer.one_shot = true
 		_timer.start(beat_sec())
 
 func _replay_step() -> void:
 	if _replay_index >= _preset.notes.size():
 		_finish()
 		return
-	replay_note.emit(_preset.notes[_replay_index], _replay_index)
+	var idx := _replay_index
 	_replay_index += 1
+	replay_note.emit(_preset.notes[idx], idx)
+	if _timer:
+		_timer.one_shot = true
+		_timer.start(get_replay_step_sec(idx))
 
 func _finish() -> void:
 	if _timer:

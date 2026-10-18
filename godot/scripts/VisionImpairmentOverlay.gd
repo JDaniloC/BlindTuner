@@ -64,6 +64,24 @@ func update_character_screen_position(screen_pos: Vector2, viewport_size: Vector
 		_material.set_shader_parameter("character_screen_uv", uv)
 		_material.set_shader_parameter("aspect_ratio", aspect)
 
+var _motion_clarity: float = 0.0
+
+## Atualiza a nitidez dinâmica conforme o personagem se desloca pelo mapa.
+func update_motion(is_moving: bool, delta: float) -> void:
+	if _material == null:
+		return
+	var target: float = 1.0 if is_moving else 0.0
+	var speed: float = 4.5 if is_moving else 2.2
+	_motion_clarity = move_toward(_motion_clarity, target, delta * speed)
+	_material.set_shader_parameter("motion_clarity", _motion_clarity)
+
+## Emite um pulso instantâneo de nitidez sensorial (ao bater a bengala ou dar um passo).
+func pulse_motion_clarity(amount: float = 0.5) -> void:
+	_motion_clarity = clampf(_motion_clarity + amount, 0.0, 1.0)
+	if _material != null:
+		_material.set_shader_parameter("motion_clarity", _motion_clarity)
+
+
 ## Liga ou desliga o efeito (para acessibilidade).
 func set_effect_enabled(enabled: bool) -> void:
 	_is_enabled = enabled

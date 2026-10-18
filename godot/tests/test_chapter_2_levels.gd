@@ -56,5 +56,5 @@ func test_chapter_2_visual_scaffolding_progression():
 
 	var lvl_2_4 = LevelCatalog.by_id("ch2_igreja_carrilhao")
 	assert_eq(lvl_2_4.default_cue_level, 3, "2.4 deve usar Pista 3 (só som)")
-	assert_false(lvl_2_4.show_floor, "2.4 deve ter chão invisível para escuta plena")
+	assert_true(lvl_2_4.show_floor, "2.4 deve ter chão visível sob desfoque dinâmico")
 	assert_false(lvl_2_4.show_visual_cues)

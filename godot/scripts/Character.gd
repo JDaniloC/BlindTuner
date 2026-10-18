@@ -126,7 +126,7 @@ func _ensure_contact_shadow() -> void:
 		pts.append(Vector2(cos(a) * 15.0, sin(a) * 7.5))
 	_shadow.polygon = PackedVector2Array(pts)
 	_shadow.color = Color(0.05, 0.03, 0.02, 0.36)
-	_shadow.position = Vector2(0.0, 2.0)
+	_shadow.position = Vector2(0.0, -1.0)
 	add_child(_shadow)
 	move_child(_shadow, 0)
 

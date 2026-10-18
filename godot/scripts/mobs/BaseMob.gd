@@ -16,6 +16,9 @@ const TILE_HEIGHT := 32
 @export var idle_sound_id: String = ""
 @export var alert_sound_id: String = ""
 @export var is_passable: bool = true
+@export var is_interactable: bool = false
+@export var can_radiate_waves: bool = false
+@export var base_scale: Vector2 = Vector2(2.0, 2.0)
 @export var idle_interval: float = 4.0
 @export var max_audio_distance: float = 600.0
 @export var audio_attenuation: float = 1.5
@@ -31,6 +34,10 @@ var _cane_tap_history: Array[int] = []
 var _last_cane_reaction_time_ms: int = 0
 const CANE_REACTION_COOLDOWN_MS: int = 350
 const CANE_HEARING_DISTANCE: float = 180.0
+
+var _is_animating_movement: bool = false
+var _anim_timer: float = 0.0
+var _anim_fps: float = 8.0
 
 static func load_texture_safe(res_path: String) -> Texture2D:
 	var global_path := ProjectSettings.globalize_path(res_path)
@@ -69,7 +76,7 @@ func _setup_nodes() -> void:
 		var pts: Array[Vector2] = []
 		for i in range(20):
 			var a := TAU * float(i) / 20.0
-			pts.append(Vector2(cos(a) * 13.0, sin(a) * 6.5))
+			pts.append(Vector2(cos(a) * 16.0, sin(a) * 8.0))
 		_shadow.polygon = PackedVector2Array(pts)
 		_shadow.color = Color(0.05, 0.03, 0.02, 0.32)
 		_shadow.position = Vector2(0.0, 2.0)
@@ -78,7 +85,35 @@ func _setup_nodes() -> void:
 	if _sprite == null:
 		_sprite = Sprite2D.new()
 		_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_sprite.scale = base_scale
 		add_child(_sprite)
+
+func set_texture(tex: Texture2D, frame_count: int = 4) -> void:
+	_setup_nodes()
+	if _sprite == null or tex == null:
+		return
+	_sprite.texture = tex
+	if tex.get_width() >= tex.get_height() * 2:
+		_sprite.hframes = frame_count
+	else:
+		_sprite.hframes = 1
+	_sprite.frame = 0
+
+func _process(delta: float) -> void:
+	if _is_animating_movement and _sprite != null and _sprite.hframes > 1:
+		_anim_timer += delta * _anim_fps
+		_sprite.frame = int(_anim_timer) % _sprite.hframes
+
+func start_movement_animation(fps: float = 8.0) -> void:
+	_is_animating_movement = true
+	_anim_fps = fps
+	_anim_timer = 0.0
+
+func stop_movement_animation() -> void:
+	_is_animating_movement = false
+	_anim_timer = 0.0
+	if _sprite != null:
+		_sprite.frame = 0
 
 func setup(p_grid: Vector2i, p_name: String = "") -> void:
 	grid_position = p_grid
@@ -107,7 +142,8 @@ func play_mob_sound(sound_key: String) -> void:
 		return
 	_audio_player.stream = AudioManager.get_mob_stream(sound_key)
 	_audio_player.play()
-	_spawn_acoustic_ring(Color(0.96, 0.78, 0.35, 0.75))
+	if can_radiate_waves:
+		_spawn_acoustic_ring(Color(0.96, 0.78, 0.35, 0.75))
 
 func _on_idle_timeout() -> void:
 	if not idle_sound_id.is_empty():
@@ -156,7 +192,7 @@ func on_cane_tap(cane_world_pos: Vector2, note_key: String = "") -> void:
 
 ## Implementação base para reação à bengala (sobrescrita por cada pet/npc)
 func _on_cane_heard(dist: float, _is_rhythmic: bool, _note_key: String) -> void:
-	if dist <= 110.0:
+	if can_radiate_waves and dist <= 110.0:
 		_spawn_acoustic_ring(Color(0.92, 0.85, 0.65, 0.65))
 
 ## Reage ao pulso de bengala do jogador (ação Tatear / Gs4)
@@ -189,7 +225,8 @@ func alert() -> void:
 	if not alert_sound_id.is_empty():
 		play_mob_sound(alert_sound_id)
 	alerted.emit()
-	_spawn_acoustic_ring(Color(0.40, 0.88, 1.0, 0.88))
+	if can_radiate_waves:
+		_spawn_acoustic_ring(Color(0.40, 0.88, 1.0, 0.88))
 	_animate_alert()
 
 func on_stepped_on() -> void:
@@ -200,13 +237,13 @@ func _animate_alert() -> void:
 	if _sprite == null:
 		return
 	var tw := create_tween()
-	tw.tween_property(_sprite, "scale", Vector2(1.2, 0.8), 0.08)
-	tw.tween_property(_sprite, "scale", Vector2(0.9, 1.15), 0.1)
-	tw.tween_property(_sprite, "scale", Vector2(1.0, 1.0), 0.1)
+	tw.tween_property(_sprite, "scale", Vector2(1.2, 0.8) * base_scale, 0.08)
+	tw.tween_property(_sprite, "scale", Vector2(0.9, 1.15) * base_scale, 0.1)
+	tw.tween_property(_sprite, "scale", base_scale, 0.1)
 
 ## Onda 2D isométrica (elipse 2:1) indicando no chão a vocalização/ronronar do mob
 func _spawn_acoustic_ring(color: Color) -> void:
-	if not is_inside_tree():
+	if not can_radiate_waves or not is_inside_tree():
 		return
 	var ring := Line2D.new()
 	ring.width = 1.8
@@ -228,5 +265,5 @@ func _start_breathing_animation(cycle_time: float = 1.2, scale_amount: float = 0
 	if _sprite == null:
 		return
 	var tw := create_tween().set_loops()
-	tw.tween_property(_sprite, "scale:y", 1.0 + scale_amount, cycle_time).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_sprite, "scale:y", 1.0 - scale_amount * 0.8, cycle_time).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_sprite, "scale:y", base_scale.y * (1.0 + scale_amount), cycle_time).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_sprite, "scale:y", base_scale.y * (1.0 - scale_amount * 0.8), cycle_time).set_trans(Tween.TRANS_SINE)

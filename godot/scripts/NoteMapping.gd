@@ -62,13 +62,22 @@ func snap_angle_to_note(angle_degrees: float, movement_only: bool = false) -> St
             best_key = key
     return best_key
 
+func is_rest(note_key: String) -> bool:
+    return note_key == "REST" or note_key == "PAUSE"
+
 func is_movement_note(note_key: String) -> bool:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return false
     return NOTES[note_key]["is_movement"]
 
 func direction_for(note_key: String) -> Vector2i:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return Vector2i.ZERO
     return NOTES[note_key]["direction"]
 
 func frequency_for(note_key: String) -> int:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return 0
     return NOTES[note_key]["freq"]
 
 ## Cor da nota no esquema ATIVO. Se o autoload de esquema ainda não existir
@@ -76,6 +85,8 @@ func frequency_for(note_key: String) -> int:
 ## cor de fábrica -- que é exatamente o esquema "classico". Nunca falha, nunca
 ## depende da ordem dos _ready().
 func color_for(note_key: String) -> Color:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return Color(0.3, 0.3, 0.3, 0.0)
     var s := _scheme()
     if s == null:
         return NOTES[note_key]["color"]
@@ -84,6 +95,8 @@ func color_for(note_key: String) -> Color:
 ## Cor de fábrica, ignorando o esquema ativo. Fonte do esquema "classico" e
 ## âncora dos testes.
 func default_color_for(note_key: String) -> Color:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return Color(0.3, 0.3, 0.3, 0.0)
     return NOTES[note_key]["color"]
 
 ## Índice cromático 0..11 (ordem de inserção de NOTES); -1 se desconhecida.
@@ -107,12 +120,20 @@ func _scheme() -> Node:
     return _scheme_cache
 
 func label_for(note_key: String) -> String:
+    if is_rest(note_key):
+        return "Pausa"
+    if not NOTES.has(note_key):
+        return ""
     return NOTES[note_key]["label"]
 
 func is_action_note(note_key: String) -> bool:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return false
     return NOTES[note_key]["is_action"]
 
 func action_id_for(note_key: String) -> String:
+    if is_rest(note_key) or not NOTES.has(note_key):
+        return ""
     return NOTES[note_key]["action_id"]
 
 ## Retorna a chave da nota cuja frequência (Hz) é a mais próxima da informada.

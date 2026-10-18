@@ -9,6 +9,7 @@ uniform float blur_amount : hint_range(0.0, 5.0) = 0.0;
 uniform float desaturation : hint_range(0.0, 1.0) = 0.0;
 uniform float darkness : hint_range(0.0, 1.0) = 0.0;
 uniform float contour_strength : hint_range(0.0, 1.0) = 0.55;
+uniform float motion_clarity : hint_range(0.0, 1.0) = 0.0;
 uniform bool is_effect_enabled = true;
 
 float luma(vec3 c) {
@@ -26,9 +27,19 @@ void fragment() {
 		dist_uv.x *= aspect_ratio;
 		float dist_from_center = length(dist_uv);
 
-		// O blur aumenta em direção às bordas, simulando a perda progressiva de campo visual
-		float peripheral_factor = clamp((dist_from_center - (vignette_radius * 0.25)) / (vignette_radius * 0.75 + 0.001), 0.0, 1.0);
-		float effective_blur = blur_amount * (0.35 + 0.65 * peripheral_factor);
+		// Raio de acuidade visual direta ao redor do personagem:
+		// Totalmente NÍTIDO perto do corpo (blur = 0.0).
+		// Ao se movimentar (motion_clarity > 0.0), a percepção se expande e os objetos
+		// próximos tornam-se ainda mais nítidos e num raio maior.
+		float base_clarity_radius = max(0.12, vignette_radius * 0.28);
+		float dynamic_clarity_radius = base_clarity_radius * (1.0 + motion_clarity * 0.65);
+		float blur_transition = max(0.14, vignette_softness * 0.75);
+
+		// Fator de desfoque periférico: 0.0 no raio próximo ao personagem, subindo suavemente até 1.0
+		float blur_factor = smoothstep(dynamic_clarity_radius, dynamic_clarity_radius + blur_transition, dist_from_center);
+		
+		// Enquanto se move, o blur nas proximidades é atenuado para revelar detalhes com nitidez
+		float effective_blur = blur_amount * blur_factor * (1.0 - motion_clarity * 0.25);
 
 		vec4 col = vec4(0.0);
 		if (effective_blur > 0.04) {
@@ -52,12 +63,15 @@ void fragment() {
 			col.rgb = mix(col.rgb, warm_memory, desaturation);
 		}
 
-		// Vinheta de túnel de visão / névoa acústica 2D acolhedora (índigo-sépia escuro em vez de preto chapado)
-		float v_start = vignette_radius * 0.45;
-		float v_end = vignette_radius + vignette_softness;
+		// Vinheta suave de campo visual periférico (índigo-sépia em vez de preto chapado)
+		float v_start = dynamic_clarity_radius * 1.25;
+		float v_end = max(v_start + 0.15, vignette_radius + vignette_softness);
 		float vignette = smoothstep(v_start, v_end, dist_from_center);
-		vec3 fog_tint = vec3(0.05, 0.04, 0.07);
-		col.rgb = mix(col.rgb, fog_tint, clamp(vignette * darkness, 0.0, 1.0));
+		vec3 fog_tint = vec3(0.06, 0.05, 0.09);
+		// Limita o escurecimento para que o cenário nunca fique um breu 100% preto,
+		// mantendo o piso e objetos percebidos através da névoa borrada
+		float max_darkness = clamp(darkness * 0.60, 0.0, 0.68);
+		col.rgb = mix(col.rgb, fog_tint, vignette * max_darkness);
 
 		// Traço 2D de contorno de memória (preserva silhuetas ilustradas de móveis e paredes na névoa periférica)
 		if (contour_strength > 0.0 && (darkness > 0.05 || blur_amount > 0.2)) {
@@ -67,7 +81,7 @@ void fragment() {
 			float l_w = luma(texture(screen_texture, uv + vec2(-step_px.x, 0.0)).rgb);
 			float l_e = luma(texture(screen_texture, uv + vec2( step_px.x, 0.0)).rgb);
 			float edge = clamp((abs(l_e - l_w) + abs(l_s - l_n)) * 2.4, 0.0, 1.0);
-			float sketch_mask = edge * peripheral_factor * contour_strength * clamp(darkness + blur_amount * 0.25, 0.0, 1.0);
+			float sketch_mask = edge * blur_factor * contour_strength * clamp(darkness + blur_amount * 0.25, 0.0, 1.0);
 			vec3 sketch_ink = vec3(0.92, 0.82, 0.60);
 			col.rgb = mix(col.rgb, sketch_ink, sketch_mask * 0.45);
 		}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Gerador Procedural de Sprite Sheets do Protagonista Idoso (Sr. Arthur) — v2
 Estilo: Clean Cozy Pixel Art (32x32 por frame, 5 linhas direcionais: s, se, e, ne, n)
 
@@ -356,9 +356,10 @@ def draw_head(px, row, cx, top_y, eyes_closed=False, head_tilt=0):
         put(px, cx + 6, y0 + 4, OUTLINE)
 
 
-def draw_leg_item(px, x, y_top, y_bottom, is_front_leg=True, shoe_dir=0):
+def draw_leg_item(px, x_hip, x_foot, y_top, y_bottom, is_front_leg=True, shoe_dir=0):
     """
-    Desenha uma perna individual desde y_top até y_bottom (onde y_bottom=31 toca o chão!).
+    Desenha uma perna articulada diagonalmente desde o quadril (x_hip, y_top)
+    até o pé (x_foot, y_bottom), onde y_bottom=31 toca o chão!
     shoe_dir: 0 (frente/costas), +1 (aponta p/ direita), -1 (aponta p/ esquerda).
     """
     if y_bottom < y_top + 2:
@@ -368,24 +369,36 @@ def draw_leg_item(px, x, y_top, y_bottom, is_front_leg=True, shoe_dir=0):
     s_col = SHOE_BASE if is_front_leg else SHOE_DARK
     s_hi  = SHOE_LIGHT if is_front_leg else SHOE_BASE
 
-    # Contorno da calça e sapato
-    fill_rect(px, x - 1, y_top, x + 2, y_bottom, OUTLINE)
-    # Interior da calça
-    if y_bottom - 2 >= y_top:
-        fill_rect(px, x, y_top, x + 1, y_bottom - 2, p_col)
-        put(px, x, y_top, p_hi)
-    # Sapato nos 2 últimos pixels (y_bottom-1 e y_bottom)
+    span = max(1, (y_bottom - 1) - y_top)
+
+    # 1. Contorno da calça ao longo da diagonal quadril -> tornozelo
+    for y in range(y_top, y_bottom):
+        t = (y - y_top) / span
+        cx_leg = round(x_hip + (x_foot - x_hip) * t)
+        fill_rect(px, cx_leg - 1, y, cx_leg + 2, y, OUTLINE)
+    # Contorno da sola em y_bottom
+    fill_rect(px, x_foot - 1, y_bottom, x_foot + 2, y_bottom, OUTLINE)
+
+    # 2. Interior da calça ao longo da diagonal
+    for y in range(y_top, y_bottom - 1):
+        t = (y - y_top) / span
+        cx_leg = round(x_hip + (x_foot - x_hip) * t)
+        fill_rect(px, cx_leg, y, cx_leg + 1, y, p_col)
+        if y == y_top or is_front_leg:
+            put(px, cx_leg, y, p_hi)
+
+    # 3. Sapato nos 2 últimos pixels (y_bottom-1 e sola em y_bottom)
     sy = y_bottom - 1
-    fill_rect(px, x, sy, x + 1, sy, s_col)
-    put(px, x, sy, s_hi)
+    fill_rect(px, x_foot, sy, x_foot + 1, sy, s_col)
+    put(px, x_foot, sy, s_hi)
     if shoe_dir > 0:
-        put(px, x + 2, sy, s_hi)
-        put(px, x + 3, sy, OUTLINE)
-        put(px, x + 2, y_bottom, OUTLINE)
+        put(px, x_foot + 2, sy, s_hi)
+        put(px, x_foot + 3, sy, OUTLINE)
+        put(px, x_foot + 2, y_bottom, OUTLINE)
     elif shoe_dir < 0:
-        put(px, x - 1, sy, s_hi)
-        put(px, x - 2, sy, OUTLINE)
-        put(px, x - 1, y_bottom, OUTLINE)
+        put(px, x_foot - 1, sy, s_hi)
+        put(px, x_foot - 2, sy, OUTLINE)
+        put(px, x_foot - 1, y_bottom, OUTLINE)
 
 
 def draw_arm_limb(px, x_shoulder, y_shoulder, dx_hand, dy_hand, is_bright=True):
@@ -446,49 +459,39 @@ def draw_character_frame(
     if row in (3, 4) and cane_tip is not None:
         draw_cane(px, cane_hand_x, cane_hand_y, cane_tip[0], cane_tip[1], behind_body=True, tap_highlight=tap_highlight)
 
-    # 1. PERNAS (sempre começando em ty+8=24 e indo até ly_bottom/ry_bottom, com pé firme em 31!)
+    # 1. PERNAS (sempre começando no quadril em ty+8=24 e indo até ly_bottom/ry_bottom, com pé firme em 31!)
     leg_top = ty + 8
     shoe_dir = 1 if row in (1, 2, 3) else 0
 
-    if row == 0:  # South (↓)
+    if row in (0, 4):  # South (↓) & North (↑)
         lx, l_bot, l_fr = left_leg
         rx, r_bot, r_fr = right_leg
+        hip_lx, hip_rx = cx - 3, cx + 1
         # Desenha primeiro a perna mais ao fundo, depois a da frente
         if l_fr:
-            draw_leg_item(px, cx + 1 + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
-            draw_leg_item(px, cx - 3 + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
+            draw_leg_item(px, hip_rx, hip_rx + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
+            draw_leg_item(px, hip_lx, hip_lx + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
         else:
-            draw_leg_item(px, cx - 3 + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
-            draw_leg_item(px, cx + 1 + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
+            draw_leg_item(px, hip_lx, hip_lx + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
+            draw_leg_item(px, hip_rx, hip_rx + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
 
-    elif row in (1, 2):  # South-East (↘) & East (→)
+    elif row in (1, 2, 3):  # South-East (↘), East (→) & North-East (↗)
         lx, l_bot, l_fr = left_leg
         rx, r_bot, r_fr = right_leg
-        base_lx = (cx - 2) if row == 1 else (cx - 1)
-        base_rx = (cx + 1) if row == 1 else cx
+        if lx == 0 and rx == 0:
+            hip_lx = (cx - 2) if row != 2 else (cx - 1)
+            hip_rx = (cx + 1) if row != 2 else cx
+            foot_lx, foot_rx = hip_lx, hip_rx
+        else:
+            hip_lx, hip_rx = cx - 1, cx
+            foot_lx = cx - 1 + lx
+            foot_rx = cx + rx
         if l_fr:
-            draw_leg_item(px, base_rx + rx, leg_top, r_bot, is_front_leg=False, shoe_dir=shoe_dir)
-            draw_leg_item(px, base_lx + lx, leg_top, l_bot, is_front_leg=True, shoe_dir=shoe_dir)
+            draw_leg_item(px, hip_rx, foot_rx, leg_top, r_bot, is_front_leg=False, shoe_dir=shoe_dir)
+            draw_leg_item(px, hip_lx, foot_lx, leg_top, l_bot, is_front_leg=True, shoe_dir=shoe_dir)
         else:
-            draw_leg_item(px, base_lx + lx, leg_top, l_bot, is_front_leg=False, shoe_dir=shoe_dir)
-            draw_leg_item(px, base_rx + rx, leg_top, r_bot, is_front_leg=True, shoe_dir=shoe_dir)
-
-    elif row == 3:  # North-East (↗)
-        lx, l_bot, l_fr = left_leg
-        rx, r_bot, r_fr = right_leg
-        # Em NE, a perna direita está mais ao fundo e a esquerda mais perto da câmera
-        draw_leg_item(px, cx + 1 + rx, leg_top, r_bot, is_front_leg=False, shoe_dir=shoe_dir)
-        draw_leg_item(px, cx - 2 + lx, leg_top, l_bot, is_front_leg=True, shoe_dir=shoe_dir)
-
-    elif row == 4:  # North (↑)
-        lx, l_bot, l_fr = left_leg
-        rx, r_bot, r_fr = right_leg
-        if l_fr:
-            draw_leg_item(px, cx + 1 + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
-            draw_leg_item(px, cx - 3 + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
-        else:
-            draw_leg_item(px, cx - 3 + lx, leg_top, l_bot, is_front_leg=l_fr, shoe_dir=0)
-            draw_leg_item(px, cx + 1 + rx, leg_top, r_bot, is_front_leg=r_fr, shoe_dir=0)
+            draw_leg_item(px, hip_lx, foot_lx, leg_top, l_bot, is_front_leg=False, shoe_dir=shoe_dir)
+            draw_leg_item(px, hip_rx, foot_rx, leg_top, r_bot, is_front_leg=True, shoe_dir=shoe_dir)
 
     # 2. BRAÇO DE TRÁS (quando em perfil ou diagonal)
     if row in (1, 2, 3) and left_arm is not None:

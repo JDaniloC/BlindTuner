@@ -18,6 +18,8 @@ godot/**/*.uid
 # Artefatos temporários de teste Godot/GUT
 gut_out*.txt
 gut_err*.txt
+gut_run.log
+godot/gut_run.log
 import*.txt
 
 # Estado do Claude Code

@@ -280,10 +280,11 @@ func _apply_input_mode() -> void:
 
 func _on_preview_note(note_key: String, _index: int) -> void:
 	# PREVIEW: só ouvir, personagem não se move.
-	AudioManager.play_note(note_key)
+	var dur_sec: float = _conductor.get_replay_note_duration_sec(_index) if _conductor != null else AudioManager.NOTE_DURATION_SEC
+	AudioManager.play_note(note_key, dur_sec)
 	_note_panel.display_note(note_key)
 	if _character_portrait != null:
-		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 0.7)
+		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, minf(dur_sec, 0.7))
 
 func _on_call_cue(note_key: String, index: int) -> void:
 	# Toca o alvo + mostra a pista (conforme CueSettings, via NotePanel).
@@ -295,8 +296,11 @@ func _on_call_cue(note_key: String, index: int) -> void:
 
 func _on_replay_note(note_key: String, index: int) -> void:
 	# REPLAY: o personagem "toca" e (se movement) anda o caminho canônico do preset.
-	AudioManager.play_note(note_key)
-	if NoteMapping.is_action_note(note_key):
+	var dur_sec: float = _conductor.get_replay_note_duration_sec(index) if _conductor != null else AudioManager.NOTE_DURATION_SEC
+	AudioManager.play_note(note_key, dur_sec)
+	if NoteMapping.is_rest(note_key):
+		pass
+	elif NoteMapping.is_action_note(note_key):
 		_character.handle_action(note_key)
 	else:
 		_character._try_walk(NoteMapping.direction_for(note_key))
@@ -1143,6 +1147,8 @@ func _process(delta: float) -> void:
 		var screen_pos: Vector2 = _character.get_global_transform_with_canvas().origin
 		var vp_size: Vector2 = get_viewport_rect().size
 		_vision_overlay.update_character_screen_position(screen_pos, vp_size)
+		var is_moving: bool = (_character.state == _character.State.WALK or _character.state == _character.State.RUN or (_character._tween != null and _character._tween.is_valid() and _character._tween.is_running()))
+		_vision_overlay.update_motion(is_moving, delta)
 	if _shake_remaining > 0.0:
 		_shake_remaining = max(0.0, _shake_remaining - delta)
 		var t := _shake_remaining / SHAKE_DURATION
@@ -1185,6 +1191,8 @@ func _on_cane_tapped(world_pos: Vector2, note_key: String) -> void:
 		note_color = NoteMapping.color_for(note_key)
 	if _character_portrait != null and _character_portrait.has_method("on_cane_tap"):
 		_character_portrait.on_cane_tap(note_color)
+	if _vision_overlay != null and is_instance_valid(_vision_overlay):
+		_vision_overlay.pulse_motion_clarity(0.45)
 	for mob in _mobs:
 		if mob != null and is_instance_valid(mob):
 			mob.on_cane_tap(world_pos, note_key)

@@ -186,3 +186,52 @@ func test_level_catalog_neighborhood_mobs_registered():
 	assert_not_null(lvl_s3_1)
 	assert_gte(lvl_s3_1.mobs_data.size(), 2)
 	assert_eq(lvl_s3_1.mobs_data[0].get("type"), "postman")
+
+func test_mob_scaling_proportional_to_character():
+	var rosa = PedestrianMobScript.new()
+	add_child_autofree(rosa)
+	assert_eq(rosa.base_scale, Vector2(2.0, 2.0), "Dona Rosa deve ter escala 2x proporcional ao protagonista idoso")
+	assert_eq(rosa._sprite.scale, Vector2(2.0, 2.0))
+
+	var postman = PostmanMobScript.new()
+	add_child_autofree(postman)
+	assert_eq(postman.base_scale, Vector2(2.0, 2.0), "Tiago o Carteiro deve ter escala 2x proporcional ao protagonista")
+
+	var baker = BakerMobScript.new()
+	add_child_autofree(baker)
+	assert_eq(baker.base_scale, Vector2(2.0, 2.0), "Seu Alberto o Padeiro deve ter escala 2x")
+
+	var dog = DogMobScript.new()
+	add_child_autofree(dog)
+	assert_eq(dog.base_scale, Vector2(1.8, 1.8), "Thor deve ter escala 1.8x proporcional")
+
+	var cat = CatMobScript.new()
+	add_child_autofree(cat)
+	assert_eq(cat.base_scale, Vector2(1.6, 1.6), "Mimi deve ter escala 1.6x proporcional")
+
+func test_mob_movement_animation():
+	var rosa = PedestrianMobScript.new()
+	add_child_autofree(rosa)
+	assert_eq(rosa._sprite.hframes, 4, "Sprite sheet de Dona Rosa deve ter 4 quadros para animação de caminhar")
+	
+	assert_false(rosa._is_animating_movement)
+	rosa.start_movement_animation(8.0)
+	assert_true(rosa._is_animating_movement, "Ao caminhar/desviar, animação de movimento deve estar ativa")
+	
+	rosa._process(0.2)
+	assert_gte(rosa._sprite.frame, 0)
+	
+	rosa.stop_movement_animation()
+	assert_false(rosa._is_animating_movement)
+	assert_eq(rosa._sprite.frame, 0, "Ao parar, deve retornar ao quadro idle (0)")
+
+func test_mobs_do_not_radiate_misleading_rings_by_default():
+	var cat = CatMobScript.new()
+	add_child_autofree(cat)
+	assert_false(cat.can_radiate_waves, "Mobs passivos não devem irradiar anéis luminosos por padrão")
+	
+	var child_count_before = cat.get_child_count()
+	cat.play_mob_sound("cat_meow")
+	# Não deve ter instanciado nenhum Line2D de anel acústico
+	assert_eq(cat.get_child_count(), child_count_before, "Nenhum anel luminoso enganoso deve ser emitido por mob passivo")
+

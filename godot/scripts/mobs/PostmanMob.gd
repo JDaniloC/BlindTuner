@@ -17,11 +17,13 @@ func _ready() -> void:
 	alert_sound_id = "postman_bell"
 	idle_interval = 5.5
 	is_passable = true
+	base_scale = Vector2(2.0, 2.0)
 	super._ready()
 	_original_position = position
 	if _sprite != null:
-		_sprite.texture = load_texture_safe(POSTMAN_TEXTURE_PATH)
-		_sprite.offset = Vector2(0, -10)
+		set_texture(load_texture_safe(POSTMAN_TEXTURE_PATH), 4)
+		_sprite.scale = base_scale
+		_sprite.offset = Vector2(0, -18)
 		_start_breathing_animation(2.0, 0.02)
 	
 	# Ajusta a sombra para acomodar a bicicleta mais longa
@@ -29,7 +31,7 @@ func _ready() -> void:
 		var pts: Array[Vector2] = []
 		for i in range(20):
 			var a := TAU * float(i) / 20.0
-			pts.append(Vector2(cos(a) * 20.0, sin(a) * 9.0))
+			pts.append(Vector2(cos(a) * 32.0, sin(a) * 14.0))
 		_shadow.polygon = PackedVector2Array(pts)
 		_shadow.position = Vector2(0.0, 4.0)
 
@@ -46,7 +48,6 @@ func _greet_with_bike(dist: float, _is_rhythmic: bool) -> void:
 	if now - _last_alert_time_ms > ALERT_COOLDOWN_MS:
 		_last_alert_time_ms = now
 		play_mob_sound("postman_bell")
-		_spawn_acoustic_ring(Color(0.35, 0.85, 1.0, 0.85))
 		_animate_bike_pause()
 
 	if dist < 55.0 and not _is_stepping_aside:
@@ -62,9 +63,15 @@ func _animate_bike_pause() -> void:
 
 func _step_aside_courtesy() -> void:
 	_is_stepping_aside = true
+	start_movement_animation(9.0)
 	var tw := create_tween()
 	var side_offset := Vector2(18.0, -9.0) # Deslocamento isométrico para a borda
 	tw.tween_property(self, "position", _original_position + side_offset, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(stop_movement_animation)
 	tw.tween_interval(2.5)
+	tw.tween_callback(func(): start_movement_animation(9.0))
 	tw.tween_property(self, "position", _original_position, 0.5).set_trans(Tween.TRANS_SINE)
-	tw.chain().tween_callback(func(): _is_stepping_aside = false)
+	tw.tween_callback(func():
+		stop_movement_animation()
+		_is_stepping_aside = false
+	)

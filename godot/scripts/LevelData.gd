@@ -16,6 +16,9 @@ class_name LevelData
 
 @export var map_id: String = ""
 @export var notes: Array = []
+@export var bpm: float = 90.0
+@export var note_durations: Array[float] = [] # Duração de cada nota em batidas (ex: 0.5=colcheia, 1.0=semínima, 2.0=mínima)
+@export var note_rests: Array[float] = []     # Pausa/silêncio em batidas após cada nota antes do próximo passo
 @export var instrument: String = "piano" # "piano" | "cello"
 @export var default_cue_level: int = 0   # 0: tudo, 1: freq+cor, 2: só cor, 3: só som
 @export var default_input_mode: int = 0  # 0: Joystick, 1: Piano, 2: Scroll
@@ -46,3 +49,13 @@ func is_valid() -> bool:
 
 func total_steps() -> int:
 	return notes.size()
+
+func get_note_duration_beats(idx: int) -> float:
+	if idx >= 0 and idx < note_durations.size():
+		return note_durations[idx]
+	return 1.0
+
+func get_note_rest_beats(idx: int) -> float:
+	if idx >= 0 and idx < note_rests.size():
+		return note_rests[idx]
+	return 0.0

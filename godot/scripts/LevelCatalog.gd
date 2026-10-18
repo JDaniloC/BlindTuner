@@ -156,8 +156,8 @@ func _build_all() -> Array:
 			45.0,
 			"clock",
 			"Siga o tique-taque ritmado do relógio de pêndulo.",
-			0.0, 0.40, 0.95, 1.0,
-			false, false, false, # Sem chão e sem pistas visuais (pura percepção auditiva)
+			2.2, 0.85, 0.30, 0.35,
+			true, false, false, # Chão visível sob desfoque suave, percepção auditiva e tato
 			"Minueto em Sol Maior (BWV Anh. 114)",
 			"J.S. Bach / C. Petzold (1725)",
 			[{"type": "cat", "grid": Vector2i(4, 5), "name": "Mimi"}]
@@ -254,8 +254,8 @@ func _build_all() -> Array:
 			45.0,
 			"church_bell",
 			"Siga as solenes badaladas do sino da torre da Matriz.",
-			0.0, 0.35, 0.95, 1.0,
-			false, false, false, # Chão invisível, percepção puramente auditiva
+			2.5, 0.80, 0.30, 0.45,
+			true, false, false, # Chão visível sob desfoque dinâmico
 			"See, the Conquering Hero Comes (Judas Macabeu)",
 			"G.F. Händel (1746)"
 		),
@@ -276,8 +276,8 @@ func _build_all() -> Array:
 			35.0,
 			"ocean_waves",
 			"Siga o murmúrio cadenciado das ondas quebrando na praia.",
-			0.0, 0.5, 0.85, 0.9,
-			false, false, true, # Chão invisível, pistas invisíveis, contornos no pulso da bengala
+			2.6, 0.85, 0.28, 0.50,
+			true, false, true, # Chão visível sob névoa/desfoque, contornos no pulso da bengala
 			"Prélude da Suíte para Cello nº 1 (BWV 1007)",
 			"J.S. Bach (1720)"
 		),
@@ -297,8 +297,8 @@ func _build_all() -> Array:
 			35.0,
 			"train_whistle",
 			"Siga o apito grave e o vapor da locomotiva ao final do cais.",
-			0.0, 0.45, 0.9, 0.95,
-			false, false, true,
+			2.8, 0.85, 0.30, 0.55,
+			true, false, true, # Chão e trilhos sob neblina/desfoque que clareia ao se mover
 			"O Cisne (Le Cygne)",
 			"Camille Saint-Saëns (1886)"
 		),
@@ -318,8 +318,8 @@ func _build_all() -> Array:
 			40.0,
 			"cello_drone",
 			"Siga a ressonância profunda da corda solta do violoncelo.",
-			0.0, 0.4, 0.95, 1.0,
-			false, false, true,
+			3.0, 0.80, 0.32, 0.60,
+			true, false, true, # Chão visível sob desfoque suave
 			"Élégie, Op. 24",
 			"Gabriel Fauré (1880)",
 			[{"type": "cat", "grid": Vector2i(7, 3), "name": "Mimi"}]
@@ -340,8 +340,8 @@ func _build_all() -> Array:
 			45.0,
 			"wind_chimes",
 			"Siga os sinos de cristal cintilando no centro do palco vazio.",
-			0.0, 0.3, 0.95, 1.0,
-			false, false, false, # Escuridão completa: apenas som e o eco da bengala
+			3.2, 0.75, 0.35, 0.65,
+			true, false, true, # Desfoque sensorial com chão visível e nitidez ao caminhar
 			"Largo da Sinfonia do Novo Mundo (Going Home)",
 			"Antonín Dvořák (1893)",
 			[],
@@ -349,7 +349,7 @@ func _build_all() -> Array:
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 1 (PRIMEIROS PASSOS) ---
-		# S1.1 Canção do Vento: A Janela Batendo no Vento
+		# S1.1 Canção do Vento: A Janela Batendo no Vento (D D E E | F# F# G)
 		_make(
 			"arcade_suzuki_1_1",
 			101, 1,
@@ -357,7 +357,7 @@ func _build_all() -> Array:
 			"O vento da tarde começou a soprar forte e a janela da sala está batendo sem parar. Preciso atravessar o tapete até a parede leste e girar a tranca antes que a chuva comece.",
 			"A tranca girou com um estalo firme. A chuva lá fora agora é só um sussurro gostoso contra o vidro.",
 			"arcade_s1_vento",
-			["D4", "D4", "Ds4", "D4", "Ds4", "D4", "D4"],
+			["D4", "D4", "E4", "E4", "Fs4", "Fs4", "G4"],
 			"piano",
 			0,
 			0,
@@ -367,10 +367,15 @@ func _build_all() -> Array:
 			0.0, 0.8, 0.0, 0.0,
 			true, true, true,
 			"Canção do Vento (Song of the Wind)",
-			"Folclore Tradicional"
+			"Folclore Tradicional",
+			[],
+			false,
+			104.0,
+			[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.2 Gavotte (Gossec): Cadê os Meus Óculos?
+		# S1.2 Gavotte (Gossec): Cadê os Meus Óculos? (D D | G E F# E D)
 		_make(
 			"arcade_suzuki_1_2",
 			101, 2,
@@ -378,7 +383,7 @@ func _build_all() -> Array:
 			"Tenho certeza de que deixei meus óculos de leitura em cima da escrivaninha. Sem eles, as partituras viram névoa. Sigo o estalo ritmado da gaveta até alcançar o veludo do estojo.",
 			"Encontrei! O aro de metal frio se encaixa no rosto. As linhas da pauta voltam a ter contornos nítidos.",
 			"arcade_s1_oculos",
-			["D4", "D4", "G4", "D4", "D4", "D4", "Ds4"],
+			["D4", "D4", "G4", "E4", "Fs4", "E4", "D4"],
 			"piano",
 			1,
 			0,
@@ -389,10 +394,14 @@ func _build_all() -> Array:
 			true, true, true,
 			"Gavotte",
 			"François-Joseph Gossec (1734–1829)",
-			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
+			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}],
+			false,
+			108.0,
+			[1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.3 O Fazendeiro Alegre (Schumann): A Samambaia da Sala
+		# S1.3 O Fazendeiro Alegre (Schumann): A Samambaia da Sala (D E F# G | F# E D)
 		_make(
 			"arcade_suzuki_1_3",
 			101, 3,
@@ -400,7 +409,7 @@ func _build_all() -> Array:
 			"A samambaia chorona no canto da sala sente quando o ar fica seco. Com o regador de latão em mãos, sigo o aroma de terra úmida até o vaso suspenso.",
 			"As gotas caem frescas sobre a folhagem verde. O ar da sala fica mais leve e perfumado.",
 			"arcade_s1_planta",
-			["D4", "D4", "Ds4", "D4", "Cs4", "D4", "Cs4"],
+			["D4", "E4", "Fs4", "G4", "Fs4", "E4", "D4"],
 			"piano",
 			1,
 			0,
@@ -411,10 +420,14 @@ func _build_all() -> Array:
 			true, true, true,
 			"O Fazendeiro Alegre (The Happy Farmer)",
 			"Robert Schumann (1848)",
-			[{"type": "canary", "grid": Vector2i(5, 3), "name": "Piu-Piu"}]
+			[{"type": "canary", "grid": Vector2i(5, 3), "name": "Piu-Piu"}],
+			false,
+			104.0,
+			[0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.4 Minueto nº 1 (Bach / Petzold): O Pão da Tarde e a Louça de Domingo
+		# S1.4 Minueto nº 1 (Bach / Petzold): O Pão da Tarde e a Louça de Domingo (D E F# G | D E D)
 		_make(
 			"arcade_suzuki_1_4",
 			101, 4,
@@ -422,7 +435,7 @@ func _build_all() -> Array:
 			"O aroma de bolo de fubá acabou de sair do forno. Agora é hora de encontrar o açucareiro na bancada alta para adoçar o café das visitas.",
 			"A xícara tilinta em harmonia com a colher de prata. Café quente servido com carinho.",
 			"arcade_s1_louca",
-			["D4", "D4", "D4", "Cs4", "Ds4", "D4"],
+			["D4", "E4", "Fs4", "G4", "D4", "E4", "D4"],
 			"piano",
 			2,
 			0,
@@ -432,11 +445,16 @@ func _build_all() -> Array:
 			0.0, 0.95, 0.2, 0.3,
 			true, true, true,
 			"Minueto nº 1 (BWV Anh. 114)",
-			"J.S. Bach / Christian Petzold (1725)"
+			"J.S. Bach / Christian Petzold (1725)",
+			[],
+			false,
+			112.0,
+			[1.0, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 2 (A CASA EM MOVIMENTO) ---
-		# S2.1 Coro dos Caçadores (Weber): A Fuga do Gato Mimi
+		# S2.1 Coro dos Caçadores (Weber): A Fuga do Gato Mimi (D E F# G | F# E D)
 		_make(
 			"arcade_suzuki_2_1",
 			102, 1,
@@ -444,7 +462,7 @@ func _build_all() -> Array:
 			"Mimi pegou meu novelo de linha favorito e saiu correndo pela sala de estar. O sininho na coleira dele me diz exatamente por onde ele passou: embaixo do sofá e atrás da estante!",
 			"Peguei o novelo de volta e ainda ganhei um carinho ronronado nos tornozelos.",
 			"arcade_s2_gato",
-			["D4", "D4", "G4", "D4", "D4", "D4", "Ds4"],
+			["D4", "E4", "Fs4", "G4", "Fs4", "E4", "D4"],
 			"piano",
 			1,
 			0,
@@ -455,10 +473,14 @@ func _build_all() -> Array:
 			true, true, true,
 			"Coro dos Caçadores (Der Freischütz)",
 			"Carl Maria von Weber (1821)",
-			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}]
+			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}],
+			false,
+			116.0,
+			[0.5, 0.5, 1.0, 0.5, 0.5, 0.5, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S2.2 Valsa Op. 39 nº 15 (Brahms): A Valsa da Vassoura
+		# S2.2 Valsa Op. 39 nº 15 (Brahms): A Valsa da Vassoura (D D E | F# G E D)
 		_make(
 			"arcade_suzuki_2_2",
 			102, 2,
@@ -466,7 +488,7 @@ func _build_all() -> Array:
 			"Varrer o chão no escuro é como dançar: um passo para frente, dois balanços de vassoura. O som da palha recolhendo as folhas secas me diz onde o piso já está limpo.",
 			"O chão ficou brilhante e limpo, sem uma única folha para trás. Um passo de valsa perfeito.",
 			"arcade_s2_valsa",
-			["D4", "D4", "Ds4", "D4", "D4", "Ds4", "D4"],
+			["D4", "D4", "E4", "Fs4", "G4", "E4", "D4"],
 			"piano",
 			2,
 			0,
@@ -476,10 +498,15 @@ func _build_all() -> Array:
 			0.0, 0.9, 0.2, 0.25,
 			true, true, true,
 			"Valsa Op. 39 nº 15",
-			"Johannes Brahms (1865)"
+			"Johannes Brahms (1865)",
+			[],
+			false,
+			120.0,
+			[1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 2.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S2.3 Minueto em Sol Maior (Beethoven): O Molho de Chaves Antigo
+		# S2.3 Minueto em Sol Maior (Beethoven): O Molho de Chaves Antigo (D D E | F# E C# D)
 		_make(
 			"arcade_suzuki_2_3",
 			102, 3,
@@ -487,7 +514,7 @@ func _build_all() -> Array:
 			"Três chaves de dentes grandes e uma redondinha do guarda-comida. Preciso chegar até o aparador da entrada para pegar o chaveiro antes que o entregador chegue.",
 			"O chaveiro de latão tilintou na minha mão. A porta está pronta para ser aberta.",
 			"arcade_s2_chaves",
-			["D4", "D4", "Cs4", "D4", "D4", "D4"],
+			["D4", "D4", "E4", "Fs4", "E4", "Cs4", "D4"],
 			"piano",
 			2,
 			0,
@@ -498,10 +525,14 @@ func _build_all() -> Array:
 			true, true, true,
 			"Minueto em Sol Maior",
 			"Ludwig van Beethoven (1796)",
-			[{"type": "dog", "grid": Vector2i(7, 3), "name": "Thor"}]
+			[{"type": "dog", "grid": Vector2i(7, 3), "name": "Thor"}],
+			false,
+			108.0,
+			[1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 2.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S2.4 Gavotte (Lully): O Pêndulo da Meia-Noite
+		# S2.4 Gavotte (Lully): O Pêndulo da Meia-Noite (D D E | F# G E D)
 		_make(
 			"arcade_suzuki_2_4",
 			102, 4,
@@ -509,7 +540,7 @@ func _build_all() -> Array:
 			"O tique-taque ritmado do relógio de parede no corredor marca a cadência da casa que adormece. Sigo o compasso das badaladas leves para conferir os trincos antes de deitar.",
 			"O pêndulo de latão oscila calmo à minha frente. A casa inteira respira no mesmo compasso sereno.",
 			"arcade_s2_pendulo",
-			["D4", "Cs4", "D4", "D4", "Ds4", "D4", "Cs4"],
+			["D4", "D4", "E4", "Fs4", "G4", "E4", "D4"],
 			"piano",
 			2,
 			0,
@@ -520,7 +551,11 @@ func _build_all() -> Array:
 			true, true, true,
 			"Gavotte",
 			"Jean-Baptiste Lully (1632–1687)",
-			[{"type": "cat", "grid": Vector2i(5, 6), "name": "Mimi"}]
+			[{"type": "cat", "grid": Vector2i(5, 6), "name": "Mimi"}],
+			false,
+			108.0,
+			[1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 2.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 3 (DESTREZA E ENCONTROS) ---
@@ -908,7 +943,10 @@ func _make(
 	p_song_title: String = "",
 	p_composer: String = "",
 	p_mobs: Array = [],
-	p_remove_control_colors: bool = false
+	p_remove_control_colors: bool = false,
+	p_bpm: float = 90.0,
+	p_note_durations: Array = [],
+	p_note_rests: Array = []
 ) -> Resource:
 	var lvl = LevelDataScript.new()
 	lvl.id = p_id
@@ -922,6 +960,15 @@ func _make(
 	for n in p_notes:
 		typed_notes.append(str(n))
 	lvl.notes = typed_notes
+	lvl.bpm = p_bpm
+	var typed_durs: Array[float] = []
+	for d in p_note_durations:
+		typed_durs.append(float(d))
+	lvl.note_durations = typed_durs
+	var typed_rests: Array[float] = []
+	for r in p_note_rests:
+		typed_rests.append(float(r))
+	lvl.note_rests = typed_rests
 	lvl.instrument = p_instrument
 	lvl.default_cue_level = p_cue_lvl
 	lvl.default_input_mode = p_input_mode

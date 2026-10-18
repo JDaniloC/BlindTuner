@@ -12,10 +12,12 @@ func _ready() -> void:
 	alert_sound_id = "cat_meow"
 	idle_interval = 3.5
 	is_passable = true
+	base_scale = Vector2(1.6, 1.6)
 	super._ready()
 	if _sprite != null:
-		_sprite.texture = load_texture_safe(CAT_TEXTURE_PATH)
-		_sprite.offset = Vector2(0, -6)
+		set_texture(load_texture_safe(CAT_TEXTURE_PATH), 4)
+		_sprite.scale = base_scale
+		_sprite.offset = Vector2(0, -8)
 		_start_breathing_animation(1.2, 0.05)
 
 func _on_cane_heard(dist: float, is_rhythmic: bool, _note_key: String) -> void:
@@ -31,6 +33,9 @@ func _animate_tail_swish() -> void:
 	if _sprite == null:
 		return
 	var tw := create_tween()
-	tw.tween_property(_sprite, "scale:x", 1.15, 0.14).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_sprite, "scale:x", 0.95, 0.14).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_sprite, "scale:x", 1.0, 0.12).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func(): if _sprite.hframes > 1: _sprite.frame = 2)
+	tw.tween_property(_sprite, "scale:x", base_scale.x * 1.15, 0.14).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func(): if _sprite.hframes > 1: _sprite.frame = 1)
+	tw.tween_property(_sprite, "scale:x", base_scale.x * 0.95, 0.14).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func(): if _sprite.hframes > 1: _sprite.frame = 0)
+	tw.tween_property(_sprite, "scale:x", base_scale.x, 0.12).set_trans(Tween.TRANS_SINE)

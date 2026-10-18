@@ -132,9 +132,14 @@ func _eq10_band_index_for(target_hz: float) -> int:
     return best_idx
 
 ## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
-func play_note(note_key: String) -> AudioStreamPlayer:
+## Suporta duração customizada para notas ritmadas no PREVIEW/REPLAY.
+func play_note(note_key: String, duration: float = NOTE_DURATION_SEC) -> AudioStreamPlayer:
+    if note_key == "REST" or note_key == "PAUSE" or note_key.is_empty():
+        return null
+    if not NoteMapping.NOTES.has(note_key):
+        return null
     var freq := float(NoteMapping.frequency_for(note_key))
-    return _play_synth(freq, false, NOTE_DURATION_SEC)
+    return _play_synth(freq, false, duration)
 
 ## Toca SFX de colisão (tom grave e curto). Cancela qualquer player ativo antes.
 func play_collision_sfx() -> AudioStreamPlayer:
