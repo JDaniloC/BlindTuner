@@ -349,7 +349,7 @@ func _build_all() -> Array:
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 1 (PRIMEIROS PASSOS) ---
-		# S1.1 Canção do Vento: A Janela Batendo no Vento (D D E E | F# F# G)
+		# S1.1 Canção do Vento (Song of the Wind): A Janela Batendo no Vento (A B C# D | E E E E | F# D A F# | E)
 		_make(
 			"arcade_suzuki_1_1",
 			101, 1,
@@ -357,7 +357,7 @@ func _build_all() -> Array:
 			"O vento da tarde começou a soprar forte e a janela da sala está batendo sem parar. Preciso atravessar o tapete até a parede leste e girar a tranca antes que a chuva comece.",
 			"A tranca girou com um estalo firme. A chuva lá fora agora é só um sussurro gostoso contra o vidro.",
 			"arcade_s1_vento",
-			["D4", "D4", "E4", "E4", "Fs4", "Fs4", "G4"],
+			["A4", "B4", "Cs4", "D4", "E4", "E4", "E4", "E4", "Fs4", "D4", "A4", "Fs4", "E4"],
 			"piano",
 			0,
 			0,
@@ -367,15 +367,15 @@ func _build_all() -> Array:
 			0.0, 0.8, 0.0, 0.0,
 			true, true, true,
 			"Canção do Vento (Song of the Wind)",
-			"Folclore Tradicional",
+			"Folclore Tradicional / Shinichi Suzuki",
 			[],
 			false,
 			104.0,
-			[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
-			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+			[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.2 Gavotte (Gossec): Cadê os Meus Óculos? (D D | G E F# E D)
+		# S1.2 Gavotte (Gossec): Cadê os Meus Óculos? (D E D C# D | B C# A | D F# D)
 		_make(
 			"arcade_suzuki_1_2",
 			101, 2,
@@ -383,7 +383,7 @@ func _build_all() -> Array:
 			"Tenho certeza de que deixei meus óculos de leitura em cima da escrivaninha. Sem eles, as partituras viram névoa. Sigo o estalo ritmado da gaveta até alcançar o veludo do estojo.",
 			"Encontrei! O aro de metal frio se encaixa no rosto. As linhas da pauta voltam a ter contornos nítidos.",
 			"arcade_s1_oculos",
-			["D4", "D4", "G4", "E4", "Fs4", "E4", "D4"],
+			["D4", "E4", "D4", "Cs4", "D4", "B4", "Cs4", "A4", "D4", "Fs4", "D4"],
 			"piano",
 			1,
 			0,
@@ -397,11 +397,11 @@ func _build_all() -> Array:
 			[{"type": "cat", "grid": Vector2i(6, 4), "name": "Mimi"}],
 			false,
 			108.0,
-			[1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0],
-			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+			[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0, 1.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.3 O Fazendeiro Alegre (Schumann): A Samambaia da Sala (D E F# G | F# E D)
+		# S1.3 O Fazendeiro Alegre (Schumann): A Samambaia da Sala (D | G B D | C A C A B G)
 		_make(
 			"arcade_suzuki_1_3",
 			101, 3,
@@ -409,7 +409,7 @@ func _build_all() -> Array:
 			"A samambaia chorona no canto da sala sente quando o ar fica seco. Com o regador de latão em mãos, sigo o aroma de terra úmida até o vaso suspenso.",
 			"As gotas caem frescas sobre a folhagem verde. O ar da sala fica mais leve e perfumado.",
 			"arcade_s1_planta",
-			["D4", "E4", "Fs4", "G4", "Fs4", "E4", "D4"],
+			["D4", "G4", "B4", "D4", "C4", "A4", "C4", "A4", "B4", "G4"],
 			"piano",
 			1,
 			0,
@@ -423,11 +423,11 @@ func _build_all() -> Array:
 			[{"type": "canary", "grid": Vector2i(5, 3), "name": "Piu-Piu"}],
 			false,
 			104.0,
-			[0.5, 0.5, 0.5, 1.0, 0.5, 0.5, 1.0],
-			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+			[0.5, 1.5, 0.5, 1.0, 0.5, 0.5, 0.5, 0.5, 1.0, 1.5],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
-		# S1.4 Minueto nº 1 (Bach / Petzold): O Pão da Tarde e a Louça de Domingo (D E F# G | D E D)
+		# S1.4 Minueto nº 1 (Bach / Petzold): O Pão da Tarde e a Louça de Domingo (D D D | B A G G | A D C | B A G)
 		_make(
 			"arcade_suzuki_1_4",
 			101, 4,
@@ -435,7 +435,7 @@ func _build_all() -> Array:
 			"O aroma de bolo de fubá acabou de sair do forno. Agora é hora de encontrar o açucareiro na bancada alta para adoçar o café das visitas.",
 			"A xícara tilinta em harmonia com a colher de prata. Café quente servido com carinho.",
 			"arcade_s1_louca",
-			["D4", "E4", "Fs4", "G4", "D4", "E4", "D4"],
+			["D4", "D4", "D4", "B4", "A4", "G4", "G4", "A4", "D4", "C4", "B4", "A4", "G4"],
 			"piano",
 			2,
 			0,
@@ -449,8 +449,8 @@ func _build_all() -> Array:
 			[],
 			false,
 			112.0,
-			[1.0, 0.5, 0.5, 1.0, 1.0, 1.0, 2.0],
-			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+			[1.0, 1.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0],
+			[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 		),
 
 		# --- MODO ARCADE: CADERNO SUZUKI VOLUME 2 (A CASA EM MOVIMENTO) ---
