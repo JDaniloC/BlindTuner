@@ -10,7 +10,10 @@ import { CharacterController, TripReason, MoveStep } from "./core/characterContr
 import { ColorSchemeManager, ColorSchemeId } from "./core/colorSchemes";
 import { CueSettingsManager, CueLevel } from "./core/cueSettings";
 import { NotePanel } from "./ui/notePanel";
-import { LEVEL_PRESETS, LEVEL_QUARTO, LevelDef } from "./core/level";
+import { VictoryModal } from "./ui/victoryModal";
+import { VisionOverlay, VisionCondition } from "./render/visionOverlay";
+import { CampaignManager, LevelMetadata } from "./core/campaign";
+import { SaveManager } from "./core/saveManager";
 import { NOTES } from "./core/notes";
 import { IsoMath, Vector2 } from "./core/iso";
 
@@ -25,9 +28,10 @@ async function bootstrap() {
   const btnStyleToggle = document.getElementById("btn-style-toggle") as HTMLButtonElement;
   const announcer = document.getElementById("status-announcer") as HTMLElement;
 
-  const selectRoomPreset = document.getElementById("select-room-preset") as HTMLSelectElement;
+  const selectCampaignLevel = document.getElementById("select-campaign-level") as HTMLSelectElement;
   const selectCueLevel = document.getElementById("select-cue-level") as HTMLSelectElement;
   const selectColorScheme = document.getElementById("select-color-scheme") as HTMLSelectElement;
+  const selectVisionImpairment = document.getElementById("select-vision-impairment") as HTMLSelectElement;
   const btnToggleControlCues = document.getElementById("btn-toggle-control-cues") as HTMLButtonElement;
   const notePanelContainer = document.getElementById("note-panel-container") as HTMLElement;
 
@@ -39,11 +43,13 @@ async function bootstrap() {
     announcer.textContent = msg;
   };
 
-  // 1. Inicializa os Gerenciadores de Acessibilidade e Cores
+  // 1. Inicializa os Gerenciadores de Acessibilidade, Cores e Persistência
   const colorManager = ColorSchemeManager.getInstance();
   const cueManager = CueSettingsManager.getInstance();
+  const saveManager = SaveManager.getInstance();
 
-  let currentLevel: LevelDef = LEVEL_QUARTO;
+  let currentLevelMeta: LevelMetadata = CampaignManager.getLevels()[0];
+  let levelStartTime = performance.now();
 
   // 2. Inicializa o PixiJS v8
   const app = new Application();
@@ -56,13 +62,16 @@ async function bootstrap() {
   });
   wrapper.appendChild(app.canvas);
 
-  // 3. Cena Isométrica e Farol Sonoro
+  // 3. Simulador de Baixa Visão Ótico (VisionOverlay)
+  const visionOverlay = new VisionOverlay({ containerElement: wrapper });
+
+  // 4. Cena Isométrica e Farol Sonoro
   const scene = new RoomScene();
   const step = scene.step; // 44px
-  scene.buildLevel(currentLevel);
+  scene.buildLevel(currentLevelMeta.levelDef);
 
-  // 4. Pipeline de Pixel Art em Tempo Real (RenderTexture com interpolação Nearest)
-  let isPixelArtMode = true; // Padrão: Pixel Art 16-bit
+  // 5. Pipeline de Pixel Art em Tempo Real (RenderTexture com interpolação Nearest)
+  let isPixelArtMode = saveManager.getPreferences().isPixelArtMode ?? true;
   const pixelWidth = 270;
   const pixelHeight = 480;
 
@@ -119,15 +128,19 @@ async function bootstrap() {
 
   applyRenderMode();
   resizePixelSprite();
-  window.addEventListener("resize", resizePixelSprite);
+  window.addEventListener("resize", () => {
+    resizePixelSprite();
+    visionOverlay.resize();
+  });
 
   btnStyleToggle.addEventListener("click", () => {
     isPixelArtMode = !isPixelArtMode;
+    saveManager.setPreference("isPixelArtMode", isPixelArtMode);
     applyRenderMode();
     resizePixelSprite();
   });
 
-  // 5. Motor de Áudio Acústico com ConvolverNode de Madeira Real e Faróis Espaciais
+  // 6. Motor de Áudio Acústico com ConvolverNode de Madeira Real e Faróis Espaciais
   const audio = new AudioEngine();
 
   // Farol Sonoro de Objetivo conectado ao AudioEngine com spatial panning e attenuation
@@ -138,11 +151,11 @@ async function bootstrap() {
     audio.playBeaconSound(soundType, { dx, dy }, isDucked);
   };
 
-  // 6. Conductor (Loop Call-and-Response)
+  // 7. Conductor (Loop Call-and-Response)
   const conductor = new Conductor();
-  conductor.loadPreset(currentLevel.presetNotes, 0.70);
+  conductor.loadPreset(currentLevelMeta.levelDef.presetNotes, 0.70);
 
-  // 7. Placa Didática da Nota Alvo (NotePanel)
+  // 8. Placa Didática da Nota Alvo (NotePanel)
   const notePanel = new NotePanel({
     containerElement: notePanelContainer,
     onReplayRequested: () => {
@@ -153,10 +166,11 @@ async function bootstrap() {
     },
   });
 
-  // 8. Character Controller
-  const controller = new CharacterController(currentLevel, {
+  // 9. Character Controller
+  const controller = new CharacterController(currentLevelMeta.levelDef, {
     onMoved: (newGrid) => {
       announce(`Passo executado na posição ${newGrid.x}, ${newGrid.y}`);
+      visionOverlay.pulseClarity(0.20);
     },
     onBlocked: (_dir, reason) => {
       if (reason === TripReason.WALL) {
@@ -183,13 +197,15 @@ async function bootstrap() {
       scene.arthur.triggerCaneProbe();
       audio.playCaneTapSfx();
       scene.triggerTactileProbe();
+      visionOverlay.pulseClarity(0.50);
       announce("Varredura tátil da bengala.");
     },
     onListeningFocusRequested: () => {
       scene.arthur.triggerListenFocus();
       audio.playPiano("A4");
-      scene.triggerFocusGuide(currentLevel.goalPos);
+      scene.triggerFocusGuide(currentLevelMeta.levelDef.goalPos);
       scene.beacon.pulseNow();
+      visionOverlay.pulseClarity(0.40);
       announce("Escutando farol acústico do objetivo.");
     },
     onStepDust: (pos) => {
@@ -259,7 +275,7 @@ async function bootstrap() {
     });
   };
 
-  rebuildBeads(currentLevel.presetNotes);
+  rebuildBeads(currentLevelMeta.levelDef.presetNotes);
 
   let currentActiveBead = -1;
   let currentDoneBeads = 0;
@@ -268,7 +284,7 @@ async function bootstrap() {
     currentActiveBead = activeIdx;
     currentDoneBeads = doneCount;
     beads.forEach((b, i) => {
-      const nKey = currentLevel.presetNotes[i];
+      const nKey = currentLevelMeta.levelDef.presetNotes[i];
       const col = colorManager.getColor(nKey, false);
 
       b.classList.remove("active", "done");
@@ -288,8 +304,8 @@ async function bootstrap() {
     });
   };
 
-  // 9. Modos de Entrada (Fretless Scroll, Joystick de 8 Fatias, Piano Virtual Cromático)
-  let activeInputMode: InputMode = "scroll";
+  // 10. Modos de Entrada (Fretless Scroll, Joystick de 8 Fatias, Piano Virtual Cromático)
+  let activeInputMode: InputMode = saveManager.getPreferences().preferredInputMode || "scroll";
 
   const pitchScroll = new PitchScrollInput({
     onDragStart: (freq) => {
@@ -340,6 +356,7 @@ async function bootstrap() {
 
   const applyInputMode = (mode: InputMode) => {
     activeInputMode = mode;
+    saveManager.setPreference("preferredInputMode", mode);
     btnModeScroll.classList.toggle("active", mode === "scroll");
     btnModeJoystick.classList.toggle("active", mode === "joystick");
     btnModePiano.classList.toggle("active", mode === "piano");
@@ -370,36 +387,76 @@ async function bootstrap() {
     pianoInput.container.position.set((sw - pianoW) * 0.5, sh - pianoInput.whiteKeyHeight - 20);
   };
 
-  applyInputMode("scroll");
+  applyInputMode(activeInputMode);
   window.addEventListener("resize", layoutUI);
 
   btnModeScroll.addEventListener("click", () => applyInputMode("scroll"));
   btnModeJoystick.addEventListener("click", () => applyInputMode("joystick"));
   btnModePiano.addEventListener("click", () => applyInputMode("piano"));
 
-  // Presets de Cômodos da Casa
-  if (selectRoomPreset) {
-    selectRoomPreset.addEventListener("change", () => {
-      const roomId = selectRoomPreset.value;
-      const level = LEVEL_PRESETS[roomId] || LEVEL_QUARTO;
-      currentLevel = level;
-
-      scene.buildLevel(level);
-      controller.setLevel(level);
-      scene.arthur.snapToGrid(level.startPos.x, level.startPos.y, step);
-
-      conductor.loadPreset(level.presetNotes, 0.70);
-      rebuildBeads(level.presetNotes);
-      updateBeads(0, 0);
-      notePanel.clear();
-
-      scene.beacon.setVisualEnabled(!cueManager.isSoundOnly());
-      announce(`Cômodo alterado para ${level.name}. Farol sonoro: ${level.beaconSoundId}`);
-
-      if (audio.isReady) {
-        conductor.start();
+  // 11. Modal de Vitória com Sistema de 3 Estrelas
+  const victoryModal = new VictoryModal({
+    containerElement: wrapper,
+    onNextLevelRequested: () => {
+      const nextMeta = CampaignManager.getNextLevel(currentLevelMeta.id);
+      if (nextMeta) {
+        loadCampaignLevel(nextMeta.id);
       }
-      resizePixelSprite();
+    },
+    onRetryRequested: () => {
+      loadCampaignLevel(currentLevelMeta.id);
+    },
+    onLevelSelectRequested: () => {
+      if (selectCampaignLevel) {
+        selectCampaignLevel.focus();
+      }
+    },
+  });
+
+  // Função centralizada para carregar qualquer fase da Campanha ou Suzuki
+  const loadCampaignLevel = (levelId: string) => {
+    const meta = CampaignManager.getLevelById(levelId);
+    if (!meta) return;
+
+    currentLevelMeta = meta;
+    levelStartTime = performance.now();
+
+    if (selectCampaignLevel) {
+      selectCampaignLevel.value = levelId;
+    }
+
+    scene.buildLevel(meta.levelDef);
+    controller.setLevel(meta.levelDef);
+    scene.arthur.snapToGrid(meta.levelDef.startPos.x, meta.levelDef.startPos.y, step);
+
+    conductor.loadPreset(meta.levelDef.presetNotes, 0.70);
+    rebuildBeads(meta.levelDef.presetNotes);
+    updateBeads(0, 0);
+    notePanel.clear();
+
+    scene.beacon.setVisualEnabled(!cueManager.isSoundOnly());
+    announce(`Iniciando ${meta.name}. ${meta.chapter}. Peça: ${meta.songTitle}`);
+
+    if (audio.isReady) {
+      conductor.start();
+    }
+    resizePixelSprite();
+  };
+
+  // Seletor de Fase da Campanha e Caderno Suzuki
+  if (selectCampaignLevel) {
+    selectCampaignLevel.addEventListener("change", () => {
+      loadCampaignLevel(selectCampaignLevel.value);
+    });
+  }
+
+  // Seletor de Simulador de Baixa Visão
+  if (selectVisionImpairment) {
+    selectVisionImpairment.addEventListener("change", () => {
+      const condition = selectVisionImpairment.value as VisionCondition;
+      visionOverlay.setCondition(condition);
+      saveManager.setPreference("visionImpairment", condition);
+      announce(`Simulador visual: ${selectVisionImpairment.options[selectVisionImpairment.selectedIndex].text}`);
     });
   }
 
@@ -407,6 +464,7 @@ async function bootstrap() {
   selectCueLevel.addEventListener("change", () => {
     const level = Number(selectCueLevel.value) as CueLevel;
     cueManager.setLevel(level);
+    saveManager.setPreference("cueLevel", level);
     scene.beacon.setVisualEnabled(!cueManager.isSoundOnly());
     announce(`Nível de pista visual alterado para Pista ${level}`);
   });
@@ -414,6 +472,7 @@ async function bootstrap() {
   selectColorScheme.addEventListener("change", () => {
     const scheme = selectColorScheme.value as ColorSchemeId;
     colorManager.setScheme(scheme);
+    saveManager.setPreference("colorScheme", scheme);
     updateBeads(currentActiveBead, currentDoneBeads);
     announce(`Esquema de cores alterado para ${scheme}`);
   });
@@ -427,6 +486,7 @@ async function bootstrap() {
 
   btnToggleControlCues.addEventListener("click", () => {
     colorManager.setControlCuesEnabled(!colorManager.controlCuesEnabled);
+    saveManager.setPreference("controlCuesEnabled", colorManager.controlCuesEnabled);
     updateControlCuesButton();
     announce(`Pistas visuais nos controles ${colorManager.controlCuesEnabled ? "ativadas" : "desativadas"}`);
   });
@@ -455,10 +515,43 @@ async function bootstrap() {
       updateBeads(-1, beads.length);
     } else if (phase === Phase.DONE) {
       const stats = conductor.stats;
-      hudPhase.textContent = `Vitória! (${stats.firstTryHits}/${conductor.totalNotes} acertos | ${stats.wallBumps} colisões)`;
+      const elapsedSec = Math.max(0.1, (performance.now() - levelStartTime) / 1000);
+
+      // Avaliação rigorosa das 3 estrelas categóricas (DEC-0005)
+      const evaluation = CampaignManager.evaluateStars(currentLevelMeta, {
+        firstTryHits: stats.firstTryHits,
+        totalNotes: conductor.totalNotes,
+        wallBumps: stats.wallBumps,
+        pitchMisses: stats.pitchMisses,
+        elapsedSec,
+      });
+
+      // Salva progresso e recordes no localStorage
+      saveManager.recordCompletion(
+        currentLevelMeta.id,
+        evaluation.stars,
+        elapsedSec,
+        stats.wallBumps,
+        stats.firstTryHits
+      );
+
+      // Desbloqueia a próxima fase
+      const nextMeta = CampaignManager.getNextLevel(currentLevelMeta.id);
+      if (nextMeta) {
+        saveManager.unlockLevel(nextMeta.id);
+      }
+
+      hudPhase.textContent = `Vitória: ${evaluation.stars} Estrela(s)! (${stats.firstTryHits}/${conductor.totalNotes} acertos)`;
       hudPhase.style.background = "#4a148c";
       notePanel.clear();
-      announce(`Fase concluída! 1ª tentativa: ${stats.firstTryHits} de ${conductor.totalNotes}. Tropeços em paredes: ${stats.wallBumps}`);
+
+      // Fanfarra triunfal de violoncelo e sinos
+      audio.playVictoryFanfare();
+
+      // Apresentação do Modal de Vitória com selos e telemetria
+      victoryModal.show(currentLevelMeta, evaluation, Boolean(nextMeta));
+
+      announce(`Memória Concluída com ${evaluation.stars} estrelas! 1ª tentativa: ${stats.firstTryHits} de ${conductor.totalNotes}. Tropeços: ${stats.wallBumps}`);
     }
   };
 
@@ -493,15 +586,16 @@ async function bootstrap() {
     notePanel.clear();
   };
 
-  // 10. Botão de Iniciar Áudio
+  // 12. Botão de Iniciar Áudio
   btnStart.addEventListener("click", async () => {
     btnStart.textContent = "Afinando violoncelo...";
     await audio.init();
     modal.style.display = "none";
+    levelStartTime = performance.now();
     conductor.start();
   });
 
-  // 11. Loop de Renderização & Animação
+  // 13. Loop de Renderização & Animação
   let lastTime = performance.now();
   let totalTime = 0;
 
@@ -556,6 +650,15 @@ async function bootstrap() {
 
     scene.stage.scale.set(scale);
     scene.stage.position.set(targetX + shakeX, targetY + shakeY);
+
+    // Atualização da posição de tela do Sr. Arthur no Simulador de Baixa Visão
+    const viewW = isPixelArtMode ? pixelWidth : app.screen.width;
+    const viewH = isPixelArtMode ? pixelHeight : app.screen.height;
+    const arthurLocalX = targetX + shakeX + scene.arthur.worldPos.x * scale;
+    const arthurLocalY = targetY + shakeY + scene.arthur.worldPos.y * scale;
+    const arthurScreenX = (arthurLocalX / viewW) * app.screen.width;
+    const arthurScreenY = (arthurLocalY / viewH) * app.screen.height;
+    visionOverlay.update(arthurScreenX, arthurScreenY, currentStep !== null, dt);
 
     // Renderiza a cena no modo ativo (Pixel Art com RenderTexture vs Vetorial HD)
     if (isPixelArtMode) {

@@ -395,4 +395,53 @@ export class AudioEngine {
     osc1.stop(now + 0.95);
     osc2.stop(now + 0.95);
   }
+
+  /**
+   * Fanfarra triunfal de vitória:
+   * Acorde maior de violoncelo acústico reverberado com arpejo e sinos de estrelas.
+   */
+  public playVictoryFanfare(): void {
+    if (!this._ctx || !this._masterGain) return;
+    const now = this._ctx.currentTime;
+    const notes = [130.81, 196.0, 329.63, 523.25]; // C3, G3, E4, C5
+    notes.forEach((freq, idx) => {
+      const osc = this._ctx!.createOscillator();
+      const gain = this._ctx!.createGain();
+      const noteStart = now + idx * 0.12;
+      osc.type = idx % 2 === 0 ? "sawtooth" : "triangle";
+      osc.frequency.setValueAtTime(freq, noteStart);
+
+      gain.gain.setValueAtTime(0.01, noteStart);
+      gain.gain.linearRampToValueAtTime(0.35, noteStart + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 1.2);
+
+      osc.connect(gain);
+      if (this._convolverNode) {
+        gain.connect(this._convolverNode);
+      }
+      gain.connect(this._masterGain!);
+
+      osc.start(noteStart);
+      osc.stop(noteStart + 1.25);
+    });
+
+    // Star chimes em registro alto
+    [1046.5, 1318.51].forEach((freq, i) => {
+      const chimeOsc = this._ctx!.createOscillator();
+      const chimeGain = this._ctx!.createGain();
+      const cStart = now + 0.45 + i * 0.15;
+      chimeOsc.type = "sine";
+      chimeOsc.frequency.setValueAtTime(freq, cStart);
+
+      chimeGain.gain.setValueAtTime(0.01, cStart);
+      chimeGain.gain.linearRampToValueAtTime(0.25, cStart + 0.01);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, cStart + 0.85);
+
+      chimeOsc.connect(chimeGain);
+      chimeGain.connect(this._masterGain!);
+
+      chimeOsc.start(cStart);
+      chimeOsc.stop(cStart + 0.9);
+    });
+  }
 }
