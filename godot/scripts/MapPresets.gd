@@ -210,7 +210,7 @@ func _arcade_s1_louca_walls() -> Array[Vector2i]:
     return [
         Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5),
         Vector2i(5, 5), Vector2i(6, 4), Vector2i(6, 3),
-        Vector2i(4, 5), Vector2i(5, 1), Vector2i(4, 0),
+        Vector2i(4, 5), Vector2i(5, 1), Vector2i(1, 2),
     ]
 
 # S2.1 Sala de Estar do Mimi: sofá e mesas onde o gato se esconde
