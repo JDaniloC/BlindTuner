@@ -65,7 +65,11 @@ const STRINGS_EQ_BOOST_DB := 2.5
 const STRINGS_EQ_BOOST_TARGETS_HZ := [300.0, 700.0, 2500.0]
 const EQ10_BAND_FREQS := [31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0]
 const BEACON_BUS_NAME := "Beacon"
+const AcousticSynthScript := preload("res://scripts/AcousticSynth.gd")
+const VALID_INSTRUMENTS := ["piano", "cello", "guitar"]
 
+var _instrument: String = "piano"
+var _cello_body_resonator = AcousticSynthScript.BodyResonatorBank.new()
 var _current_player: AudioStreamPlayer = null
 var _pitch_player: AudioStreamPlayer = null
 var _pitch_playback: AudioStreamGeneratorPlayback = null
@@ -130,6 +134,17 @@ func _eq10_band_index_for(target_hz: float) -> int:
             best_diff = diff
             best_idx = i
     return best_idx
+
+## Define o instrumento acústico ativo ("piano", "cello" ou "guitar").
+func set_instrument(inst_name: String) -> void:
+    if inst_name in VALID_INSTRUMENTS:
+        _instrument = inst_name
+    else:
+        push_warning("AudioManager: instrumento inválido '%s' ignorado (mantendo '%s')" % [inst_name, _instrument])
+
+## Retorna o identificador do instrumento acústico ativo.
+func get_instrument() -> String:
+    return _instrument
 
 ## Toca a nota pela chave (ex: "A4"). Cancela qualquer player ativo antes.
 ## Suporta duração customizada para notas ritmadas no PREVIEW/REPLAY.
@@ -289,6 +304,7 @@ func play_continuous_pitch(freq_hz: float) -> AudioStreamPlayer:
         _pitch_player.play()
         _pitch_playback = _pitch_player.get_stream_playback()
         _pitch_phase = 0.0
+        _cello_body_resonator.reset()
     return _pitch_player
 
 ## Para o tom contínuo (ex: ao soltar o slider, trocar de modo de input, ou tocar
@@ -327,7 +343,8 @@ func _fill_pitch_buffer() -> void:
         if _vibrato_sample_counter == 0:
             vibrato_mult = _vibrato_multiplier(_pitch_lfo_phase)
         _vibrato_sample_counter = (_vibrato_sample_counter + 1) % VIBRATO_CONTROL_RATE_SAMPLES
-        var sample := _pitch_step(_pitch_freq * vibrato_mult)
+        var raw_sample := _pitch_step(_pitch_freq * vibrato_mult)
+        var sample: float = _cello_body_resonator.process(raw_sample)
         _pitch_playback.push_frame(Vector2(sample, sample))
         _pitch_lfo_phase = fposmod(_pitch_lfo_phase + lfo_inc, 1.0)
 
@@ -366,11 +383,7 @@ func _continuous_pitch_sample(phase: float, lfo_phase: float, noise_lp: float) -
 ## antes do envelope de amplitude. Roda por AMOSTRA de áudio, então a soma dos
 ## ganhos fica pré-computada em vez de recalculada a cada chamada.
 func _string_harmonics(phase: float) -> float:
-    var sum := 0.0
-    for h in range(HARMONIC_GAINS.size()):
-        var harmonic_num := h + 1
-        sum += HARMONIC_GAINS[h] * sin(phase * TAU * harmonic_num)
-    return sum / HARMONIC_GAIN_TOTAL
+    return AcousticSynthScript.helmholtz_bowed_string(phase)
 
 func _play_synth(freq: float, harsh: bool, duration: float) -> AudioStreamPlayer:
     _stop_current()
@@ -398,6 +411,14 @@ func _on_player_finished(player: AudioStreamPlayer) -> void:
 
 func _make_stream(freq: float, harsh: bool, duration: float) -> AudioStreamWAV:
     var env := _envelope_segments(duration)
+    if not harsh:
+        match _instrument:
+            "cello":
+                return AcousticSynthScript.generate_cello_discrete_stream(freq, env)
+            "guitar":
+                return AcousticSynthScript.generate_guitar_karplus_strong_stream(freq, env)
+            _:
+                return AcousticSynthScript.generate_piano_stream(freq, env)
     # O tamanho do buffer vem da SOMA dos trechos, e não de MIX_RATE*duration de
     # novo: assim não existe um jeito de o release terminar fora do buffer (que é
     # o corte seco na última amostra) nem de o buffer sobrar depois do release.

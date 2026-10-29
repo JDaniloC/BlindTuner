@@ -11,6 +11,8 @@ const TactileRippleScript := preload("res://scripts/TactileRipple.gd")
 const AcousticFocusGuideScript := preload("res://scripts/AcousticFocusGuide.gd")
 const AmbientAtmosphere2DScript := preload("res://scripts/AmbientAtmosphere2D.gd")
 const CharacterPortraitScript := preload("res://scripts/CharacterPortrait.gd")
+const CaneAcousticPulseScript := preload("res://scripts/CaneAcousticPulse.gd")
+const ProceduralFurniture25DScript := preload("res://scripts/ProceduralFurniture25D.gd")
 const BaseMobScript := preload("res://scripts/mobs/BaseMob.gd")
 const CatMobScript := preload("res://scripts/mobs/CatMob.gd")
 const DogMobScript := preload("res://scripts/mobs/DogMob.gd")
@@ -44,6 +46,7 @@ var _goal_beacon: Node2D = null
 var _goal_diamond_marker: Polygon2D = null
 var _vision_overlay: CanvasLayer = null
 var _mobs: Array = []
+@export var use_procedural_furniture: bool = false
 
 @onready var _character: Node2D = $Character
 @onready var _joystick: Control = $UI/DirectionJoystick
@@ -115,6 +118,10 @@ func _ready() -> void:
 	_special_actions.note_triggered.connect(_on_note_triggered)
 	_piano_input.note_triggered.connect(_on_note_triggered)
 	_pitch_scroll_input.note_triggered.connect(_on_note_triggered)
+	if _pitch_scroll_input.has_signal("pitch_swept"):
+		_pitch_scroll_input.pitch_swept.connect(_character.set_tuning_sweep_frequency)
+	if _pitch_scroll_input.has_signal("pitch_sweep_ended"):
+		_pitch_scroll_input.pitch_sweep_ended.connect(_character.clear_tuning_sweep)
 	_conductor.preview_note.connect(_on_preview_note)
 	_conductor.call_cue.connect(_on_call_cue)
 	_conductor.replay_note.connect(_on_replay_note)
@@ -283,6 +290,8 @@ func _on_preview_note(note_key: String, _index: int) -> void:
 	var dur_sec: float = _conductor.get_replay_note_duration_sec(_index) if _conductor != null else AudioManager.NOTE_DURATION_SEC
 	AudioManager.play_note(note_key, dur_sec)
 	_note_panel.display_note(note_key)
+	if _character != null:
+		trigger_synesthesia_acoustic_wave(_character.position, note_key)
 	if _character_portrait != null:
 		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, minf(dur_sec, 0.7))
 
@@ -291,6 +300,8 @@ func _on_call_cue(note_key: String, index: int) -> void:
 	AudioManager.play_note(note_key)
 	_note_panel.display_note(note_key)
 	_hud.set_progress(index, _conductor._preset.notes.size())
+	if _character != null:
+		trigger_synesthesia_acoustic_wave(_character.position, note_key)
 	if _character_portrait != null:
 		_character_portrait.trigger_reaction(CharacterPortraitScript.State.LISTENING, 0.8)
 
@@ -298,6 +309,8 @@ func _on_replay_note(note_key: String, index: int) -> void:
 	# REPLAY: o personagem "toca" e (se movement) anda o caminho canônico do preset.
 	var dur_sec: float = _conductor.get_replay_note_duration_sec(index) if _conductor != null else AudioManager.NOTE_DURATION_SEC
 	AudioManager.play_note(note_key, dur_sec)
+	if _character != null:
+		trigger_synesthesia_acoustic_wave(_character.position, note_key)
 	if NoteMapping.is_rest(note_key):
 		pass
 	elif NoteMapping.is_action_note(note_key):
@@ -338,6 +351,25 @@ func _set_controls_alpha(alpha: float) -> void:
 	if _pitch_scroll_input != null:
 		_pitch_scroll_input.modulate.a = alpha
 
+## Emite um pulso de ecolocalização musical e sinestesia no piso e ressoa nos móveis próximos.
+func trigger_synesthesia_acoustic_wave(center_world: Vector2, note_key: String) -> void:
+	if not NoteMapping.NOTES.has(note_key):
+		return
+	var col: Color = NoteMapping.color_for(note_key)
+	var pulse := CaneAcousticPulseScript.new()
+	pulse.setup(center_world, col)
+	add_child(pulse)
+	
+	# Faz os móveis próximos ressoarem suavemente na cor da frequência musical
+	for child in _walls_node.get_children():
+		for sub in child.get_children():
+			if sub is ProceduralFurniture25DScript:
+				sub.trigger_harmonic_glow(col)
+	for child in _goal_node.get_children():
+		for sub in child.get_children():
+			if sub is ProceduralFurniture25DScript:
+				sub.trigger_harmonic_glow(col)
+
 func _on_note_triggered(note_key: String) -> void:
 	if _character != null and _character.is_tripping():
 		AudioManager.play_trip_blocked_sfx()
@@ -352,9 +384,13 @@ func _on_note_triggered(note_key: String) -> void:
 			AudioManager.play_note(note_key)
 			_note_panel.display_note(note_key)
 			_character.handle_note(note_key)
+			if _character != null:
+				trigger_synesthesia_acoustic_wave(_character.position, note_key)
 		_conductor.Phase.CALL:
 			AudioManager.play_note(note_key)
 			_note_panel.display_note(note_key)
+			if _character != null:
+				trigger_synesthesia_acoustic_wave(_character.position, note_key)
 			_conductor.submit_note(note_key)
 		_:
 			# PREVIEW/REPLAY/DONE: feedback sonoro imediato sem dead click silencioso
@@ -645,6 +681,14 @@ func _spawn_floor_tile(tile: Vector2i, theme, map_size: Vector2i = Vector2i.ZERO
 			slab_se.z_index = -101
 			_floor_node.add_child(slab_se)
 
+func _attach_procedural_furniture(host_sprite: Sprite2D, p_type: String, local_offset: Vector2 = Vector2.ZERO) -> void:
+	host_sprite.self_modulate.a = 0.0 if use_procedural_furniture else 1.0
+	var proc := ProceduralFurniture25DScript.new()
+	proc.setup(p_type)
+	proc.position = local_offset
+	proc.visible = use_procedural_furniture
+	host_sprite.add_child(proc)
+
 func _spawn_quarto_furniture() -> void:
 	if _current_map_id == "quarto_lullaby":
 		# Cama no destino (2, 7) e (3, 7)
@@ -656,6 +700,7 @@ func _spawn_quarto_furniture() -> void:
 		bed.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		bed.position = bed_center + Vector2(0, -12)
 		bed.z_index = bed_z
+		_attach_procedural_furniture(bed, "bed", Vector2(0, 12))
 		_walls_node.add_child(bed)
 
 		# Criado-mudo com abajur em (2, 6)
@@ -666,6 +711,7 @@ func _spawn_quarto_furniture() -> void:
 		ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		ns.position = ns_pos + Vector2(0, -16)
 		ns.z_index = int(ns_pos.y)
+		_attach_procedural_furniture(ns, "nightstand", Vector2(0, 16))
 		_walls_node.add_child(ns)
 
 		# Chinelos aos pés da cama em (3, 6)
@@ -687,6 +733,7 @@ func _spawn_quarto_furniture() -> void:
 	bed.position = bed_center + Vector2(0, -12)
 	# Profundidade isométrica: base inferior da cama está no tile (2, 3)
 	bed.z_index = int(_character.grid_to_world(Vector2i(2, 3)).y)
+	_attach_procedural_furniture(bed, "bed", Vector2(0, 12))
 	_walls_node.add_child(bed)
 
 	# Criado-mudo com abajur em (3,2)
@@ -697,6 +744,7 @@ func _spawn_quarto_furniture() -> void:
 	ns.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	ns.position = ns_pos + Vector2(0, -16)
 	ns.z_index = int(ns_pos.y)
+	_attach_procedural_furniture(ns, "nightstand", Vector2(0, 16))
 	_walls_node.add_child(ns)
 
 	# Chinelos aos pés da cama em (2, 4) com escala proporcional aos pés do velhinho
@@ -910,6 +958,7 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		radio.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		radio.position = center + Vector2(0, -12)
 		radio.z_index = int(center.y)
+		_attach_procedural_furniture(radio, "radio", Vector2(0, 12))
 		_goal_node.add_child(radio)
 		return
 	elif _current_map_id == "banheiro":
@@ -918,6 +967,7 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		sink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		sink.position = center + Vector2(0, -14)
 		sink.z_index = int(center.y)
+		_attach_procedural_furniture(sink, "sink", Vector2(0, 14))
 		_goal_node.add_child(sink)
 		return
 	elif _current_map_id == "sala":
@@ -926,6 +976,7 @@ func _spawn_goal_prop(center: Vector2) -> void:
 		clock.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		clock.position = center + Vector2(0, -28)
 		clock.z_index = int(center.y)
+		_attach_procedural_furniture(clock, "clock", Vector2(0, 28))
 		_goal_node.add_child(clock)
 		return
 

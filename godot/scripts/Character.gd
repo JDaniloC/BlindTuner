@@ -28,6 +28,7 @@ const DUST_PUFF_COUNT := 4
 const DUST_PUFF_LIFETIME := 0.5
 const DUST_PUFF_COLOR := Color(0.85, 0.78, 0.6, 0.7)
 const CaneAcousticPulseScript := preload("res://scripts/CaneAcousticPulse.gd")
+const ProceduralArthur25DScript := preload("res://scripts/ProceduralArthur25D.gd")
 
 enum State { IDLE, WALK, RUN, TRIP }
 ## Distingue por que o personagem tropeçou: colisão física de verdade (WALL)
@@ -76,6 +77,8 @@ const DIRECTION_TO_KEY := {
 }
 
 var _shadow: Polygon2D = null
+var _procedural_rig: Node2D = null
+@export var use_procedural_25d: bool = false
 @onready var _animated_sprite: AnimatedSprite2D = $AnimatedSprite
 
 func _animation_for(state_name: String, direction: Vector2i) -> Dictionary:
@@ -105,15 +108,30 @@ func _play_animation(state_name: String, direction: Vector2i) -> void:
 	var info = _animation_for(state_name, direction)
 	_animated_sprite.flip_h = info.flip
 	_animated_sprite.play(info.anim)
+	if _procedural_rig != null:
+		_procedural_rig.anim_state = "trip" if state_name == "rotate" else state_name
+		_procedural_rig.set_direction(direction)
 
 func _ready() -> void:
 	position = grid_to_world(grid_position)
 	z_index = int(position.y) + 1
 	_ensure_contact_shadow()
+	_ensure_procedural_rig()
 	_animated_sprite.sprite_frames = _build_sprite_frames()
 	_sprite_base_y = _animated_sprite.position.y
+	_animated_sprite.self_modulate.a = 0.0 if use_procedural_25d else 1.0
 	_play_animation("idle", _last_direction)
+	if _procedural_rig != null:
+		_procedural_rig.set_direction(_last_direction, true)
 	_ensure_audio_listener()
+
+func _ensure_procedural_rig() -> void:
+	if _procedural_rig != null:
+		return
+	_procedural_rig = ProceduralArthur25DScript.new()
+	_procedural_rig.name = "ProceduralArthur25D"
+	_procedural_rig.visible = use_procedural_25d
+	add_child(_procedural_rig)
 
 func _ensure_contact_shadow() -> void:
 	if _shadow != null:
@@ -142,6 +160,23 @@ func _process(_delta: float) -> void:
 		var sc := lerpf(1.0, 0.62, lift)
 		_shadow.scale = Vector2(sc, sc)
 		_shadow.color.a = lerpf(0.36, 0.18, lift)
+		if _procedural_rig != null:
+			_procedural_rig.jump_elevation = maxf(0.0, _sprite_base_y - _animated_sprite.position.y)
+
+## Gira suavemente o Sr. Arthur em 360° conforme a frequência contínua varrida no Scroll de Afinação.
+## Utiliza o mapeamento rigoroso de ProceduralArthur25D.angle_for_frequency para garantir
+## que a direção apontada na varredura corresponda 100% ao vetor de caminhada da nota ao soltar!
+func set_tuning_sweep_frequency(freq_hz: float) -> void:
+	if _procedural_rig == null:
+		return
+	var nearest_key := NoteMapping.nearest_note_for_frequency(freq_hz)
+	var nearest_col := NoteMapping.color_for(nearest_key) if NoteMapping.NOTES.has(nearest_key) else Color(0.95, 0.82, 0.45)
+	var angle_rad := ProceduralArthur25DScript.angle_for_frequency(freq_hz)
+	_procedural_rig.set_continuous_tuning_angle(angle_rad, nearest_col)
+
+func clear_tuning_sweep() -> void:
+	if _procedural_rig != null:
+		_procedural_rig.clear_continuous_tuning()
 
 ## Reseta o estado do personagem para início ou repetição de fase.
 func reset() -> void:
@@ -251,6 +286,8 @@ func spawn_cane_acoustic_pulse(note_key: String = "") -> void:
 	var tip_pos := get_cane_tip_world_position()
 	pulse.setup(tip_pos, col)
 	get_parent().add_child(pulse)
+	if _procedural_rig != null:
+		_procedural_rig.trigger_cane_tap_spark()
 	cane_tapped.emit(tip_pos, note_key)
 
 ## Salto: 2 tiles com anim jump (mesma distância do combo run+jump, só que com

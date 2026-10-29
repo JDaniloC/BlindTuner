@@ -12,6 +12,8 @@ extends Control
 ## manifestação do interruptor neste modo, como a cor da tecla é no piano.
 
 signal note_triggered(note_key: String)
+signal pitch_swept(freq_hz: float)
+signal pitch_sweep_ended()
 
 const ColorDistance := preload("res://scripts/ColorDistance.gd")
 
@@ -233,7 +235,9 @@ func _move_finger_to(local_y: float) -> void:
 	while _drag_samples.size() > 12 or (not _drag_samples.is_empty() and now - _drag_samples[0]["time"] > 180):
 		_drag_samples.pop_front()
 	queue_redraw()
-	AudioManager.play_continuous_pitch(_frequency_for_finger_y())
+	var current_freq := _frequency_for_finger_y()
+	AudioManager.play_continuous_pitch(current_freq)
+	pitch_swept.emit(current_freq)
 
 ## Extremos do trecho de braço que o dedo percorre: do topo (logo abaixo do
 ## cravelhal, onde ficaria a pestana) até a base (perto do cavalete).
@@ -368,6 +372,7 @@ func _highest_frequency() -> float:
 
 func _on_drag_ended() -> void:
 	AudioManager.stop_continuous_pitch()
+	pitch_sweep_ended.emit()
 	queue_redraw()
 	var final_y := _finger_y
 	var now := Time.get_ticks_msec()

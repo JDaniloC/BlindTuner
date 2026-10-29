@@ -28,6 +28,11 @@ import*.txt
 # Builds Godot
 build/
 
+# Web / Node
+node_modules/
+dist/
+.vite/
+
 # Packs de arte crus (só o subset curado em godot/assets/ui/ é versionado)
 /Complete_UI_Essential_Pack_Free/
 /Top-Down_Retro_Interior/

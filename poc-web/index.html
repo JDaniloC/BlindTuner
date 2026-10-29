@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BlindTuner — Oficina de Luthier 2.5D</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      body {
+        background-color: #080a0e;
+        color: #e6edf3;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+      #app-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        max-width: 560px;
+        max-height: 980px;
+        display: flex;
+        flex-direction: column;
+        background: #0f141c;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85);
+        border: 2px solid #2e1d13;
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      #canvas-wrapper {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      /* HUD Superior no Estilo Madeira e Latão */
+      #ui-header {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        right: 14px;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 10;
+      }
+      .hud-bar {
+        background: rgba(24, 16, 12, 0.90);
+        backdrop-filter: blur(12px);
+        padding: 10px 16px;
+        border-radius: 12px;
+        border: 1.5px solid #543926;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: auto;
+      }
+      .hud-title {
+        font-family: Georgia, serif;
+        font-size: 15px;
+        font-weight: 700;
+        color: #f5d77f;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hud-badge {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: #3e2723;
+        color: #fff;
+        border: 1px solid #8d6e63;
+      }
+      /* Barra de Sequência de Notas */
+      #note-track {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .note-bead {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #271912;
+        border: 1.5px solid #543926;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+        color: #bbb;
+        transition: transform 0.2s, background 0.2s, border-color 0.2s;
+      }
+      .note-bead.active {
+        transform: scale(1.25);
+        box-shadow: 0 0 12px currentColor;
+        color: #fff;
+      }
+      .note-bead.done {
+        border-color: #ffd54f;
+      }
+      /* Modal de Abertura */
+      #audio-init-modal {
+        position: absolute;
+        inset: 0;
+        background: rgba(12, 8, 6, 0.94);
+        backdrop-filter: blur(14px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        z-index: 100;
+        text-align: center;
+      }
+      .modal-box {
+        background: #1c130d;
+        border: 2px solid #5d3f28;
+        border-radius: 16px;
+        padding: 28px 24px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-width: 380px;
+      }
+      .btn-luthier {
+        background: linear-gradient(180deg, #9e472a 0%, #6e2c17 100%);
+        color: #fff8e1;
+        border: 1.5px solid #d4af37;
+        padding: 14px 32px;
+        font-size: 16px;
+        font-family: Georgia, serif;
+        font-weight: 700;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.2s;
+        box-shadow: 0 6px 20px rgba(158, 71, 42, 0.45);
+        margin-top: 20px;
+      }
+      .btn-luthier:hover {
+        transform: scale(1.04);
+        box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5);
+      }
+      .btn-luthier:active {
+        transform: scale(0.97);
+      }
+      .hud-mode-btn {
+        background: #271912;
+        color: #e0d5ce;
+        border: 1.5px solid #5d3f28;
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .hud-mode-btn:hover {
+        border-color: #ffd54f;
+        color: #fff;
+        transform: translateY(-1px);
+      }
+      .hud-mode-btn.active {
+        background: #5d321d;
+        border-color: #ffd54f;
+        color: #fff8e1;
+        box-shadow: 0 0 8px rgba(255, 213, 79, 0.4);
+      }
+      .hud-select {
+        background: #271912;
+        color: #f5d77f;
+        border: 1.5px solid #5d3f28;
+        padding: 5px 8px;
+        font-size: 11px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .hud-select:hover, .hud-select:focus {
+        border-color: #ffd54f;
+      }
+      .hud-select option {
+        background: #1c130d;
+        color: #fff8e1;
+      }
+      #status-announcer {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app-container">
+      <div id="canvas-wrapper"></div>
+      
+      <!-- HUD Superior Artesanal -->
+      <div id="ui-header">
+        <div class="hud-bar">
+          <div class="hud-title">
+            <span style="font-size: 18px;">🎻</span>
+            <span>BlindTuner</span>
+          </div>
+          <button id="btn-style-toggle" class="hud-badge" style="cursor:pointer; background:#2e1d13; border: 1.5px solid #ffd54f; font-family: inherit; font-size: 11px; transition: transform 0.15s, border-color 0.2s;">🎨 Estilo: Pixel Art 16-bit</button>
+          <div class="hud-badge" id="hud-phase">Aguardando Início</div>
+        </div>
+        <!-- Barra 2: Presets de Cômodos & Acessibilidade -->
+        <div class="hud-bar" style="justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <select id="select-room-preset" class="hud-select" aria-label="Cômodo da Casa">
+              <option value="quarto" selected>🛏️ Quarto (8×8)</option>
+              <option value="banheiro">🛁 Banheiro (10×10)</option>
+              <option value="sala">🛋️ Sala (12×12)</option>
+            </select>
+            <select id="select-cue-level" class="hud-select" aria-label="Nível de Pista Visual">
+              <option value="0" selected>🎯 Pista 0: Tudo</option>
+              <option value="1">🎯 Pista 1: Freq+Cor</option>
+              <option value="2">🎯 Pista 2: Só Cor</option>
+              <option value="3">🎯 Pista 3: Só Som</option>
+            </select>
+            <select id="select-color-scheme" class="hud-select" aria-label="Esquema de Cores WCAG">
+              <option value="pedagogico" selected>🌈 Pedagógico</option>
+              <option value="alto_contraste">👁️ Alto Contraste</option>
+              <option value="classico">🎨 Clássico</option>
+            </select>
+          </div>
+          <button id="btn-toggle-control-cues" class="hud-mode-btn active" style="font-size: 10.5px; padding: 5px 8px;" title="Ativar ou desativar cores nos instrumentos">🎛️ Pistas Controles: ON</button>
+        </div>
+
+        <!-- Barra 3: Placa Didática da Nota Alvo (NotePanel) -->
+        <div id="note-panel-container" class="hud-bar" style="padding: 8px 14px;"></div>
+
+        <!-- Barra 4: Modos de Entrada e Sequência Musical -->
+        <div class="hud-bar" style="justify-content: space-between; gap: 8px;">
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button id="btn-mode-scroll" class="hud-mode-btn active" title="Modo 0: Braço de Violoncelo Fretless">🎻 Scroll</button>
+            <button id="btn-mode-joystick" class="hud-mode-btn" title="Modo 1: Joystick Direcional de 8 Fatias">🕹️ Joystick</button>
+            <button id="btn-mode-piano" class="hud-mode-btn" title="Modo 2: Piano Cromático Virtual">🎹 Piano</button>
+          </div>
+          <div id="note-track"></div>
+        </div>
+      </div>
+
+      <!-- Modal de Início -->
+      <div id="audio-init-modal">
+        <div class="modal-box">
+          <h2 style="font-family: Georgia, serif; color: #f5d77f; margin-bottom: 12px; font-size: 24px;">Oficina de Luthier</h2>
+          <p style="color: #d7ccc8; font-size: 14px; line-height: 1.6; margin-bottom: 6px;">
+            Acompanhe o Sr. Arthur. Ouça a melodia das notas musicais e afine cada uma no braço do violoncelo para avançar pelo quarto.
+          </p>
+          <button id="btn-start" class="btn-luthier">Entrar na Oficina</button>
+        </div>
+      </div>
+    </div>
+    <div id="status-announcer" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

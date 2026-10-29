@@ -1,0 +1,23 @@
+{
+  "name": "poc-web",
+  "version": "1.0.0",
+  "description": "BlindTuner Path B POC - PixiJS v8 + WebAudio / Faust Wasm",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@grame/faustwasm": "^0.19.0",
+    "pixi.js": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "playwright": "^1.64.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

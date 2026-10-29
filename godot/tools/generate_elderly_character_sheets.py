@@ -27,48 +27,48 @@ from PIL import Image
 
 OUT_DIR = r"c:\Users\danil\Documents\code\BlindTuner\godot\assets\sprites\character\16x32_elderly"
 
-# Paleta Clean Cozy Pixel Art — Novo Visual do Sr. Arthur
-OUTLINE       = (40, 26, 20, 255)      # Contorno escuro quente (#281A14)
-SKIN_LIGHT    = (255, 236, 214, 255)   # Brilho da careca / testa
-SKIN_BASE     = (250, 216, 188, 255)   # Pele pêssego acolhedora
-SKIN_SHADOW   = (224, 184, 154, 255)   # Sombra suave do rosto/pescoço
-SKIN_DEEP     = (196, 150, 120, 255)   # Orelha / nariz
-BLUSH         = (236, 154, 150, 255)   # Bochechas coradas
+# Paleta Terracota Luthier & Ray-Ban Obsidian — Sr. Arthur
+OUTLINE          = (24, 18, 22, 255)      # Contorno escuro quente (#181216)
+MUSTACHE_CREASE  = (56, 29, 34, 255)      # Vinco labial escuro (#381D22) para separação nítida
+SKIN_LIGHT       = (255, 238, 220, 255)   # Brilho da careca / testa
+SKIN_BASE        = (246, 214, 186, 255)   # Pele pêssego acolhedora
+SKIN_SHADOW      = (220, 180, 150, 255)   # Sombra suave do rosto/pescoço
+SKIN_DEEP        = (194, 148, 118, 255)   # Orelha / nariz
+BLUSH            = (232, 146, 142, 255)   # Bochechas coradas
 
-HAIR_WHITE    = (248, 250, 255, 255)   # Cabelo e bigode branco puro
-HAIR_SILVER   = (214, 222, 234, 255)   # Grisalho prateado médio
-HAIR_SHADOW   = (168, 178, 194, 255)   # Sombra da coroa de cabelo
+HAIR_WHITE       = (255, 255, 255, 255)   # Cabelo e bigode branco puro brilhante
+HAIR_SILVER      = (214, 222, 234, 255)   # Grisalho prateado médio
+HAIR_SHADOW      = (168, 178, 194, 255)   # Sombra da coroa de cabelo
 
-GLASSES_GOLD  = (188, 128, 58, 255)    # Aro dourado/âmbar quente dos óculos
-GLASSES_RIM   = (124, 78, 36, 255)     # Sombra do aro dos óculos
-GLASSES_LENS  = (218, 242, 255, 255)   # Reflexo cristalino da lente
-EYE_DARK      = (32, 20, 16, 255)      # Pupila viva
+GLASSES_BLACK    = (24, 20, 32, 255)      # Óculos Ray-Ban Obsidian escuro (#181420)
+GLASSES_GLINT    = (76, 70, 92, 255)      # Reflexo especular elegante nas lentes
+GLASSES_GOLD     = (245, 203, 66, 255)    # Haste e ponte de latão dourado (#F5CB42)
 
-SHIRT_CREAM   = (252, 246, 232, 255)   # Camisa social creme
-BOWTIE_RED    = (196, 54, 64, 255)     # Gravatinha / lenço bordô (#C43640)
-BOWTIE_DARK   = (142, 34, 42, 255)     # Sombra da gravatinha bordô
+SCARF_LIGHT      = (108, 138, 168, 255)   # Cachecol azul chambray luz (#6C8AA8)
+SCARF_BASE       = (84, 112, 140, 255)    # Cachecol azul chambray base (#54708C)
+SCARF_SHADOW     = (55, 74, 94, 255)      # Cachecol sombra (#374A5E)
 
-CARD_LIGHT    = (118, 162, 126, 255)   # Cardigã verde-sálvia iluminado
-CARD_BASE     = (86, 130, 96, 255)     # Cardigã verde-sálvia base
-CARD_SHADOW   = (62, 98, 70, 255)      # Cardigã verde-sálvia sombra
-CARD_TRIM     = (156, 98, 54, 255)     # Lapela / acabamento em lã conhaque
-BUTTON_GOLD   = (242, 202, 72, 255)    # Botões dourados
+COAT_LIGHT       = (219, 104, 76, 255)    # Sobretudo terracota iluminado (#DB684C)
+COAT_BASE        = (196, 91, 65, 255)     # Sobretudo terracota base (#C45B41)
+COAT_SHADOW      = (138, 53, 37, 255)     # Sobretudo terracota sombra (#8A3525)
+COAT_DEEP        = (87, 29, 24, 255)      # Lapela terracota escura (#571D18)
+BUTTON_GOLD      = (245, 203, 66, 255)    # Botões dourados (#F5CB42)
 
-BELT_LEATHER  = (92, 54, 32, 255)      # Cinto de couro marrom
-PANTS_LIGHT   = (74, 80, 96, 255)      # Calça grafite iluminada
-PANTS_BASE    = (54, 58, 72, 255)      # Calça grafite base
-PANTS_SHADOW  = (38, 42, 54, 255)      # Calça grafite sombra (perna de trás)
+BELT_LEATHER     = (84, 48, 28, 255)      # Cinto de couro marrom
+PANTS_LIGHT      = (72, 78, 92, 255)      # Calça grafite iluminada
+PANTS_BASE       = (52, 56, 68, 255)      # Calça grafite base
+PANTS_SHADOW     = (36, 40, 50, 255)      # Calça grafite sombra (perna de trás)
 
-SHOE_LIGHT    = (138, 84, 48, 255)     # Brilho do bico do sapato marrom
-SHOE_BASE     = (98, 58, 32, 255)      # Sapato de couro marrom
-SHOE_DARK     = (62, 36, 20, 255)      # Sola / sapato em sombra
+SHOE_LIGHT       = (128, 76, 44, 255)     # Brilho do bico do sapato marrom
+SHOE_BASE        = (92, 52, 28, 255)      # Sapato de couro marrom
+SHOE_DARK        = (56, 32, 18, 255)      # Sola / sapato em sombra
 
-CANE_GRIP     = (46, 46, 54, 255)      # Empunhadura preta antiderrapante
-CANE_SHAFT    = (252, 254, 255, 255)   # Haste branca brilhante
-CANE_EDGE     = (74, 64, 58, 220)      # Contorno sutil para contraste em pisos claros
-CANE_RED      = (228, 42, 42, 255)     # Faixa refletiva vermelha
-CANE_TIP      = (255, 255, 255, 255)   # Ponteira roller branca
-TAP_SPARK     = (120, 215, 255, 240)   # Brilho tátil na ponteira
+CANE_GRIP        = (38, 38, 46, 255)      # Empunhadura preta antiderrapante
+CANE_SHAFT       = (250, 252, 255, 255)   # Haste branca brilhante
+CANE_EDGE        = (64, 54, 50, 220)      # Contorno sutil para contraste em pisos claros
+CANE_RED         = (224, 40, 40, 255)     # Faixa refletiva vermelha
+CANE_TIP         = (255, 255, 255, 255)   # Ponteira roller branca
+TAP_SPARK        = (120, 215, 255, 240)   # Brilho tátil na ponteira
 
 
 def put(px, x, y, col):
@@ -187,36 +187,56 @@ def draw_head(px, row, cx, top_y, eyes_closed=False, head_tilt=0):
         put(px, cx + 1, y0 + 3, HAIR_WHITE)
         put(px, cx + 2, y0 + 3, HAIR_WHITE)
 
-        # Óculos redondos de aro dourado/âmbar + olhinhos vivos (sem barra preta pesada!)
-        put(px, cx - 3, y0 + 4, GLASSES_GOLD)
-        put(px, cx - 2, y0 + 4, EYE_DARK if not eyes_closed else GLASSES_GOLD)
-        put(px, cx - 1, y0 + 4, GLASSES_LENS if not eyes_closed else GLASSES_GOLD)
-        put(px, cx, y0 + 4, GLASSES_GOLD)  # Ponte dourada
-        put(px, cx + 1, y0 + 4, EYE_DARK if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 2, y0 + 4, GLASSES_LENS if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 3, y0 + 4, GLASSES_GOLD)
+        # Óculos Ray-Ban Obsidian com ponte e hastes douradas
+        put(px, cx - 4, y0 + 4, GLASSES_GOLD)   # Haste dourada esquerda
+        put(px, cx - 3, y0 + 4, GLASSES_BLACK)
+        put(px, cx - 2, y0 + 4, GLASSES_GLINT)  # Brilho especular
+        put(px, cx - 1, y0 + 4, GLASSES_BLACK)
+        put(px, cx, y0 + 4, GLASSES_GOLD)       # Ponte dourada
+        put(px, cx + 1, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 2, y0 + 4, GLASSES_GLINT)  # Brilho especular
+        put(px, cx + 3, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 4, y0 + 4, GLASSES_GOLD)   # Haste dourada direita
 
-        # Parte inferior suave do aro + bochechas
-        put(px, cx - 2, y0 + 5, GLASSES_GOLD)
-        put(px, cx - 1, y0 + 5, SKIN_BASE)
-        put(px, cx, y0 + 5, SKIN_DEEP)      # Narizinho arredondado
-        put(px, cx + 1, y0 + 5, SKIN_BASE)
-        put(px, cx + 2, y0 + 5, GLASSES_GOLD)
-        put(px, cx - 3, y0 + 6, BLUSH)
-        put(px, cx + 3, y0 + 6, BLUSH)
+        # Lentes inferiores e narizinho
+        put(px, cx - 3, y0 + 5, GLASSES_BLACK)
+        put(px, cx - 2, y0 + 5, GLASSES_BLACK)
+        put(px, cx - 1, y0 + 5, GLASSES_BLACK)
+        put(px, cx, y0 + 5, SKIN_DEEP)          # Nariz
+        put(px, cx + 1, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 2, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 3, y0 + 5, GLASSES_BLACK)
 
-        # Bigode branco farto e simpático (#F8FAFF) em y0+6..y0+7!
+        # Bochechas coradas
+        put(px, cx - 4, y0 + 6, BLUSH)
+        put(px, cx + 4, y0 + 6, BLUSH)
+
+        # Bigode branco farto e volumoso (#FFFFFF)
+        put(px, cx - 3, y0 + 6, HAIR_WHITE)
         put(px, cx - 2, y0 + 6, HAIR_WHITE)
         put(px, cx - 1, y0 + 6, HAIR_WHITE)
         put(px, cx, y0 + 6, HAIR_WHITE)
         put(px, cx + 1, y0 + 6, HAIR_WHITE)
-        put(px, cx + 2, y0 + 6, HAIR_SILVER)
-        put(px, cx - 2, y0 + 7, HAIR_SILVER)
-        put(px, cx + 2, y0 + 7, HAIR_SILVER)
-        # Sorriso acolhedor sob o bigode
-        put(px, cx - 1, y0 + 7, SKIN_DEEP)
-        put(px, cx, y0 + 7, SKIN_DEEP)
-        put(px, cx + 1, y0 + 7, SKIN_SHADOW)
+        put(px, cx + 2, y0 + 6, HAIR_WHITE)
+        put(px, cx + 3, y0 + 6, HAIR_WHITE)
+
+        put(px, cx - 2, y0 + 7, HAIR_WHITE)
+        put(px, cx - 1, y0 + 7, HAIR_WHITE)
+        put(px, cx, y0 + 7, HAIR_WHITE)
+        put(px, cx + 1, y0 + 7, HAIR_WHITE)
+        put(px, cx + 2, y0 + 7, HAIR_WHITE)
+
+        # Vinco labial escuro (#381D22) — Separação cirúrgica entre bigode e queixo
+        put(px, cx - 2, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx - 1, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 1, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 2, y0 + 8, MUSTACHE_CREASE)
+
+        # Queixo sob o vinco
+        put(px, cx - 1, y0 + 9, SKIN_SHADOW)
+        put(px, cx, y0 + 9, SKIN_SHADOW)
+        put(px, cx + 1, y0 + 9, SKIN_SHADOW)
 
     elif row == 1:  # SOUTH-EAST (Diagonal 3/4 Frente-Direita ↘)
         fill_rect(px, cx - 2, y0 + 1, cx + 3, y0 + 2, SKIN_LIGHT)
@@ -243,30 +263,41 @@ def draw_head(px, row, cx, top_y, eyes_closed=False, head_tilt=0):
         put(px, cx + 3, y0 + 3, HAIR_WHITE)
         put(px, cx + 4, y0 + 3, HAIR_WHITE)
 
-        # Óculos dourados e olhos voltados p/ sudeste (↘)
-        put(px, cx - 1, y0 + 4, GLASSES_RIM)
-        put(px, cx, y0 + 4, EYE_DARK if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 1, y0 + 4, GLASSES_LENS if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 2, y0 + 4, GLASSES_GOLD)
-        put(px, cx + 3, y0 + 4, EYE_DARK if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 4, y0 + 4, GLASSES_LENS if not eyes_closed else GLASSES_GOLD)
+        # Óculos Ray-Ban em 3/4 (lentes pretas obsidian com ponte dourada)
+        put(px, cx - 2, y0 + 4, GLASSES_GOLD)   # Haste esquerda
+        put(px, cx - 1, y0 + 4, GLASSES_BLACK)
+        put(px, cx, y0 + 4, GLASSES_GLINT)
+        put(px, cx + 1, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 2, y0 + 4, GLASSES_GOLD)   # Ponte dourada
+        put(px, cx + 3, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 4, y0 + 4, GLASSES_GLINT)
 
-        put(px, cx, y0 + 5, GLASSES_GOLD)
-        put(px, cx + 1, y0 + 5, SKIN_BASE)
-        put(px, cx + 2, y0 + 5, SKIN_DEEP)   # Nariz 3/4
-        put(px, cx + 3, y0 + 5, GLASSES_GOLD)
+        put(px, cx - 1, y0 + 5, GLASSES_BLACK)
+        put(px, cx, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 1, y0 + 5, SKIN_DEEP)      # Nariz 3/4
+        put(px, cx + 2, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 3, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 4, y0 + 5, GLASSES_BLACK)
         put(px, cx, y0 + 6, BLUSH)
 
         # Bigode branco em 3/4 (cx..cx+4)
+        put(px, cx - 1, y0 + 6, HAIR_WHITE)
         put(px, cx, y0 + 6, HAIR_WHITE)
         put(px, cx + 1, y0 + 6, HAIR_WHITE)
         put(px, cx + 2, y0 + 6, HAIR_WHITE)
         put(px, cx + 3, y0 + 6, HAIR_WHITE)
-        put(px, cx + 4, y0 + 6, HAIR_SILVER)
-        put(px, cx, y0 + 7, HAIR_SILVER)
-        put(px, cx + 1, y0 + 7, SKIN_DEEP)
-        put(px, cx + 2, y0 + 7, SKIN_DEEP)
-        put(px, cx + 3, y0 + 7, HAIR_SILVER)
+        put(px, cx + 4, y0 + 6, HAIR_WHITE)
+
+        put(px, cx, y0 + 7, HAIR_WHITE)
+        put(px, cx + 1, y0 + 7, HAIR_WHITE)
+        put(px, cx + 2, y0 + 7, HAIR_WHITE)
+        put(px, cx + 3, y0 + 7, HAIR_WHITE)
+
+        # Vinco labial escuro sob o bigode em 3/4
+        put(px, cx, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 1, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 2, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 3, y0 + 8, MUSTACHE_CREASE)
 
     elif row == 2:  # EAST (Perfil Direito →)
         # Reajusta largura para perfil elegante
@@ -293,26 +324,33 @@ def draw_head(px, row, cx, top_y, eyes_closed=False, head_tilt=0):
         put(px, cx - 1, y0 + 5, SKIN_DEEP)
         put(px, cx - 1, y0 + 6, SKIN_SHADOW)
 
-        # Sobrancelha branca e óculos em perfil
+        # Sobrancelha branca e óculos Ray-Ban em perfil
         put(px, cx + 2, y0 + 3, HAIR_WHITE)
         put(px, cx + 3, y0 + 3, HAIR_WHITE)
-        put(px, cx, y0 + 4, GLASSES_RIM)
-        put(px, cx + 1, y0 + 4, GLASSES_GOLD)
-        put(px, cx + 2, y0 + 4, EYE_DARK if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 3, y0 + 4, GLASSES_LENS if not eyes_closed else GLASSES_GOLD)
-        put(px, cx + 2, y0 + 5, GLASSES_GOLD)
-        put(px, cx + 3, y0 + 5, SKIN_BASE)
+        put(px, cx, y0 + 4, GLASSES_GOLD)       # Haste dourada
+        put(px, cx + 1, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 2, y0 + 4, GLASSES_GLINT)
+        put(px, cx + 3, y0 + 4, GLASSES_BLACK)
+        put(px, cx + 1, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 2, y0 + 5, GLASSES_BLACK)
+        put(px, cx + 3, y0 + 5, GLASSES_BLACK)
 
         # Nariz saliente apontando p/ direita (→) + bigode branco de perfil!
-        put(px, cx + 4, y0 + 5, SKIN_BASE)
+        put(px, cx + 4, y0 + 5, SKIN_DEEP)
         put(px, cx + 5, y0 + 5, OUTLINE)
         put(px, cx + 1, y0 + 6, BLUSH)
+        put(px, cx + 1, y0 + 6, HAIR_WHITE)
         put(px, cx + 2, y0 + 6, HAIR_WHITE)
         put(px, cx + 3, y0 + 6, HAIR_WHITE)
         put(px, cx + 4, y0 + 6, HAIR_WHITE)
         put(px, cx + 5, y0 + 6, OUTLINE)
-        put(px, cx + 2, y0 + 7, HAIR_SILVER)
-        put(px, cx + 3, y0 + 7, HAIR_SILVER)
+        put(px, cx + 2, y0 + 7, HAIR_WHITE)
+        put(px, cx + 3, y0 + 7, HAIR_WHITE)
+        put(px, cx + 4, y0 + 7, HAIR_WHITE)
+
+        # Vinco labial escuro sob o bigode em perfil
+        put(px, cx + 2, y0 + 8, MUSTACHE_CREASE)
+        put(px, cx + 3, y0 + 8, MUSTACHE_CREASE)
 
     elif row == 3:  # NORTH-EAST (Diagonal 3/4 Costas-Direita ↗)
         # Ferradura de cabelo branco na nuca e lateral esquerda
@@ -326,13 +364,13 @@ def draw_head(px, row, cx, top_y, eyes_closed=False, head_tilt=0):
         fill_rect(px, cx - 1, y0 + 1, cx + 2, y0 + 2, SKIN_LIGHT)
         fill_rect(px, cx, y0 + 3, cx + 2, y0 + 3, SKIN_BASE)
 
-        # Borda direita do rosto virada p/ cima-direita (↗): orelha + ponta do óculos dourado + ponta do bigode
+        # Borda direita do rosto virada p/ cima-direita (↗): orelha + haste do óculos + ponta do bigode
         put(px, cx + 2, y0 + 4, SKIN_DEEP)
         put(px, cx + 2, y0 + 5, SKIN_BASE)
-        put(px, cx + 3, y0 + 3, GLASSES_GOLD)
-        put(px, cx + 3, y0 + 4, GLASSES_LENS)
+        put(px, cx + 3, y0 + 3, GLASSES_GOLD)   # Haste dourada
+        put(px, cx + 3, y0 + 4, GLASSES_BLACK)  # Lente escura visível de raspão
         put(px, cx + 3, y0 + 5, SKIN_BASE)
-        put(px, cx + 4, y0 + 5, HAIR_WHITE)  # Pontinha do bigode branco virado p/ ↗
+        put(px, cx + 4, y0 + 5, HAIR_WHITE)     # Pontinha do bigode branco virado p/ ↗
         put(px, cx + 3, y0 + 6, SKIN_SHADOW)
         put(px, cx + 2, y0 + 6, SKIN_SHADOW)
 
@@ -402,10 +440,10 @@ def draw_leg_item(px, x_hip, x_foot, y_top, y_bottom, is_front_leg=True, shoe_di
 
 
 def draw_arm_limb(px, x_shoulder, y_shoulder, dx_hand, dy_hand, is_bright=True):
-    """Desenha um braço articulado com manga do cardigã e mãozinha 2x2."""
+    """Desenha um braço articulado com manga do sobretudo terracota e mãozinha 2x2."""
     x_hand = x_shoulder + dx_hand
     y_hand = y_shoulder + dy_hand
-    c_col = CARD_LIGHT if is_bright else CARD_SHADOW
+    c_col = COAT_LIGHT if is_bright else COAT_SHADOW
 
     # Traça segmento do ombro até a mão
     steps = max(abs(dx_hand), abs(dy_hand), 1)
@@ -419,8 +457,8 @@ def draw_arm_limb(px, x_shoulder, y_shoulder, dx_hand, dy_hand, is_bright=True):
         put(px, ax, ay, c_col)
         put(px, ax, ay - 1, c_col)
 
-    # Punho conhaque e mão 2x2
-    put(px, x_hand, y_hand - 1, CARD_TRIM)
+    # Punho terracota escuro e mão 2x2
+    put(px, x_hand, y_hand - 1, COAT_DEEP)
     put(px, x_hand, y_hand, SKIN_BASE if is_bright else SKIN_SHADOW)
     put(px, x_hand + (1 if dx_hand >= 0 else -1), y_hand, SKIN_LIGHT if is_bright else SKIN_BASE)
     return (x_hand, y_hand)
@@ -499,51 +537,49 @@ def draw_character_frame(
         l_sh_y = ty + 2
         draw_arm_limb(px, l_sh_x, l_sh_y, left_arm[0], left_arm[1], is_bright=True)
 
-    # 3. TRONCO (Cardigã Verde-Sálvia + Gola Creme + Gravatinha Bordô + Lapela Conhaque + Cinto)
+    # 3. TRONCO (Sobretudo Terracota Luthier + Cachecol Azul Chambray + Botões Dourados)
     if row == 0:  # South (Frente ↓)
         fill_rect(px, cx - 3, ty, cx + 3, ty, OUTLINE)
         fill_rect(px, cx - 4, ty + 1, cx + 4, ty + 8, OUTLINE)
-        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, CARD_BASE)
-        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, CARD_LIGHT)
-        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, CARD_SHADOW)
-        # Cinto de couro na base da abertura
+        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, COAT_BASE)
+        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, COAT_LIGHT)
+        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, COAT_SHADOW)
+        # Cinto de couro na base
         put(px, cx - 1, ty + 7, BELT_LEATHER)
         put(px, cx, ty + 7, BUTTON_GOLD)
         put(px, cx + 1, ty + 7, BELT_LEATHER)
-        # Gola Creme + Gravatinha Borboleta Bordô (#C43640)
-        put(px, cx - 1, ty + 1, SHIRT_CREAM)
-        put(px, cx, ty + 1, SHIRT_CREAM)
-        put(px, cx + 1, ty + 1, SHIRT_CREAM)
-        put(px, cx - 1, ty + 2, BOWTIE_RED)
-        put(px, cx, ty + 2, BOWTIE_DARK)
-        put(px, cx + 1, ty + 2, BOWTIE_RED)
-        put(px, cx, ty + 3, SHIRT_CREAM)
-        # Lapela conhaque e botões dourados
-        put(px, cx - 2, ty + 2, CARD_TRIM)
-        put(px, cx + 2, ty + 2, CARD_TRIM)
-        put(px, cx - 1, ty + 3, CARD_TRIM)
-        put(px, cx + 1, ty + 3, CARD_TRIM)
+        # Cachecol Azul Chambray
+        fill_rect(px, cx - 1, ty + 1, cx + 1, ty + 1, SCARF_BASE)
+        put(px, cx - 1, ty + 2, SCARF_LIGHT)
+        put(px, cx, ty + 2, SCARF_BASE)
+        put(px, cx + 1, ty + 2, SCARF_SHADOW)
+        put(px, cx, ty + 3, SCARF_BASE)
+        # Lapela terracota escura e botões dourados
+        put(px, cx - 2, ty + 2, COAT_DEEP)
+        put(px, cx + 2, ty + 2, COAT_DEEP)
+        put(px, cx - 1, ty + 3, COAT_DEEP)
+        put(px, cx + 1, ty + 3, COAT_DEEP)
         put(px, cx, ty + 4, BUTTON_GOLD)
-        put(px, cx, ty + 5, CARD_TRIM)
+        put(px, cx, ty + 5, COAT_DEEP)
         put(px, cx, ty + 6, BUTTON_GOLD)
 
     elif row == 1:  # South-East (Diagonal ↘)
         fill_rect(px, cx - 3, ty, cx + 3, ty, OUTLINE)
         fill_rect(px, cx - 4, ty + 1, cx + 4, ty + 8, OUTLINE)
-        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, CARD_BASE)
-        fill_rect(px, cx - 3, ty + 1, cx - 1, ty + 7, CARD_LIGHT)
-        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, CARD_SHADOW)
-        # Gola Creme + Gravatinha Bordô deslocadas para a direita (cx+1..cx+2)
-        put(px, cx + 1, ty + 1, SHIRT_CREAM)
-        put(px, cx + 2, ty + 1, SHIRT_CREAM)
-        put(px, cx + 1, ty + 2, BOWTIE_RED)
-        put(px, cx + 2, ty + 2, BOWTIE_DARK)
-        put(px, cx + 3, ty + 2, BOWTIE_RED)
-        put(px, cx, ty + 2, CARD_TRIM)
-        put(px, cx + 1, ty + 3, CARD_TRIM)
-        put(px, cx + 2, ty + 3, SHIRT_CREAM)
+        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, COAT_BASE)
+        fill_rect(px, cx - 3, ty + 1, cx - 1, ty + 7, COAT_LIGHT)
+        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, COAT_SHADOW)
+        # Cachecol Chambray deslocado para direita
+        put(px, cx + 1, ty + 1, SCARF_LIGHT)
+        put(px, cx + 2, ty + 1, SCARF_BASE)
+        put(px, cx + 1, ty + 2, SCARF_LIGHT)
+        put(px, cx + 2, ty + 2, SCARF_BASE)
+        put(px, cx + 3, ty + 2, SCARF_SHADOW)
+        put(px, cx, ty + 2, COAT_DEEP)
+        put(px, cx + 1, ty + 3, COAT_DEEP)
+        put(px, cx + 2, ty + 3, SCARF_BASE)
         put(px, cx + 2, ty + 4, BUTTON_GOLD)
-        put(px, cx + 2, ty + 5, CARD_TRIM)
+        put(px, cx + 2, ty + 5, COAT_DEEP)
         put(px, cx + 2, ty + 6, BUTTON_GOLD)
         put(px, cx + 1, ty + 7, BELT_LEATHER)
         put(px, cx + 2, ty + 7, BUTTON_GOLD)
@@ -551,39 +587,38 @@ def draw_character_frame(
     elif row == 2:  # East (Perfil Direito →)
         fill_rect(px, cx - 2, ty, cx + 2, ty, OUTLINE)
         fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 8, OUTLINE)
-        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 7, CARD_BASE)
-        fill_rect(px, cx - 2, ty + 1, cx - 1, ty + 7, CARD_LIGHT)
-        fill_rect(px, cx + 1, ty + 1, cx + 2, ty + 7, CARD_SHADOW)
-        # Detalhe da gola, gravatinha bordô e botões na borda frontal direita
-        put(px, cx + 2, ty + 1, SHIRT_CREAM)
-        put(px, cx + 2, ty + 2, BOWTIE_RED)
-        put(px, cx + 1, ty + 2, CARD_TRIM)
+        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 7, COAT_BASE)
+        fill_rect(px, cx - 2, ty + 1, cx - 1, ty + 7, COAT_LIGHT)
+        fill_rect(px, cx + 1, ty + 1, cx + 2, ty + 7, COAT_SHADOW)
+        # Cachecol e botões na borda frontal
+        put(px, cx + 2, ty + 1, SCARF_BASE)
+        put(px, cx + 2, ty + 2, SCARF_LIGHT)
+        put(px, cx + 1, ty + 2, COAT_DEEP)
         put(px, cx + 2, ty + 4, BUTTON_GOLD)
         put(px, cx + 2, ty + 6, BUTTON_GOLD)
-        fill_rect(px, cx - 2, ty + 7, cx + 1, ty + 7, CARD_TRIM)
+        fill_rect(px, cx - 2, ty + 7, cx + 1, ty + 7, COAT_DEEP)
 
     elif row == 3:  # North-East (Diagonal Costas-Direita ↗)
         fill_rect(px, cx - 3, ty, cx + 3, ty, OUTLINE)
         fill_rect(px, cx - 4, ty + 1, cx + 4, ty + 8, OUTLINE)
-        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, CARD_BASE)
-        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, CARD_LIGHT)
-        fill_rect(px, cx + 1, ty + 1, cx + 3, ty + 7, CARD_SHADOW)
-        # Gola conhaque traseira e costura dorsal
-        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 1, CARD_TRIM)
+        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, COAT_BASE)
+        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, COAT_LIGHT)
+        fill_rect(px, cx + 1, ty + 1, cx + 3, ty + 7, COAT_SHADOW)
+        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 1, COAT_DEEP)
         for dy in range(2, 7):
-            put(px, cx - 1, ty + dy, CARD_SHADOW)
-        fill_rect(px, cx - 3, ty + 7, cx + 3, ty + 7, CARD_TRIM)
+            put(px, cx - 1, ty + dy, COAT_SHADOW)
+        fill_rect(px, cx - 3, ty + 7, cx + 3, ty + 7, COAT_DEEP)
 
     elif row == 4:  # North (Costas ↑)
         fill_rect(px, cx - 3, ty, cx + 3, ty, OUTLINE)
         fill_rect(px, cx - 4, ty + 1, cx + 4, ty + 8, OUTLINE)
-        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, CARD_BASE)
-        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, CARD_LIGHT)
-        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, CARD_SHADOW)
-        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 1, CARD_TRIM)
+        fill_rect(px, cx - 3, ty + 1, cx + 3, ty + 7, COAT_BASE)
+        fill_rect(px, cx - 3, ty + 1, cx - 2, ty + 7, COAT_LIGHT)
+        fill_rect(px, cx + 2, ty + 1, cx + 3, ty + 7, COAT_SHADOW)
+        fill_rect(px, cx - 2, ty + 1, cx + 2, ty + 1, COAT_DEEP)
         for dy in range(2, 7):
-            put(px, cx, ty + dy, CARD_SHADOW)
-        fill_rect(px, cx - 3, ty + 7, cx + 3, ty + 7, CARD_TRIM)
+            put(px, cx, ty + dy, COAT_SHADOW)
+        fill_rect(px, cx - 3, ty + 7, cx + 3, ty + 7, COAT_DEEP)
 
     # 4. BRAÇOS VISÍVEIS À FRENTE DO TRONCO
     if row in (0, 4) and left_arm is not None:
