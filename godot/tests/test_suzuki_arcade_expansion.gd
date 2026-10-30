@@ -12,13 +12,20 @@ func test_chapters_101_to_106_metadata_present():
 		assert_true(info.has("description"), "Volume %d deve conter descrição" % ch)
 		assert_eq(info.get("status"), "available", "Volume %d deve estar disponível" % ch)
 
-func test_all_expanded_arcade_levels_registered():
-	var all_arcade_ids: Array[String] = []
-	for vol in [1, 2, 3, 4, 5, 6]:
+func _get_all_arcade_level_ids() -> Array[String]:
+	var ids: Array[String] = []
+	# Volume 1: 17 fases canônicas do Livro 1
+	for lvl_num in range(1, 18):
+		ids.append("arcade_suzuki_1_%d" % lvl_num)
+	# Volumes 2 a 6: 4 fases por volume
+	for vol in [2, 3, 4, 5, 6]:
 		for lvl_num in [1, 2, 3, 4]:
-			all_arcade_ids.append("arcade_suzuki_%d_%d" % [vol, lvl_num])
-	
-	assert_eq(all_arcade_ids.size(), 24, "Devem existir exatamente 24 fases no Modo Arcade Suzuki")
+			ids.append("arcade_suzuki_%d_%d" % [vol, lvl_num])
+	return ids
+
+func test_all_expanded_arcade_levels_registered():
+	var all_arcade_ids := _get_all_arcade_level_ids()
+	assert_eq(all_arcade_ids.size(), 37, "Devem existir exatamente 37 fases no Modo Arcade Suzuki (17 no Vol 1 + 20 nos Vols 2-6)")
 	
 	for lvl_id in all_arcade_ids:
 		var lvl = LevelCatalog.by_id(lvl_id)
@@ -30,10 +37,7 @@ func test_all_expanded_arcade_levels_registered():
 		assert_false(lvl.beacon_hint.is_empty(), "Nível %s deve ter dica de farol" % lvl_id)
 
 func test_expanded_arcade_maps_and_paths_valid():
-	var all_arcade_ids: Array[String] = []
-	for vol in [1, 2, 3, 4, 5, 6]:
-		for lvl_num in [1, 2, 3, 4]:
-			all_arcade_ids.append("arcade_suzuki_%d_%d" % [vol, lvl_num])
+	var all_arcade_ids := _get_all_arcade_level_ids()
 	
 	for lvl_id in all_arcade_ids:
 		var lvl = LevelCatalog.by_id(lvl_id)
@@ -80,7 +84,16 @@ func test_arcade_initial_levels_unlocked_by_default():
 		assert_true(SaveManager.is_level_unlocked(lvl_id), "Nível de entrada %s deve estar desbloqueado por padrão" % lvl_id)
 
 func test_intra_volume_next_level_progression():
-	for vol in [1, 2, 3, 4, 5, 6]:
+	# Volume 1: progressão sequencial pelas 17 fases
+	for lvl_num in range(1, 17):
+		var current_id := "arcade_suzuki_1_%d" % lvl_num
+		var expected_next_id := "arcade_suzuki_1_%d" % (lvl_num + 1)
+		var next_lvl = LevelCatalog.get_next_level(current_id)
+		assert_not_null(next_lvl, "Nível seguinte a %s deve existir" % current_id)
+		assert_eq(next_lvl.id, expected_next_id, "Nível seguinte a %s deve ser %s" % [current_id, expected_next_id])
+	
+	# Volumes 2 a 6: progressão pelas fases 1 a 4
+	for vol in [2, 3, 4, 5, 6]:
 		for lvl_num in [1, 2, 3]:
 			var current_id := "arcade_suzuki_%d_%d" % [vol, lvl_num]
 			var expected_next_id := "arcade_suzuki_%d_%d" % [vol, lvl_num + 1]

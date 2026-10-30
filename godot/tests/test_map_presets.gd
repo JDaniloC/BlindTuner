@@ -1,7 +1,7 @@
 extends GutTest
 
 func test_all_maps_exist():
-    assert_eq(MapPresets.ALL.size(), 36)
+    assert_eq(MapPresets.ALL.size(), 49)
 
 func test_all_maps_have_unique_ids():
     var seen := {}
@@ -15,7 +15,11 @@ func test_known_map_ids():
         ids.append(m.id)
     assert_eq(ids, [
         "quarto", "banheiro", "sala", "quarto_lullaby", "jardim_portao", "padaria_calcada", "praca_chafariz", "largo_matriz",
-        "arcade_s1_vento", "arcade_s1_oculos", "arcade_s1_planta", "arcade_s1_louca",
+        "arcade_s1_twinkle", "arcade_s1_remo", "arcade_s1_vento", "arcade_s1_rhody",
+		"arcade_s1_criancas", "arcade_s1_maio", "arcade_s1_lembrancas", "arcade_s1_allegro",
+		"arcade_s1_perpetuo", "arcade_s1_allegretto", "arcade_s1_andantino", "arcade_s1_etude",
+		"arcade_s1_louca", "arcade_s1_minueto2", "arcade_s1_minueto3", "arcade_s1_planta",
+		"arcade_s1_oculos",
         "arcade_s2_gato", "arcade_s2_valsa", "arcade_s2_chaves", "arcade_s2_pendulo",
         "arcade_s3_carteiro", "arcade_s3_cha", "arcade_s3_moedor", "arcade_s3_chaleira",
         "arcade_s4_vento", "arcade_s4_duo", "arcade_s4_patio", "arcade_s4_tear",

@@ -55,14 +55,14 @@ func test_chapter_2_goal_props_instantiated():
 	assert_true(has_fountain, "Chafariz deve estar no objetivo da praça")
 
 func test_suzuki_arcade_goal_props_and_furniture():
-	# S1.1 Sala da Veneziana
-	_pg._begin_preset("arcade_suzuki_1_1", 0, 0, false)
+	# S1.3 Sala da Veneziana (Canção do Vento)
+	_pg._begin_preset("arcade_suzuki_1_3", 0, 0, false)
 	assert_eq(_pg._current_map_id, "arcade_s1_vento")
 	var has_window := false
 	for child in _pg._goal_node.get_children():
 		if child is Sprite2D and child.texture != null:
 			has_window = true
-	assert_true(has_window, "Veneziana deve estar no objetivo do S1.1")
+	assert_true(has_window, "Veneziana deve estar no objetivo do S1.3")
 	
 	# Verifica mobílias temáticas spawnadas
 	var furniture_count := 0

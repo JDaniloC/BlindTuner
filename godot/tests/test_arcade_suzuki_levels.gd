@@ -16,32 +16,44 @@ func test_suzuki_chapters_in_catalog():
 
 func test_suzuki_volume_1_levels():
 	var s1_levels = LevelCatalog.by_chapter(101)
-	assert_eq(s1_levels.size(), 4, "Volume 1 deve conter 4 fases (S1.1 a S1.4)")
+	assert_eq(s1_levels.size(), 17, "Volume 1 deve conter as 17 fases canônicas do Livro 1 (S1.1 a S1.17)")
 	
 	var s1_1 = LevelCatalog.by_id("arcade_suzuki_1_1")
 	assert_not_null(s1_1)
-	assert_eq(s1_1.title, "A Janela Batendo no Vento")
-	assert_eq(s1_1.beacon_sound_id, "window_wind")
-	assert_eq(s1_1.song_title, "Canção do Vento (Song of the Wind)")
+	assert_eq(s1_1.title, "A Janela e as Estrelas da Noite")
+	assert_eq(s1_1.beacon_sound_id, "music_box")
+	assert_true(s1_1.song_title.contains("Brilha, Brilha Estrelinha"))
 	assert_eq(s1_1.instrument, "piano")
 	
 	var s1_2 = LevelCatalog.by_id("arcade_suzuki_1_2")
 	assert_not_null(s1_2)
-	assert_eq(s1_2.title, "Cadê os Meus Óculos?")
-	assert_eq(s1_2.beacon_sound_id, "wrist_watch")
-	assert_eq(s1_2.song_title, "Gavotte")
+	assert_eq(s1_2.title, "O Barquinho no Riacho")
+	assert_eq(s1_2.beacon_sound_id, "watering_can")
+	assert_true(s1_2.song_title.contains("Remando Suavemente"))
 	
 	var s1_3 = LevelCatalog.by_id("arcade_suzuki_1_3")
 	assert_not_null(s1_3)
-	assert_eq(s1_3.title, "A Samambaia da Sala")
-	assert_eq(s1_3.beacon_sound_id, "watering_can")
-	assert_eq(s1_3.song_title, "O Fazendeiro Alegre (The Happy Farmer)")
+	assert_eq(s1_3.title, "A Janela Batendo no Vento")
+	assert_eq(s1_3.beacon_sound_id, "window_wind")
+	assert_true(s1_3.song_title.contains("Canção do Vento"))
 	
 	var s1_4 = LevelCatalog.by_id("arcade_suzuki_1_4")
 	assert_not_null(s1_4)
-	assert_eq(s1_4.title, "O Pão da Tarde e a Louça de Domingo")
-	assert_eq(s1_4.beacon_sound_id, "tea_cup")
-	assert_eq(s1_4.song_title, "Minueto nº 1 (BWV Anh. 114)")
+	assert_eq(s1_4.title, "O Recado da Tia Rhody")
+	assert_eq(s1_4.beacon_sound_id, "keys_jingle")
+	assert_true(s1_4.song_title.contains("Tia Rhody"))
+
+	var s1_16 = LevelCatalog.by_id("arcade_suzuki_1_16")
+	assert_not_null(s1_16)
+	assert_eq(s1_16.title, "A Samambaia da Sala")
+	assert_eq(s1_16.beacon_sound_id, "watering_can")
+	assert_true(s1_16.song_title.contains("O Fazendeiro Alegre"))
+
+	var s1_17 = LevelCatalog.by_id("arcade_suzuki_1_17")
+	assert_not_null(s1_17)
+	assert_eq(s1_17.title, "Cadê os Meus Óculos?")
+	assert_eq(s1_17.beacon_sound_id, "wrist_watch")
+	assert_eq(s1_17.song_title, "Gavotte")
 
 func test_suzuki_volume_2_levels():
 	var s2_levels = LevelCatalog.by_chapter(102)
@@ -85,15 +97,15 @@ func test_suzuki_audio_beacons():
 		assert_gt(stream.data.size(), 0, "Dados de áudio para %s não podem ser vazios" % b)
 
 func test_suzuki_mobs_placement():
-	var s1_2 = LevelCatalog.by_id("arcade_suzuki_1_2")
-	assert_eq(s1_2.mobs_data.size(), 1)
-	assert_eq(s1_2.mobs_data[0].get("type"), "cat")
-	assert_eq(s1_2.mobs_data[0].get("grid"), Vector2i(6, 4))
+	var s1_17 = LevelCatalog.by_id("arcade_suzuki_1_17")
+	assert_eq(s1_17.mobs_data.size(), 1)
+	assert_eq(s1_17.mobs_data[0].get("type"), "cat")
+	assert_eq(s1_17.mobs_data[0].get("grid"), Vector2i(6, 4))
 	
-	var s1_3 = LevelCatalog.by_id("arcade_suzuki_1_3")
-	assert_eq(s1_3.mobs_data.size(), 1)
-	assert_eq(s1_3.mobs_data[0].get("type"), "canary")
-	assert_eq(s1_3.mobs_data[0].get("grid"), Vector2i(5, 3))
+	var s1_16 = LevelCatalog.by_id("arcade_suzuki_1_16")
+	assert_eq(s1_16.mobs_data.size(), 1)
+	assert_eq(s1_16.mobs_data[0].get("type"), "canary")
+	assert_eq(s1_16.mobs_data[0].get("grid"), Vector2i(5, 3))
 	
 	var s2_1 = LevelCatalog.by_id("arcade_suzuki_2_1")
 	assert_eq(s2_1.mobs_data.size(), 1)

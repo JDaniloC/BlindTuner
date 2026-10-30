@@ -28,15 +28,41 @@ func _build_all() -> Array:
             _praca_chafariz_walls(), Vector2i(2, 9), Vector2i(9, 3), "banheiro"),
         _make("largo_matriz", "Largo da Matriz", Vector2i(12, 12),
             _largo_matriz_walls(), Vector2i(10, 10), Vector2i(2, 2), "sala"),
-        # Modo Arcade: Caderno Suzuki Volume 1
-        _make("arcade_s1_vento", "Sala da Veneziana", Vector2i(10, 10),
+        # Modo Arcade: Caderno Suzuki Volume 1 (17 Fases Canônicas)
+_make("arcade_s1_twinkle", "A Janela e as Estrelas da Noite", Vector2i(10, 10),
+            _arcade_s1_twinkle_walls(), Vector2i(3, 2), Vector2i(6, 3), "quarto"),
+        _make("arcade_s1_remo", "O Barquinho no Riacho", Vector2i(10, 10),
+            _arcade_s1_remo_walls(), Vector2i(1, 6), Vector2i(7, 5), "sala"),
+        _make("arcade_s1_vento", "A Janela Batendo no Vento", Vector2i(10, 10),
             _arcade_s1_vento_walls(), Vector2i(2, 3), Vector2i(7, 7), "sala"),
-        _make("arcade_s1_oculos", "Escrivaninha de Leitura", Vector2i(10, 10),
-            _arcade_s1_oculos_walls(), Vector2i(1, 6), Vector2i(6, 1), "sala"),
-        _make("arcade_s1_planta", "Canto da Samambaia", Vector2i(10, 10),
+        _make("arcade_s1_rhody", "O Recado da Tia Rhody", Vector2i(10, 10),
+            _arcade_s1_rhody_walls(), Vector2i(2, 6), Vector2i(7, 2), "sala"),
+        _make("arcade_s1_criancas", "O Convite das Crianças", Vector2i(10, 10),
+            _arcade_s1_criancas_walls(), Vector2i(3, 6), Vector2i(5, 2), "sala"),
+        _make("arcade_s1_maio", "A Canção de Maio e as Flores", Vector2i(10, 10),
+            _arcade_s1_maio_walls(), Vector2i(4, 3), Vector2i(5, 6), "sala"),
+        _make("arcade_s1_lembrancas", "O Baú das Lembranças", Vector2i(10, 10),
+            _arcade_s1_lembrancas_walls(), Vector2i(2, 6), Vector2i(6, 2), "quarto"),
+        _make("arcade_s1_allegro", "O Passo Rápido pela Sala", Vector2i(10, 10),
+            _arcade_s1_allegro_walls(), Vector2i(2, 1), Vector2i(6, 2), "sala"),
+        _make("arcade_s1_perpetuo", "O Relógio de Movimento Perpétuo", Vector2i(10, 10),
+            _arcade_s1_perpetuo_walls(), Vector2i(2, 7), Vector2i(6, 1), "sala"),
+        _make("arcade_s1_allegretto", "A Dança Ligeira no Corredor", Vector2i(10, 10),
+            _arcade_s1_allegretto_walls(), Vector2i(3, 6), Vector2i(6, 3), "sala"),
+        _make("arcade_s1_andantino", "O Entardecer Calmo", Vector2i(10, 10),
+            _arcade_s1_andantino_walls(), Vector2i(3, 6), Vector2i(6, 2), "quarto"),
+        _make("arcade_s1_etude", "O Estudo da Destreza", Vector2i(10, 10),
+            _arcade_s1_etude_walls(), Vector2i(6, 5), Vector2i(3, 3), "sala"),
+        _make("arcade_s1_louca", "O Pão da Tarde e a Louça de Domingo", Vector2i(10, 10),
+            _arcade_s1_louca_walls(), Vector2i(4, 6), Vector2i(4, 2), "sala"),
+        _make("arcade_s1_minueto2", "O Brilho dos Candelabros", Vector2i(10, 10),
+            _arcade_s1_minueto2_walls(), Vector2i(5, 7), Vector2i(3, 2), "sala"),
+        _make("arcade_s1_minueto3", "A Harmonia das Três Vozes", Vector2i(10, 10),
+            _arcade_s1_minueto3_walls(), Vector2i(5, 6), Vector2i(2, 4), "sala"),
+        _make("arcade_s1_planta", "A Samambaia da Sala", Vector2i(10, 10),
             _arcade_s1_planta_walls(), Vector2i(4, 6), Vector2i(2, 2), "sala"),
-        _make("arcade_s1_louca", "Bancada de Porcelana", Vector2i(10, 10),
-            _arcade_s1_louca_walls(), Vector2i(2, 6), Vector2i(2, 1), "sala"),
+        _make("arcade_s1_oculos", "Cadê os Meus Óculos?", Vector2i(10, 10),
+            _arcade_s1_oculos_walls(), Vector2i(1, 6), Vector2i(6, 1), "sala"),
         # Modo Arcade: Caderno Suzuki Volume 2
         _make("arcade_s2_gato", "Sala de Estar do Mimi", Vector2i(10, 10),
             _arcade_s2_gato_walls(), Vector2i(2, 5), Vector2i(3, 7), "sala"),
@@ -181,36 +207,123 @@ func _largo_matriz_walls() -> Array[Vector2i]:
         Vector2i(1, 3),
     ]
 
-# S1.1 Sala da Veneziana: sofás e estante contornando a travessia
+# arcade_suzuki_1_1 A Janela e as Estrelas da Noite
+func _arcade_s1_twinkle_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_2 O Barquinho no Riacho
+func _arcade_s1_remo_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_3 A Janela Batendo no Vento
 func _arcade_s1_vento_walls() -> Array[Vector2i]:
     return [
-        Vector2i(2, 5), Vector2i(3, 5), Vector2i(4, 5),
-        Vector2i(5, 1), Vector2i(1, 2), Vector2i(1, 3),
-        Vector2i(7, 3), Vector2i(8, 5),
+        Vector2i(2, 5), Vector2i(3, 5), Vector2i(4, 5), Vector2i(5, 1),
+        Vector2i(1, 2), Vector2i(1, 3), Vector2i(7, 3), Vector2i(8, 5),
     ]
 
-# S1.2 Escrivaninha de Leitura: estante alta, poltrona e cesto
-func _arcade_s1_oculos_walls() -> Array[Vector2i]:
+# arcade_suzuki_1_4 O Recado da Tia Rhody
+func _arcade_s1_rhody_walls() -> Array[Vector2i]:
     return [
-        Vector2i(1, 4), Vector2i(2, 7), Vector2i(3, 7),
-        Vector2i(4, 7), Vector2i(5, 6), Vector2i(7, 2),
-        Vector2i(6, 3), Vector2i(3, 2), Vector2i(2, 2),
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
     ]
 
-# S1.3 Canto da Samambaia: jardineiras, pedestais e pufe central
-func _arcade_s1_planta_walls() -> Array[Vector2i]:
+# arcade_suzuki_1_5 O Convite das Crianças
+func _arcade_s1_criancas_walls() -> Array[Vector2i]:
     return [
-        Vector2i(2, 6), Vector2i(2, 7), Vector2i(5, 6),
-        Vector2i(6, 6), Vector2i(7, 4), Vector2i(4, 7),
-        Vector2i(2, 4), Vector2i(1, 2), Vector2i(4, 1),
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
     ]
 
-# S1.4 Bancada de Porcelana: cristaleira e balcão de louça
+# arcade_suzuki_1_6 A Canção de Maio e as Flores
+func _arcade_s1_maio_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_7 O Baú das Lembranças
+func _arcade_s1_lembrancas_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_8 O Passo Rápido pela Sala
+func _arcade_s1_allegro_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_9 O Relógio de Movimento Perpétuo
+func _arcade_s1_perpetuo_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_10 A Dança Ligeira no Corredor
+func _arcade_s1_allegretto_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_11 O Entardecer Calmo
+func _arcade_s1_andantino_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_12 O Estudo da Destreza
+func _arcade_s1_etude_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_13 O Pão da Tarde e a Louça de Domingo
 func _arcade_s1_louca_walls() -> Array[Vector2i]:
     return [
-        Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5),
-        Vector2i(5, 5), Vector2i(6, 4), Vector2i(6, 3),
-        Vector2i(4, 5), Vector2i(5, 1), Vector2i(1, 2),
+        Vector2i(1, 3), Vector2i(1, 4), Vector2i(1, 5), Vector2i(7, 4),
+        Vector2i(7, 5), Vector2i(2, 2), Vector2i(5, 1), Vector2i(1, 2), Vector2i(7, 7),
+    ]
+
+# arcade_suzuki_1_14 O Brilho dos Candelabros
+func _arcade_s1_minueto2_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_15 A Harmonia das Três Vozes
+func _arcade_s1_minueto3_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 1), Vector2i(8, 1), Vector2i(1, 8), Vector2i(8, 8),
+        Vector2i(1, 3), Vector2i(1, 5), Vector2i(8, 3), Vector2i(8, 5),
+    ]
+
+# arcade_suzuki_1_16 A Samambaia da Sala
+func _arcade_s1_planta_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(2, 6), Vector2i(2, 7), Vector2i(5, 6), Vector2i(6, 6),
+        Vector2i(7, 4), Vector2i(4, 7), Vector2i(2, 4), Vector2i(1, 2), Vector2i(4, 1),
+    ]
+
+# arcade_suzuki_1_17 Cadê os Meus Óculos?
+func _arcade_s1_oculos_walls() -> Array[Vector2i]:
+    return [
+        Vector2i(1, 4), Vector2i(2, 7), Vector2i(3, 7), Vector2i(4, 7),
+        Vector2i(5, 6), Vector2i(7, 2), Vector2i(6, 3), Vector2i(3, 2), Vector2i(2, 2),
     ]
 
 # S2.1 Sala de Estar do Mimi: sofá e mesas onde o gato se esconde
